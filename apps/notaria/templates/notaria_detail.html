@@ -1,0 +1,275 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.css' %}">
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.css' %}">
+<style media="screen">
+  .img-150 {
+    width: 150px;
+    height: 150px;
+    max-width: 150px;
+    max-height: 150px;
+    border: 1px solid #80b229;
+    border-radius: 5px;
+  }
+  .img-200 {
+    width: 200px;
+    height: 200px;
+    max-width: 200px;
+    max-height: 200px;
+    border: 1px solid #80b229;
+    border-radius: 5px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Detalle Notaria</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'notaria-list' %}">Notarias</a></li>
+          <li class="breadcrumb-item active">{{ object.name }}</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-3">
+
+ 
+
+
+            <!-- /.card -->
+            <!-- About Me Box -->
+            <div class="card card-indigo">
+              <div class="card-header">
+                <h3 class="card-title">Notaria</h3>
+              </div>
+              <!-- /.card-header -->
+              <div class="card-body">
+                <strong><i class="fas fa-book mr-1"></i> {{ object.name}}</strong>
+
+                <p class="text-muted">
+                  Número: {{ object.numero}}
+                </p>
+
+                <hr>
+
+                <strong><i class="fas fa-map-marker-alt mr-1"></i> Ubicación</strong>
+
+                <p class="text-muted">
+                {{ object.city }} <br>
+                {{ object.address }}
+                </p>
+
+                <hr>
+
+
+              </div>
+              <!-- /.card-body -->
+            </div>
+            <!-- /.card -->
+      </div>
+      <!-- /.col -->
+      <div class="col-md-9">
+        <div class="card">
+
+          <div class="card-header p-2">
+            <ul class="nav nav-pills">
+              <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab">General</a></li>
+              
+            </ul>
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+              {% comment %} Pestaña General {% endcomment %}
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal">
+                  
+                  <div class="row">
+                      <div class="col-md-12 p-3">
+                        
+                      </div>
+                    </div>
+
+                  <div class="row">
+                    <input id="object_id" type="hidden" name="object_id" value="{{ object.pk }}">
+                    
+                    
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Nombre de Notaria</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Pais</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.country }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Región</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.region }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Ciudad</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.city }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Teléfono</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.phone }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Celular</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.mobile }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Dirección</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.address }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Codigo ZIP</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.zip_code }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Código</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.codigo }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Número</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.numero }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Email</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.email }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                  </div>
+                </form>
+                <div class="card-footer">
+                  <a href="{% url 'notaria-list' %}" class="btn btn-default">Volver</a>
+                    <a href="{% url 'notaria-update' object.pk %}" class="btn btn-primary float-right">
+                      <b>Editar</b>
+                    </a>
+                </div>
+              </div>
+
+              
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.js' %}"></script>
+
+<script type="text/javascript">
+
+  const object_id = document.getElementById('object_id');
+  const btn_aprobar = document.getElementById('btn-aprobar');
+
+  $("input[data-bootstrap-switch]").each(function(){
+    $(this).bootstrapSwitch('state', $(this).prop('checked'));
+  });
+
+  
+
+  var Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 4000
+    });
+
+  {% if messages %}
+    {% for message in messages %}
+      Toast.fire({
+        icon: 'success',
+        title: `{{message}}`
+      })
+    {% endfor %}
+  {% endif %}
+
+</script>
+{% endblock %}

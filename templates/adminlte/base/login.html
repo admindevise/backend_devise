@@ -1,0 +1,145 @@
+{% load static i18n %}
+{% load widget_tweaks %}
+
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Devise Login</title>
+  <!-- Tell the browser to be responsive to screen width -->
+  <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/fontawesome-free/css/all.min.css' %}">
+  <!-- Ionicons -->
+  <link rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+  <link rel="stylesheet" href="{% static 'adminlte-3.1.0/dist/css/adminlte.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+  <!-- Google Font: Source Sans Pro -->
+  <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700" rel="stylesheet">
+  
+  <style media="screen">
+    .form-errors {
+      color: red;
+      margin: 0px 10px 20px 10px;
+    }
+    .logo {
+      margin: 20px;
+    }
+    .bg-primary {
+        background-color: #1d1d1d !important;
+    }
+    .btn-primary:hover, .btn-primary:focus, .btn-primary {
+        background-color: #80b229;
+        border-color: #80b229;
+    }
+    .center {
+      margin: auto;
+      width: 50%;
+      padding: 10px;
+    }
+    .button {
+    background-color: #1C4FC1; 
+    border: none;
+    color: #CBE661;
+    padding: 15px 36px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 26px;
+    border-radius: 8px;
+    transition-duration: 0.4s;
+    }
+    .button:hover {
+    background-color: #557BD1; /* Blue select  */
+    color: white;
+    }
+  </style>
+</head>
+
+<body class="hold-transition login-page">
+  <div class="login-box">
+    <div class="logo" >
+      <img src="{% static 'icons/device_brand.png' %}" alt="Devise logo" width="300">
+    </div>
+
+    
+    <div class="login-box-body">
+      <p class="login-box-msg">Ingrese su usuario y clave para entrar al sitio</p>
+      <p class="login-box-msg" color=red >Debe ser un Super Usuario para acceder</p>
+
+
+      {% if form.non_field_errors %}
+          <div class='form-errors'>
+              {% for error in form.non_field_errors %}
+                  <span>{{ error }}</span>
+              {% endfor %}
+          </div>
+      {% endif %}
+
+      <form action="/auth/login/?next=/" method="post" id="login-form">
+        {% csrf_token %}
+        <div class="form-group has-feedback">
+          <input type="email" name="username" maxlength="254" class="form-control" required="true" id="id_username" placeholder= {% trans  "Email-User" %}>
+          <span class="glyphicon glyphicon-user form-control-feedback"></span>
+          {% for error in form.username.errors %}
+            <p class="text-danger">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <div class="form-group has-feedback">
+          <input type="password" id="id_password" name="password" class="form-control" placeholder= {% trans  "Password" %}>
+          <span class="glyphicon glyphicon-lock form-control-feedback"></span>
+          <input type="hidden" name="next" value="/">
+        </div>
+
+        <div class="row center" >
+          <!-- /.col -->
+          <button type="submit" class="button">{% trans  "Sign In" %}</button>
+          <!-- /.col -->
+        </div>
+      </form>
+      <!-- /.login-box-body -->
+    </div>
+    <!-- /.login-box -->
+
+ 
+  </div>
+
+<!-- jQuery -->
+<script src="{% static 'adminlte-3.1.0/plugins/jquery/jquery.min.js' %}"></script>
+<!-- jQuery UI 1.11.4 -->
+<script src="{% static 'adminlte-3.1.0/plugins/jquery-ui/jquery-ui.min.js' %}"></script>
+<!-- Resolve conflict in jQuery UI tooltip with Bootstrap tooltip -->
+<!-- Bootstrap 4 -->
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+<!-- AdminLTE App -->
+<script src="{% static 'adminlte-3.1.0/dist/js/adminlte.js' %}"></script>
+
+<script src="{% static 'devise/js/cities_light.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.js' %}"></script>
+
+<script type="text/javascript">
+  // TOAST OF BACKEND MESSAGES
+  var Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 40000
+    });
+
+  {% if messages %}
+    {% for message in messages %}
+      Toast.fire({
+        icon: 'success',
+        title: `{{message}}`
+      })
+    {% endfor %}
+  {% endif %}
+
+</script>
+{% block extra_js %}{% endblock %}
+
+
+</body>
+
+</html>

@@ -1,0 +1,409 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+{% load widget_tweaks %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Nueva informacion socioeconomica</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-list' %}">Usuarios</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-detail' user.pk %}">{{ user.email }}</a></li>
+          <li class="breadcrumb-item active">Socioeconomica</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <!-- /.col -->
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header p-2">
+            <ul class="nav nav-pills">
+              <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab"><b>Socioeconomica</b></a></li>
+            </ul>
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+              {% comment %} Pestaña General {% endcomment %}
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal" name="user_residential" enctype="multipart/form-data" method="post">
+                  {% csrf_token %}
+                  <div class="row">
+                    <input id="id_user" type="hidden" name="user" value="{{ user.pk }}">
+                    
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Ingresos Mensuales</label>
+                        <div class="col-md-9">
+                          {% render_field form.monthly_income  class="form-control" %}
+                          {% for error in form.monthly_income.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Egresos mensuales</label>
+                        <div class="col-md-9">
+                          {% render_field form.monthly_expenses  class="form-control" %}
+                          {% for error in form.monthly_expenses.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                      <div class="col-md-3">
+                        <div class="form-group row">
+                          <label  class="col-md-6 col-form-label">Otros ingresos</label>
+                          <div class="col-md-4">
+                            {% render_field form.other_income  class="form-control" %}
+                            {% for error in form.other_income.errors %}
+                              <p class="text-danger">{{ error }}</p>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-8">
+                        <div class="form-group row"  id="div_value_other_income" {% if form.other_income.value == True %} style="display: block;" {% else %} style="display: none;" {% endif %}>
+                          <label  class="col-md-4 col-form-label">Valor otros ingresos</label>
+                          <div class="col-md-5">
+                            {% render_field form.value_other_income  class="form-control" %}
+                            {% for error in form.value_other_income.errors %}
+                              <p class="text-danger">{{ error }}</p>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Activos totales</label>
+                        <div class="col-md-9">
+                          {% render_field form.total_assets  class="form-control" %}
+                          {% for error in form.total_assets.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Pasivos Totales</label>
+                        <div class="col-md-9">
+                          {% render_field form.total_liabilities  class="form-control" %}
+                          {% for error in form.total_liabilities.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Origen de los fondos</label>
+                        <div class="col-md-9">
+                          {% render_field form.origin_of_funds  class="form-control" %}
+                          {% for error in form.origin_of_funds.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Explicacion de ingresos</label>
+                        <div class="col-md-9">
+                          <textarea name="{{ form.income_explanation.name }}" rows="5" class="form-control">{{ form.income_explanation.value }} </textarea>
+                          {% for error in form.income_explanation.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-12">
+                      <hr>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Maneja recursos publicos</label>
+                        <div class="col-md-9">
+                          {% render_field form.manage_public_resources  class="form-control" %}
+                          {% for error in form.manage_public_resources.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Es declarante</label>
+                        <div class="col-md-9">
+                          {% render_field form.is_declarant  class="form-control" %}
+                          {% for error in form.is_declarant.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-12">
+                      <hr>
+                    </div>
+
+                    <div class="col-md-4">
+                      <div class="form-group row">
+                        <label  class="col-md-5 col-form-label">Operaciones en Moneda extranjera</label>
+                        <div class="col-md-5">
+                          {% render_field form.foreign_currency_operations  class="form-control" %}
+                          {% for error in form.foreign_currency_operations.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-4">
+                      <div class="form-group row" id="div_foreign_operations_country" {% if form.id_foreign_currency_operations.value == True %} style="display: block;" {% else %} style="display: none;" {% endif %}>
+                        <label  class="col-md-6 col-form-label">Pais de operaciones</label>
+                        <div class="col-md-6">
+                          {% render_field form.foreign_operations_country  class="form-control" %}
+                          {% for error in form.foreign_operations_country.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-4">
+                      <div class="form-group row" id="div_foreign_operations_value" {% if form.id_foreign_currency_operations.value == True %} style="display: block;" {% else %} style="display: none;" {% endif %}>
+                        <label  class="col-md-6 col-form-label">Valor de operaciones (USD) </label>
+                        <div class="col-md-6">
+                          {% render_field form.foreign_operations_value  class="form-control" %}
+                          {% for error in form.foreign_operations_value.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-12">
+                      <hr>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Tributa fuera del pais</label>
+                        <div class="col-md-4">
+                          {% render_field form.outside_tax_obligation  class="form-control" %}
+                          {% for error in form.outside_tax_obligation.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row" id="div_country_of_tax_residence" {% if form.id_outside_tax_obligation.value == True %} style="display: block;" {% else %} style="display: none;" {% endif %}>
+                        <label  class="col-md-3 col-form-label">Pais de tributacion</label>
+                        <div class="col-md-9">
+                          {% render_field form.country_of_tax_residence  class="form-control" %}
+                          {% for error in form.country_of_tax_residence.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-12">
+                      <hr>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Numero TIN o equivalente</label>
+                        <div class="col-md-9">
+                          {% render_field form.tin_number_or_equivalent  class="form-control" %}
+                          {% for error in form.tin_number_or_equivalent.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Declaracion renta último año</label>
+                        <div class="col-md-9">
+                          {% render_field form.last_year_income_statement  class="form-control" %}
+                          {% for error in form.last_year_income_statement.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Carta de dependencia economica</label>
+                        <div class="col-md-9">
+                          {% render_field form.economic_dependency_letter  class="form-control" %}
+                          {% for error in form.economic_dependency_letter.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Certificado contador publico</label>
+                        <div class="col-md-9">
+                          {% render_field form.certified_public_accountant  class="form-control" %}
+                          {% for error in form.certified_public_accountant.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Tarjeta contador público</label>
+                        <div class="col-md-9">
+                          {% render_field form.profesional_accountant_card  class="form-control" %}
+                          {% for error in form.profesional_accountant_card.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Recibo de pago pensión</label>
+                        <div class="col-md-9">
+                          {% render_field form.pension_payment_receipt  class="form-control" %}
+                          {% for error in form.pension_payment_receipt.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Soporte de fondos</label>
+                        <div class="col-md-9">
+                          {% render_field form.source_funds_support  class="form-control" %}
+                          {% for error in form.source_funds_support.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <div class="row mt-3 card-footer">
+                    <button onclick="goBack()" class="btn btn-default">Volver</button>
+                    <button type="submit" class="btn btn-primary float-right ml-4" name="button">Guardar</button>
+                  </div>
+                </form>
+              </div>
+              
+                <!-- /.tab-pane -->
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+
+<script type="text/javascript">
+  $("input[data-bootstrap-switch]").each(function(){
+    $(this).bootstrapSwitch('state', $(this).prop('checked'));
+  });
+
+  let other_income = document.getElementById('id_other_income');
+  const div_value_other_income = document.getElementById('div_value_other_income');
+  let foreign_currency_operations = document.getElementById('id_foreign_currency_operations');
+  const div_country_operations = document.getElementById('div_foreign_operations_country');
+  const div_foreign_operations_value = document.getElementById('div_foreign_operations_value');
+  let outside_tax_obligation = document.getElementById('id_outside_tax_obligation');
+  const div_country_tax_obligation = document.getElementById('div_country_of_tax_residence');
+
+  // IF has other income show ammount field
+  if (other_income) {
+    other_income.addEventListener('change', (e) => {
+      if (other_income.checked == true) {
+        div_value_other_income.style.display = "block";
+      }else{
+        div_value_other_income.style.display = "none";
+      }
+    });
+  } 
+  // IF has foreignkey operations
+  if (foreign_currency_operations) {
+    foreign_currency_operations.addEventListener('change', (e) => {
+      console.log("cambianodo: ", foreign_currency_operations.checked  )
+      if (foreign_currency_operations.checked == true) {
+        div_country_operations.style.display = "block";
+        div_foreign_operations_value.style.display = "block";
+      }else{
+        div_country_operations.style.display = "none";
+        div_foreign_operations_value.style.display = "none";
+      }
+    });
+  } 
+
+  // IF has other income show ammount field
+  if (outside_tax_obligation) {
+    outside_tax_obligation.addEventListener('change', (e) => {
+      if (outside_tax_obligation.checked == true) {
+        div_country_tax_obligation.style.display = "block";
+      }else{
+        div_country_tax_obligation.style.display = "none";
+      }
+    });
+  } 
+
+  function goBack() {
+      window.history.back();
+    }
+
+</script>
+{% endblock %}

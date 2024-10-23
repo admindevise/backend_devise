@@ -1,0 +1,18 @@
+# Django #
+*.log
+*.pot
+*.pyc
+*.mo
+__pycache__
+db.sqlite3
+media
+secret_key.txt
+.env
+# Python # 
+*.py[cod] 
+*$py.class 
+*.swp
+/static/django_js_reverse/*
+/cron_logs/druo/*
+# excel #
+*.ods#

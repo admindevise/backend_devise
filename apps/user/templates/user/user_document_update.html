@@ -1,0 +1,274 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+{% load widget_tweaks %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Actualización</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-list' %}">Usuarioc</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-detail' object.pk %}">{{ object.email }}</a></li>
+          <li class="breadcrumb-item active">Documentación</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <!-- /.col -->
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header p-2">
+            <ul class="nav nav-pills">
+              <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab"><b>Documento</b></a></li>
+            </ul>
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+              {% comment %} Pestaña General {% endcomment %}
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal" name="user_document" enctype="multipart/form-data" method="post">
+                  {% csrf_token %}
+                  <div class="row">
+                    <input id="object_id" type="hidden" name="object_id" value="{{ object.pk }}">
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">KYC</label>
+                        <div class="col-md-9">
+                          {% render_field form.kyc_validated  class="form-control" %}
+                          {% for error in form.kyc_validated.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Tipo de Documento</label>
+                        <div class="col-md-9">
+                          {% render_field form.local_id_type  class="form-control" %}
+                          {% for error in form.local_id_type.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Numero de Documento</label>
+                        <div class="col-md-9">
+                          {% render_field form.document_number  class="form-control" %}
+                          {% for error in form.document_number.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Fecha de Expedición</label>
+                        <div class="col-md-9">
+                          {% render_field form.expedition_date  class="form-control" type="date"%}
+                          {% for error in form.expedition_date.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Pais de Expedición</label>
+                        <div class="col-md-9">
+                          {% render_field form.doc_country_expedition  class="form-control" %}
+                          {% for error in form.doc_country_expedition.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Región de Expedición</label>
+                        <div class="col-md-9">
+                          <select id="id_doc_region_expedition" class="form-control" name="doc_region_expedition" required>
+                            <option value="">Seleccione</option>
+                            {% for region in regions %}
+                              <option value="{{ region.id }}" {% if object.doc_region_expedition.id == region.id %}selected{% endif %}>
+                                {{ region.name }}
+                              </option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Ciudad de Expedición</label>
+                        <div class="col-md-9">
+                          <select id="id_doc_city_expedition" class="form-control" name="doc_city_expedition" required>
+                              <option value="">Seleccione</option>
+                              {% for city in cities %}
+                                <option value="{{ city.id }}" {% if object.doc_city_expedition.id == city.id %}selected{% endif %}>
+                                  {{ city.name }}
+                                </option>
+                              {% endfor %}
+                            </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Frontal del documento</label>
+                        <div class="col-md-9">
+                          {% render_field form.document_front_image  class="form-control" %}
+                          {% for error in form.document_front_image.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Posterior del documento</label>
+                        <div class="col-md-9">
+                          {% render_field form.document_back_image  class="form-control" %}
+                          {% for error in form.document_back_image.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Fotografia</label>
+                        <div class="col-md-9">
+                          {% render_field form.selfie  class="form-control" %}
+                          {% for error in form.selfie.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                  <div class="row mt-3 card-footer">
+                    <button onclick="goBack()" class="btn btn-default">Volver</button>
+                    <button type="submit" class="btn btn-primary float-right ml-4" name="button">Guardar</button>
+                  </div>
+                </form>
+              </div>
+              
+                <!-- /.tab-pane -->
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+
+<script type="text/javascript">
+  $("input[data-bootstrap-switch]").each(function(){
+    $(this).bootstrapSwitch('state', $(this).prop('checked'));
+  });
+
+  const select_country = document.getElementById('id_doc_country_expedition');
+  const select_region = document.getElementById('id_doc_region_expedition');
+  const select_city = document.getElementById('id_doc_city_expedition');
+
+  if (select_region) {
+    select_region.addEventListener('change', (e) => {
+      let country_id = select_country.value;
+      let region_id = e.target.value;
+      if (country_id && region_id) {
+        display_cities(country_id, region_id);
+      }
+    });
+  }
+
+  if (select_country) {
+    select_country.addEventListener('change', (e) => {
+      let country_id = e.target.value;
+      if (country_id) {
+        display_regions(country_id);
+      }
+    });
+  }
+
+  function display_regions(country_id) {
+    select_region.textContent = '';
+    get_regions(country_id)
+      .then(regions => {
+        let first_region = regions[0].id;
+        display_cities(country_id, first_region);
+
+        regions.forEach((region, i) => {
+          let option = document.createElement('option');
+          option.value = region['id'];
+          option.innerHTML = region['name'];
+          select_region.appendChild(option);
+        });
+      })
+      .catch( err => {
+        select_city.textContent = '';
+        console.warn(err)
+      });
+  }
+
+  function display_cities(country_id, region_id) {
+    select_city.textContent = '';
+    get_cities(country_id, region_id)
+      .then(cities => {
+        cities.forEach((city, i) => {
+          let option = document.createElement('option');
+          option.value = city['id'];
+          option.innerHTML = city['name'];
+          select_city.appendChild(option);
+        });
+
+      })
+      .catch( err => console.warn(err) );
+
+  }
+
+
+  function goBack() {
+      window.history.back();
+    }
+
+</script>
+{% endblock %}

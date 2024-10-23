@@ -1,0 +1,1419 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.css' %}">
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.css' %}">
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.css' %}">
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/fontawesome-free/css/all.css' %}">
+<style media="screen">
+  .img-150 {
+    width: 150px;
+    height: 150px;
+    max-width: 150px;
+    max-height: 150px;
+    border: 1px solid #80b229;
+    border-radius: 5px;
+  }
+  .img-200 {
+    width: 200px;
+    height: 200px;
+    max-width: 200px;
+    max-height: 200px;
+    border: 1px solid #80b229;
+    border-radius: 5px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Detalle de Usuario</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-list' %}">Usuarios</a></li>
+          <li class="breadcrumb-item active">{{ object.username }}</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-3">
+
+        <div class="card card-widget widget-user">
+          <!-- Add the bg color to the header using any of the bg-* classes -->
+          <div class="widget-user-header" style="background-color: #163E97; color: #fff;">
+            <h3 class="widget-user-username">{{ object.first_name }} {{ object.surname }}</h3>
+            <p class="widget-user-desc">{{ object.email }}</p>
+          </div>
+          <div class="widget-user-image">
+            {% if object.selfie %}
+              <img class="img-circle img-circle-90 elevation-2" src="{{ object.selfie.url }}" alt="User Avatar">
+            {% else %}
+              <img class="img-circle img-circle-90 elevation-2" src="{% static 'adminlte-3.1.0/dist/img/unknow_user.png' %}" alt="User Avatar">
+            {% endif %}
+          </div>
+          <div class="card-footer">
+            <div class="row">
+              <div class="col-sm-6 border-right">
+                <div class="description-block">
+                  <span class="description-text">BALANCE</span>
+                  <h5 class="description-header">{{ wallet_info.balance }} {{ wallet_info.crypto_coin.symbol }}</h5>
+                  {% comment %} <h5 class="description-header">{{ wallet_info.balance_currency|currency }} {{ wallet_info.local_currency.symbol }}</h5> {% endcomment %}
+                </div>
+                <!-- /.description-block -->
+              </div>
+              <!-- /.col -->
+              <div class="col-sm-6 border-right">
+                <div class="description-block">
+                  <span class="description-text">REFERIDOS</span>
+                  <h5 class="description-header">{{ total_referreds }}</h5>
+                </div>
+                <!-- /.description-block -->
+              </div>
+              <!-- /.col -->
+              
+              <!-- /.col -->
+            </div>
+            <!-- /.row -->
+          </div>
+        </div>
+
+        <!-- Profile Image -->
+        <div class="card">
+          <div class="card-body">
+            <a href="#">ver referidos</a>
+            <ul class="list-group list-group-unbordered mb-3">
+              <li class="list-group-item">
+                <table class="table table-striped mt-2 mb-0">
+                  {% for level in level_info %}
+                    <tr>
+                      <td class="text-muted">{{ level.description }}</td>
+                      <td class="text-right">{{ level.amount }}</td>
+                    </tr>
+                  {% endfor %}
+                </table>
+              </li>
+              <li class="list-group-item">
+                <b>Referente</b> <a href="#" class="float-right">{{ object.referred_code }}</a>
+              </li>
+
+            </ul>
+            {% if perms.user.change_user %}
+              <a href="{#% url 'user-update' object.pk %#}" class="btn btn-primary btn-block">
+                <b>Editar</b>
+              </a>
+            {% endif %}
+          </div>
+          <!-- /.card-body -->
+        </div>
+        {% if perms.user.is_superuser %}
+        <div class="card collapsed-card">
+          <div class="card-header">
+             {% if wallet %}Wallet{% else %}Sin wallet asociada  {% endif %}
+            <div class="card-tools">
+              <button type="button" class="btn btn-tool" data-card-widget="collapse" data-toggle="tooltip" title="Collapse">
+                <i class="fas fa-plus"></i></button>
+              
+            </div>
+          </div>
+          <div class="card-body">
+            
+            {% if wallet %}
+            <div>
+              <label>Id wallet:</label>
+              <span id="id_wallet">{{ wallet.id_wallet }}</span><span style="cursor:pointer;color:#b9de2c" id="id_wallet_copy"> <i class="fa fa-copy" aria-hidden="true"></i>
+              </span>
+            </div>
+            <div>
+              <label>Secret:</label>
+              <div >
+                <span id="secret">
+                  {{wallet.secret}}
+                </span>
+                <span style="cursor:pointer;color:#b9de2c" id="secret_copy">
+                  <i class="fa fa-copy" aria-hidden="true"></i>
+                </span>
+              </div>
+            </div>
+            {% else %}
+            <label>N/A</label>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+        <!-- /.card -->
+      </div>
+      <!-- /.col -->
+      <div class="col-md-9">
+        <div class="card">
+          <div class="card-header p-2">
+            <ul class="nav nav-pills">
+              <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab">Personal</a></li>
+              <li class="nav-item"><a class="nav-link" href="#documentos" data-toggle="tab">Documental</a></li>
+              <li class="nav-item"><a class="nav-link" href="#info_residencial" data-toggle="tab">Residencial</a></li>
+              <li class="nav-item"><a class="nav-link" href="#info_workplace" data-toggle="tab">Laboral</a></li>
+              <li class="nav-item"><a class="nav-link" href="#info_company" data-toggle="tab">Empresa</a></li>
+              <li class="nav-item"><a class="nav-link" href="#info_bancaria" data-toggle="tab">Bancaria</a></li>
+              <li class="nav-item"><a class="nav-link" href="#info_socioeconomica" data-toggle="tab">SocioEconomica</a></li>
+              <li class="nav-item"><a class="nav-link" href="#transacciones" data-toggle="tab">Transaccional</a></li>
+
+            </ul>
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+            
+              {% comment %} Pestaña General {% endcomment %}
+              
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal">
+                  
+                  <div class="row">
+                    <input id="object_id" type="hidden" name="object_id" value="{{ object.pk }}">
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Username</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.username }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Es persona natural</label>
+                        <label  class="col-md-3 col-form-label">
+                          <input type="checkbox" class="form-control" data-bootstrap-switch {% if object.is_natural_person %}checked{% endif %} disabled>
+                        </label>
+                        <label  class="col-md-3 col-form-label">
+                          {% if object.juridic_xlsx %}
+                            <a href="{{object.juridic_xlsx.url}}" class="btn btn-sm btn-danger"><i class="fas fa-download nav-icon"> XLSX</i></a>
+                          {% endif %}
+                        </label>
+                        
+                      </div>
+                      
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Nombres</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.first_name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Apellidos</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.last_name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Fecha de nacimiento</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.birth_date|date:'d M Y' }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Pais Nacimiento</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.birth_country }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Región Nacimiento</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.birth_region }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Ciudad Nacimiento</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.birth_city }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Teléfono</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.phone }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Rol</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.role }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Subrol</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.groups.all.0.name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    {% if object.company_asociated %}
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Compañia</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.company_asociated.company_name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Código referido</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.code }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Notificaciones</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.get_mail_delivery_display }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Usuario Activo</label>
+                        <label  class="col-md-4 col-form-label">
+                          <input type="checkbox" class="form-control" data-bootstrap-switch {% if object.is_active %}checked{% endif %} disabled>
+                        </label>
+                      </div>
+                    </div>
+
+                  </div>
+                </form>
+                <div class="card-footer">
+                  <a href="{% url 'user-list' %}" class="btn btn-default">Volver</a>
+                  {% if perms.user.change_user %}
+                    <a href="{% url 'user-basicinfo-update' object.pk %}" class="btn btn-primary float-right">
+                      <b>Editar</b>
+                    </a>
+                  {% endif %}
+                </div>
+                
+              </div>
+              {% comment %} Pestaña documentos {% endcomment %}
+              <div class="tab-pane" id="documentos">
+                <div class="row">
+
+                  <div class="col-12">
+                    <div class="card">
+                      <div class="card-header">
+                        <h3 class="card-title">Documento de Identidad</h3>
+
+                        <div class="card-tools">
+                          <button type="button" class="btn btn-tool" data-card-widget="collapse" data-toggle="tooltip" title="Collapse">
+                            <i class="fas fa-minus"></i></button>
+                          <button type="button" class="btn btn-tool" data-card-widget="remove" data-toggle="tooltip" title="Remove">
+                            <i class="fas fa-times"></i></button>
+                        </div>
+                      </div>
+                      <div class="card-body p-0">
+
+                        <div class="row ml-2 mt-4 col-md-12">
+                          <div class="col-md-6">
+                            <div class="form-group row">
+                              <label  class="col-md-4 col-form-label">Tipo Documento</label>
+                              <div class="col-md-8">
+                                <input type="text" class="form-control" value="{{ object.local_id_type }}" disabled>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="col-md-6">
+                            <div class="form-group row">
+                              <label  class="col-md-4 col-form-label">No. documento</label>
+                              <div class="col-md-8">
+                                <input type="text" class="form-control" value="{{ object.document_number }}" disabled>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="col-md-6">
+                            <div class="form-group row">
+                              <label  class="col-md-4 col-form-label">Fecha de Expedición</label>
+                              <div class="col-md-8">
+                                <input type="text" class="form-control" value="{{ object.expedition_date }}" disabled>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="col-md-6">
+                            <div class="form-group row">
+                              <label  class="col-md-4 col-form-label">Pais de Expedición</label>
+                              <div class="col-md-8">
+                                <input type="text" class="form-control" value="{{ object.doc_country_expedition }}" disabled>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="col-md-6">
+                            <div class="form-group row">
+                              <label  class="col-md-4 col-form-label">Región de Expedición</label>
+                              <div class="col-md-8">
+                                <input type="text" class="form-control" value="{{ object.doc_region_expedition }}" disabled>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="col-md-6">
+                            <div class="form-group row">
+                              <label  class="col-md-4 col-form-label">Ciudad de Expedición</label>
+                              <div class="col-md-8">
+                                <input type="text" class="form-control" value="{{ object.doc_city_expedition }}" disabled>
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        <div class="row">
+                          <div class="col-md-12 p-3">
+                            {% comment %} {% if perms.user.change_user %} {% endcomment %}
+                              {% if object.kyc_validated == 'pending_document' %}
+                                <button id="btn-verificar" class="btn btn-danger btn-block" type="button" name="button"><b>{{object.get_kyc_validated_display}}</b></button>
+                              {% elif object.kyc_validated == 'sucessfull_document' %}
+                                <button id="btn-verificar" class="btn btn-success btn-block" type="button" name="button"><b>{{object.get_kyc_validated_display}}</b></button>
+                              {% elif object.kyc_validated == 'fail_document' %}
+                                <button id="btn-verificar" class="btn btn-danger btn-block" type="button" name="button"><b>{{object.get_kyc_validated_display}}</b></button>
+                              {% else %}
+                                <button id="btn-verificar" class="btn btn-warning btn-block" type="button" name="button"><b>{{object.get_kyc_validated_display}}</b></button>
+                              {% endif %}
+                            {% comment %} {% endif %} {% endcomment %}
+                          </div>
+                        </div>
+
+                        <table class="table">
+                          <thead>
+                            <tr>
+                              <th class="text-center">Imagen</th>
+                              <th class="text-center">Archivo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>Frontal Documento</td>
+                              <td class="text-center">
+                                  {% if object.document_front_image %}
+                                    <p>
+                                      <img class="img-fluid img-150" src="{{ object.document_front_image.url }}" alt="Front">
+                                    </p>
+                                    <a href="javascript:;" class="btn btn-sm btn-primary btn-preview" data-src="{{ object.document_front_image.url }}">Ver</a>
+                                    <a href="{{ object.document_front_image.url }}" download="{{ object.text }}_document_front_image" class="btn btn-sm btn-secondary">Descargar</a>
+                                  {% else %}
+                                    <span>No se ha cargado ningún documento</span>
+                                  {% endif %}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Reverso Documento</td>
+                              <td class="text-center">
+                                  {% if object.document_back_image %}
+                                    <p>
+                                      <img class="img-fluid img-150" src="{{ object.document_back_image.url }}" alt="Front">
+                                    </p>
+                                    <a href="javascript:;" class="btn btn-sm btn-primary btn-preview"  data-src="{{ object.document_back_image.url }}">Ver</a>
+                                    <a href="{{ object.document_back_image.url }}" download="{{ object.text }}_reverso_documento" class="btn btn-sm btn-secondary">Descargar</a>
+                                  {% else %}
+                                    <span>No se ha cargado ningún documento</span>
+                                  {% endif %}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Selfie</td>
+                              <td class="text-center">
+                                  {% if object.selfie %}
+                                    <p>
+                                      <img class="img-fluid img-150" src="{{ object.selfie.url }}" alt="Front">
+                                    </p>
+                                    <a href="javascript:;" class="btn btn-sm btn-primary btn-preview"  data-src="{{ object.selfie.url }}">Ver</a>
+                                    <a href="{{ object.selfie.url }}" download="{{ object.text }}_selfie" class="btn btn-sm btn-secondary">Descargar</a>
+                                  {% else %}
+                                    <span>No se ha cargado ningún documento</span>
+                                  {% endif %}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                          
+                      </div>
+                      <!-- /.card-body -->
+                    </div>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="card collapsed-card">
+                      <div class="card-header">
+                        <h3 class="card-title">Registros de Verificación</h3>
+
+                        <div class="card-tools">
+                          <button type="button" class="btn btn-tool" data-card-widget="collapse" data-toggle="tooltip" title="Collapse">
+                            <i class="fas fa-plus"></i></button>
+                          <button type="button" class="btn btn-tool" data-card-widget="remove" data-toggle="tooltip" title="Remove">
+                            <i class="fas fa-times"></i></button>
+                        </div>
+                      </div>
+                      <div class="card-body p-0">
+                        <table class="table">
+                          <thead>
+                            <tr>
+                              <th class="text-center">Usuario Verificador</th>
+                              <th class="text-center">Resultado</th>
+                              <th class="text-center">Observaciones</th>
+                              <th class="text-center">Fecha</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {% for log in verification_log %}
+                              <tr>
+                                <td>{{ log.user_verification.username }}</td>
+                                <td class="text-center">
+                                  {% if log.verified %}
+                                    <span class="badge badge-primary">Verificado</span>
+                                  {% elif log.rejected %}
+                                    <span class="badge badge-danger">Rechazado</span>
+                                  {% endif %}
+                                </td>
+                                <td class="text-center">{{ log.notes }}</td>
+                                <td class="text-center">{{ log.created_at }}</td>
+                              </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                      <!-- /.card-body -->
+                    </div>
+                  </div>
+
+                </div>
+                <div class="card-footer">
+                  <a href="{% url 'user-list' %}" class="btn btn-default">Volver</a>
+                  {% if perms.user.change_user %}
+                    <a href="{% url 'user-documentinfo-update' object.pk %}" class="btn btn-primary float-right">
+                      <b>Editar</b>
+                    </a>
+                  {% endif %}
+                </div>
+              </div>
+              {% comment %} Pestaña Info residencial {% endcomment %}
+              <div class="tab-pane" id="info_residencial">
+                <form class="form-horizontal">
+                  
+                  <div class="row">
+                    
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Pais de residencia</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ residential.resident_country }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Región de residencia</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ residential.resident_region }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Ciudad de residencia</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ residential.resident_city }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Dirección de residencia</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ residential.resident_address }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">ZIP de residencia</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ residential.resident_zip }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Teléfono</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ residential.resident_phone }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                  </div>
+                </form>
+                <div class="card-footer">
+                  <a href="{% url 'user-list' %}" class="btn btn-default">Volver</a>
+                  {% if user.user_has_residential_info %}
+                    <a href="{% url 'user-residentialinfo-update' object.pk %}" class="btn btn-primary float-right">
+                      <b>Editar</b>
+                    </a>
+                  {% else %}
+                    <a href="{% url 'user-residentialinfo-create' object.pk %}" class="btn btn-primary float-right">
+                      <b>Crear</b>
+                    </a>
+                  {% endif %}
+                </div>
+              </div>
+              {% comment %} Pestaña Info lugar de trabajo o empresa {% endcomment %}
+                <div class="tab-pane" id="info_workplace">
+                  <form class="form-horizontal">
+                    
+                    <div class="row">
+                      
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">Ocupación</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ workplace.occupation }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">Nombre de la empresa</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ workplace.company_name }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">Cargo en la empresa</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ workplace.company_position }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Pais</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ workplace.company_country }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Región</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ workplace.company_region }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Ciudad</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ workplace.company_city }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Dirección</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ workplace.company_address }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">ZIP de residencia</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ workplace.company_zip }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Teléfono</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ workplace.company_phone }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    </div>
+                  </form>
+                  <div class="card-footer">
+                    <a href="{% url 'user-list' %}" class="btn btn-default">Volver</a>
+                    {% if user.user_has_workplace_info %}
+                      <a href="{% url 'user-workplaceinfo-update' object.pk %}" class="btn btn-primary float-right">
+                        <b>Editar</b>
+                      </a>
+                    {% else %}
+                      <a href="{% url 'user-workplaceinfo-create' object.pk %}" class="btn btn-primary float-right">
+                        <b>Crear</b>
+                      </a>
+                    {% endif %}
+                  </div>
+                </div>
+              {% comment %} Pestaña info Company {% endcomment %}
+                <div class="tab-pane" id="info_company">
+                  <form class="form-horizontal">
+                    
+                    <div class="row">
+                      
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">Nombre de la empresa</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_name }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">NIT</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.nit }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">Pais</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_country }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">Región</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_region }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">Ciudad</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_city }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">Dirección</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_address }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">ZIP de la empresa</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_zip }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">Teléfono</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_phone }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">Cámara y Comercio</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.camara_comercio }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label  class="col-md-3 col-form-label">Area de Registro</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.area_registro }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-12">
+                        <div class="form-group row">
+                          <label  class="col-md-2 col-form-label">Información de la empresa</label>
+                          <div class="col-md-10">
+                            <input type="textarea" class="form-control" value="{{ company.info_empresa }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </form>
+                  <table class="table">
+                          <thead>
+                            <tr>
+                              <th class="text-center">Parámetro</th>
+                              <th class="text-center">Archivo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>Logo de empresa</td>
+                              <td class="text-center">
+                                  {% if object.document_front_image %}
+                                    <p>
+                                      <img class="img-fluid img-200" src="{{ company.logo_empresa.url }}" alt="Front">
+                                    </p>
+                                    <a href="javascript:;" class="btn btn-sm btn-primary btn-preview" data-src="{{ company.logo_empresa.url }}">Ver</a>
+                                    <a href="{{ company.logo_empresa.url }}" download="{{ company.text }}logo_empresa" class="btn btn-sm btn-secondary">Descargar</a>
+                                  {% else %}
+                                    <span>No se ha cargado ningún documento</span>
+                                  {% endif %}
+                              </td>
+                            </tr>
+                            
+                          </tbody>
+                        </table>
+
+                </div>
+                
+            {% comment %}  Pestaña Info bancaria {% endcomment %}
+              <div class="tab-pane" id="info_bancaria">
+                <form class="form-horizontal">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Banco</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ financial.bank }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Número de cuenta</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ financial.account_number }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Tipo de Cuenta</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ financial.account_type.name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Subtipo de Cuenta</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ financial.account_subtype.name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Código ABA</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ financial.aba_code }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Código SWIFT</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ financial.swift_code }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Certificación Bancaria</label>
+                        <div class="col-md-8">
+                          {% if financial.certification_file %}
+                            <hr><iframe src="{{ financial.certification_file.url }}"></iframe><hr>
+
+                            <a href="{{ financial.certification_file.url }}" download="{{ object.text }}_document_front_image" class="btn btn-sm btn-secondary" target="_blank" >Descargar</a>
+                          {% else %}
+                            <span>No se ha cargado ningún documento</span>
+                          {% endif %}
+                          {% comment %} <a href="{% url 'file_download' %}">Download File</a>
+                          <input type="file" class="form-control" value="{{ financial.certification_file }}" disabled> {% endcomment %}
+                        </div>
+                      </div>
+                    </div>
+
+                    
+
+                  </div>
+                </form>
+                <div class="card-footer">
+                  <a href="{% url 'user-list' %}" class="btn btn-default">Volver</a>
+                  {% if user.user_has_financial_info %}
+                    <a href="{% url 'user-financialinfo-update' object.pk %}" class="btn btn-primary float-right">
+                      <b>Editar</b>
+                    </a>
+                  {% else %}
+                    <a href="{% url 'user-financialinfo-create' object.pk %}" class="btn btn-primary float-right">
+                      <b>Crear</b>
+                    </a>
+                  {% endif %}
+                </div>
+              </div>
+            {% comment %}  Pestaña Info socioeconomica {% endcomment %}
+              <div class="tab-pane" id="info_socioeconomica">
+                <form class="form-horizontal">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Ingresos Mensuales</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ socioeconomic.monthly_income }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Otros Ingresos</label>
+                        <div class="col-md-9">
+                          <input type="checkbox" class="form-control" data-bootstrap-switch {% if socioeconomic.other_income %}checked{% endif %} disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Valor otros ingresos</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ socioeconomic.value_other_income }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Gastos Mensuales</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ socioeconomic.monthly_expenses }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Total Activos</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ socioeconomic.total_assets }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Total Pasivos</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ socioeconomic.total_liabilities }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Origen de Fondos</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ socioeconomic.origin_of_funds.name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Expliación de Fondos</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ socioeconomic.income_explanation }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Manejo de recursos Publicos</label>
+                        <label  class="col-md-3 col-form-label">
+                          <input type="checkbox" class="form-control" data-bootstrap-switch {% if socioeconomic.manage_public_resource %}checked{% endif %} disabled>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Vinculos con PEP</label>
+                        <label  class="col-md-3 col-form-label">
+                          <input type="checkbox" class="form-control" data-bootstrap-switch {% if socioeconomic.links_with_pep %}checked{% endif %} disabled>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Operaciones en moneda extranjera</label>
+                        <label  class="col-md-3 col-form-label">
+                          <input type="checkbox" class="form-control" data-bootstrap-switch {% if socioeconomic.foreign_currency_operations %}checked{% endif %} disabled>
+                        </label>
+                      </div>
+                    </div>
+
+                    {% if socioeconomic.foreign_currency_operations %}
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Pais donde efectua transacciones</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ socioeconomic.foreign_operations_country.name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Valor de transacciones (USD)</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ socioeconomic.foreign_operations_value }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Obligación a tributar en otro país</label>
+                        <label  class="col-md-3 col-form-label">
+                          <input type="checkbox" class="form-control" data-bootstrap-switch {% if socioeconomic.outside_tax_obligation %}checked{% endif %} disabled>
+                        </label>
+                      </div>
+                    </div>
+
+                    {% if socioeconomic.foreign_currency_operations %}
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Pais donde tributa</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ socioeconomic.country_of_tax_residence.name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Numero TIN o equivalente</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ socioeconomic.tin_number_or_equivalent }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Es declarante de renta</label>
+                        <label  class="col-md-3 col-form-label">
+                          <input type="checkbox" class="form-control" data-bootstrap-switch {% if socioeconomic.is_declarant %}checked{% endif %} disabled>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Última declaracion de Renta</label>
+                        <div class="col-md-8">
+                          {% if socioeconomic.last_year_income_statement %}
+                            <hr><iframe src="{{ socioeconomic.last_year_income_statement.url }}"></iframe><hr>
+                            <a href="{{ socioeconomic.last_year_income_statement.url }}" download="Declaración renta último año" class="btn btn-sm btn-secondary" target="_blank" >Descargar</a>
+                          {% else %}
+                            <span>No se ha cargado ningún documento</span>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Carta dependencia economica</label>
+                        <div class="col-md-8">
+                          {% if socioeconomic.economic_dependency_letter %}
+                            <hr><iframe src="{{ socioeconomic.economic_dependency_letter.url }}"></iframe><hr>
+                            <a href="{{ socioeconomic.economic_dependency_letter.url }}" download="Carta Dependencia Economica" class="btn btn-sm btn-secondary" target="_blank" >Descargar</a>
+                          {% else %}
+                            <span>No se ha cargado ningún documento</span>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Certificado Contador Publico</label>
+                        <div class="col-md-8">
+                          {% if socioeconomic.certified_public_accountant %}
+                            <hr><iframe src="{{ socioeconomic.certified_public_accountant.url }}"></iframe><hr>
+                            <a href="{{ socioeconomic.certified_public_accountant.url }}" download="Certificado Contador publico" class="btn btn-sm btn-secondary" target="_blank" >Descargar</a>
+                          {% else %}
+                            <span>No se ha cargado ningún documento</span>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Tarjeta Profesional del Contador</label>
+                        <div class="col-md-8">
+                          {% if socioeconomic.profesional_accountant_card %}
+                            <hr><iframe src="{{ socioeconomic.profesional_accountant_card.url }}"></iframe><hr>
+                            <a href="{{ socioeconomic.profesional_accountant_card.url }}" download="Tarjeta Contador Público" class="btn btn-sm btn-secondary" target="_blank" >Descargar</a>
+                          {% else %}
+                            <span>No se ha cargado ningún documento</span>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Recibo de pago de pensión</label>
+                        <div class="col-md-8">
+                          {% if socioeconomic.pension_payment_receipt %}
+                            <hr><iframe src="{{ socioeconomic.pension_payment_receipt.url }}"></iframe><hr>
+                            <a href="{{ socioeconomic.pension_payment_receipt.url }}" download="Recibo Pago pension" class="btn btn-sm btn-secondary" target="_blank" >Descargar</a>
+                          {% else %}
+                            <span>No se ha cargado ningún documento</span>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Soporte origen de los fondos</label>
+                        <div class="col-md-8">
+                          {% if socioeconomic.source_funds_support %}
+                            <hr><iframe src="{{ socioeconomic.source_funds_support.url }}"></iframe><hr>
+                            <a href="{{ socioeconomic.source_funds_support.url }}" download="Soporte Activos" class="btn btn-sm btn-secondary" target="_blank" >Descargar</a>
+                          {% else %}
+                            <span>No se ha cargado ningún documento</span>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                    
+
+                  </div>
+                </form>
+                <div class="card-footer">
+                  <a href="{% url 'user-list' %}" class="btn btn-default">Volver</a>
+                  {% if user.socioeconomic %}
+                    <a href="{% url 'user-socioeconomicinfo-update' object.pk %}" class="btn btn-primary float-right">
+                      <b>Editar</b>
+                    </a>
+                  {% else %}
+                    <a href="{% url 'user-socioeconomicinfo-create' object.pk %}" class="btn btn-primary float-right">
+                      <b>Crear</b>
+                    </a>
+                  {% endif %}
+                </div>
+              </div>
+            {% comment %}  Pestaña Info Transacciones {% endcomment %}
+                <div class="tab-pane" id="transacciones">
+                  <div class="row">
+
+                    <div class="col-md-3">
+                      <div class="info-box mb-3">
+                        <span class="info-box-icon bg-success elevation-1">
+                          <i class="fas fa-arrow-alt-circle-up"></i>
+                        </span>
+
+                        <div class="info-box-content">
+                          <span class="info-box-text">Depositos</span>
+                          <span class="info-box-number">{{ object.get_transactions_count.deposit }}</span>
+                        </div>
+                        <!-- /.info-box-content -->
+                      </div>
+                    </div>
+
+                    <div class="col-md-3">
+                      <div class="info-box mb-3">
+                        <span class="info-box-icon bg-danger elevation-1">
+                          <i class="fas fa-arrow-alt-circle-down"></i>
+                        </span>
+
+                        <div class="info-box-content">
+                          <span class="info-box-text">Retiros</span>
+                          <span class="info-box-number">{{ object.get_transactions_count.withdrawal }}</span>
+                        </div>
+                        <!-- /.info-box-content -->
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-3">
+                      <div class="info-box mb-3">
+                        <span class="info-box-icon bg-warning elevation-1">
+                          <i class="fas fa-shopping-cart"></i>
+                        </span>
+
+                        <div class="info-box-content">
+                          <span class="info-box-text">Pago</span>
+                          <span class="info-box-number">{{ object.get_transactions_count.payment }}</span>
+                        </div>
+                        <!-- /.info-box-content -->
+                      </div>
+                    </div>
+
+                  </div>
+                  <div class="row">
+                    <div class="col-12">
+                      <div class="card">
+                        <div class="card-header border-0">
+                          <div class="d-flex justify-content-between">
+                            <h3 class="card-title">Ultimas 10 transacciones</h3>
+                            <a href="#">ver todo</a>
+                          </div>
+                        </div>
+
+                        <div class="card-body p-0">
+                          <table class="table">
+                            <thead>
+                              <th class="text-center">Tipo</th>
+                              <th class="text-center">Monto</th>
+                              <th class="text-center">Fee</th>
+                              <th class="text-center">Sender / Receiver</th>
+                              <th class="text-center">Estado</th>
+                              <th class="text-center">Fecha Registro</th>
+                            </thead>
+                            <tbody>
+                              {% for transaction in transactions %}
+                                <tr>
+                                  <td>{{ transaction.get_type_display }}</td>
+                                  <td class="text-center">{{ transaction.amount }}</td>
+                                  <td class="text-center">{{ transaction.fee }}</td>
+                                  <td class="text-center">{{ transaction.sender }} / {{ transaction.receiver }}</td>
+                                  <td class="text-center">
+                                    {% if transaction.status == 'C' %}
+                                      <span class="badge badge-success">Confirmado</span>
+                                    {% elif transaction.status == 'P' %}
+                                      <span class="badge badge-warning">Pendiente</span>
+                                    {% elif  transaction.status == 'F'%}
+                                      <span class="badge badge-danger">Fallida</span>
+                                    {% endif %}
+                                  </td>
+                                  <td class="text-center">{{ transaction.created_at }}</td>
+                                </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+                <!-- /.tab-pane -->
+
+              
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+
+<div class="modal fade" id="imagemodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" data-dismiss="modal">
+    <div class="modal-content"  >
+      <div class="modal-body">
+      	<button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+        <img src="" class="imagepreview" style="width: 100%;" >
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.js' %}"></script>
+
+<script type="text/javascript">
+
+  const object_id = document.getElementById('object_id');
+  const btn_verificar = document.getElementById('btn-verificar');
+
+  $("input[data-bootstrap-switch]").each(function(){
+    $(this).bootstrapSwitch('state', $(this).prop('checked'));
+  });
+  
+
+  {% if wallet %}
+  $("#id_wallet_copy").on("click",function(){
+    var copyText = document.getElementById("id_wallet");
+    var textArea = document.createElement("textarea");
+    textArea.value = copyText.textContent.trim();
+    textArea.setSelectionRange(0, 99999);// Para dispositivos móviles
+    document.body.appendChild(textArea);
+    
+    textArea.select();
+    document.execCommand("copy");
+    textArea.remove();
+    let _Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 4000
+    });
+    _Toast.fire({
+        icon: 'success',
+        title: `Copiado al porta papeles`
+      })
+  })
+  $("#secret_copy").on("click",function(){
+    var copyText = document.getElementById("secret");
+    var textArea = document.createElement("textarea");
+    textArea.value = copyText.textContent.trim();
+    textArea.setSelectionRange(0, 99999);// Para dispositivos móviles
+    document.body.appendChild(textArea);
+    
+    textArea.select();
+    document.execCommand("copy");
+    textArea.remove();
+    let _Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 4000
+    });
+    _Toast.fire({
+        icon: 'success',
+        title: `Copiado al porta papeles`
+      })
+  })
+  {% endif %}
+
+  $('.btn-preview').on('click', function() {
+		$('.imagepreview').attr('src', $(this).attr('data-src'));
+		$('#imagemodal').modal('show');
+	});
+
+  var Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 4000
+    });
+
+  {% if messages %}
+    {% for message in messages %}
+      Toast.fire({
+        icon: 'success',
+        title: `{{message}}`
+      })
+    {% endfor %}
+  {% endif %}
+
+</script>
+{% endblock %}

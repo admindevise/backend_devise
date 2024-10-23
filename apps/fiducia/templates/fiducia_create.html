@@ -1,0 +1,306 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+{% load widget_tweaks %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.css' %}">
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.css' %}">
+<style media="screen">
+  .img-150 {
+    width: 150px;
+    height: 150px;
+    max-width: 150px;
+    max-height: 150px;
+    border: 1px solid #80b229;
+    border-radius: 5px;
+  }
+  .img-200 {
+    width: 200px;
+    height: 200px;
+    max-width: 200px;
+    max-height: 200px;
+    border: 1px solid #80b229;
+    border-radius: 5px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Crear Fiducia</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'fiducia-list' %}">Fiducias</a></li>
+          <li class="breadcrumb-item active">Crear</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <!-- /.col -->
+      <div class="col-md-10">
+        <div class="card">
+          <div class="card-header p-2">
+            <ul class="nav nav-pills">
+              <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab">Información fiducia</a></li>
+            </ul>
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal" action="" method="post"  enctype="multipart/form-data" id="fiducia_form">
+                  {% csrf_token %}
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Nombre</label>
+                        <div class="col-md-9">
+                          {% render_field form.name  class="form-control" %}
+                          {% for error in form.name.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    
+                  </div>
+
+                  <div class="row">
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Pais</label>
+                        <div class="col-md-9">
+                          {% render_field form.country  class="form-control" %}
+                          {% for error in form.country.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Región</label>
+                        <div class="col-md-9">
+                          <select id="id_region" class="form-control" name="region" required>
+                            <option value="">Seleccione</option>
+                            {% for region in regions %}
+                              <option value="{{ region.id }}" {% if object.region.id == region.id %}selected{% endif %}>
+                                {{ region.name }}
+                              </option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Ciudad</label>
+                        <div class="col-md-9">
+                          <select id="id_city" class="form-control" name="city" required>
+                              <option value="">Seleccione</option>
+                              {% for city in cities %}
+                                <option value="{{ city.id }}" {% if object.city.id == city.id %}selected{% endif %}>
+                                  {{ city.name }}
+                                </option>
+                              {% endfor %}
+                            </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Teléfono</label>
+                        <div class="col-md-9">
+                          {% render_field form.phone  class="form-control" placeholder="+573001234567"%}
+                          {% for error in form.phone.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Dirección</label>
+                        <div class="col-md-9">
+                          {% render_field form.address  class="form-control" %}
+                          {% for error in form.address.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Código ZIP</label>
+                        <div class="col-md-9">
+                          {% render_field form.zip_code  class="form-control" %}
+                          {% for error in form.zip_code.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">NIT</label>
+                        <div class="col-md-9">
+                          {% render_field form.nit  class="form-control" %}
+                          {% for error in form.nit.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Camara y Comercio</label>
+                        <div class="col-md-9">
+                          {% render_field form.camara_comercio  class="form-control" %}
+                          {% for error in form.camara_comercio.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Información:</label>
+                        <div class="col-md-9">
+                          {% render_field form.informacion  class="form-control" rows="4" %}
+                          {% for error in form.informacion.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Logo Fiducia</label>
+                        <div class="col-md-9">
+                          {% render_field form.logo  %}
+                          {% for error in form.logo.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                  <hr>
+                  
+                  <div class="row mt-3">
+                    <button type="submit" class="btn btn-primary mr-2" name="button">Guardar</button>
+                    <a href="{% url 'fiducia-list'  %}" class="btn btn-default">Volver</a>
+                  </div>
+                </form>
+              </div>
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.js' %}"></script>
+
+<script type="text/javascript">
+
+  const select_country = document.getElementById('id_country');
+  const select_region = document.getElementById('id_region');
+  const select_city = document.getElementById('id_city');
+
+  if (select_country) {
+    select_country.addEventListener('change', (e) => {
+      let country_id = e.target.value;
+      if (country_id) {
+        display_regions(country_id);
+      }
+    });
+  }
+
+  if (select_region) {
+    select_region.addEventListener('change', (e) => {
+      let country_id = select_country.value;
+      let region_id = e.target.value;
+      if (country_id && region_id) {
+        display_cities(country_id, region_id);
+      }
+    });
+  }
+
+  function display_regions(country_id) {
+    select_region.textContent = '';
+    get_regions(country_id)
+      .then(regions => {
+        let first_region = regions[0].id;
+        display_cities(country_id, first_region);
+
+        regions.forEach((region, i) => {
+          let option = document.createElement('option');
+          option.value = region['id'];
+          option.innerHTML = region['name'];
+          select_region.appendChild(option);
+        });
+      })
+      .catch( err => {
+        select_city.textContent = '';
+        console.warn(err)
+      });
+  }
+
+  function display_cities(country_id, region_id) {
+    select_city.textContent = '';
+    get_cities(country_id, region_id)
+      .then(cities => {
+        cities.forEach((city, i) => {
+          let option = document.createElement('option');
+          option.value = city['id'];
+          option.innerHTML = city['name'];
+          select_city.appendChild(option);
+        });
+
+      })
+      .catch( err => console.warn(err) );
+
+  }
+
+
+
+</script>
+{% endblock %}

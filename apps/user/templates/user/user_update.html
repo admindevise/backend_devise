@@ -1,0 +1,898 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+{% load widget_tweaks %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Actualización</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Home</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-list' %}">Users</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-detail' object.pk %}">{{ object.email }}</a></li>
+          <li class="breadcrumb-item active">Update</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <!-- /.col -->
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header p-2">
+            <ul class="nav nav-pills">
+              <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab">Personal</a></li>
+              <li class="nav-item"><a class="nav-link" href="#info_residencial" data-toggle="tab">Residencial</a></li>
+              {% comment %} {% if  workplace %} {% endcomment %}
+                <li class="nav-item"><a class="nav-link" href="#info_workplace" data-toggle="tab">Laboral</a></li>
+              {% comment %} {% endif %} {% endcomment %}
+              {% if  company %}
+                <li class="nav-item"><a class="nav-link" href="#info_company" data-toggle="tab">Empresa</a></li>
+              {% endif %}
+              <li class="nav-item"><a class="nav-link" href="#info_bancaria" data-toggle="tab">Bancaria</a></li>
+
+            </ul>
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+              {% comment %} Pestaña General {% endcomment %}
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal" name="user_info" action="" method="post">
+                  {% csrf_token %}
+                  <div class="row">
+                    <div class="col-md-6 mb-2">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Cuenta verificada</label>
+                        <div class="col-md-3">
+                          {% render_field user_form.account_validated  class="form-control" %}
+                          {% for error in user_form.account_validated.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <input id="object_id" type="hidden" name="object_id" value="{{ object.pk }}">
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Username</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.username  class="form-control" %}
+                          {% for error in user_form.username.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-4 col-form-label">Es persona natural</label>
+                        <div class="col-md-3">
+                          {% render_field user_form.is_natural_person  class="form-control" %}
+                          {% for error in user_form.is_natural_person.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Nombres</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.first_name  class="form-control" %}
+                          {% for error in user_form.first_name.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Apellidos</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.last_name  class="form-control" %}
+                          {% for error in user_form.last_name.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Fecha de nacimiento</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.birth_date  class="form-control" %}
+                          {% for error in user_form.birth_date.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Pais Nacimiento</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.birth_country  class="form-control" %}
+                          {% for error in user_form.birth_country.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Región Nacimiento</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.birth_region  class="form-control" %}
+                          {% for error in user_form.birth_region.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Ciudad Nacimiento</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.birth_city  class="form-control" %}
+                          {% for error in user_form.birth_city.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Teléfono</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.phone  class="form-control" %}
+                          {% for error in user_form.phone.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Rol</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.role  class="form-control" %}
+                          {% for error in user_form.role.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Subrol</label>
+                        <div class="col-md-9">
+                          <select class="form-control" name="group" id="id_group">
+                            <option value="">-- seleccione --</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Notificaciones</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.mail_delivery  class="form-control" %}
+                          {% for error in user_form.mail_delivery.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-4 col-form-label">Usuario Activo</label>
+                        <label for="" class="col-md-4 col-form-label">
+                          <input type="checkbox" class="form-control" data-bootstrap-switch {% if object.is_active %}checked{% endif %} disabled>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Tipo de Documento</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.local_id_type  class="form-control" %}
+                          {% for error in user_form.local_id_type.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Numero de Documento</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.document_number  class="form-control" %}
+                          {% for error in user_form.document_number.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Fecha de Expedición</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.expedition_date  class="form-control" %}
+                          {% for error in user_form.expedition_date.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Pais de Expedición</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.doc_country_expedition  class="form-control" %}
+                          {% for error in user_form.doc_country_expedition.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Región de Expedición</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.doc_region_expedition  class="form-control" %}
+                          {% for error in user_form.doc_region_expedition.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Ciudad de Expedición</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.doc_city_expedition  class="form-control" %}
+                          {% for error in user_form.doc_city_expedition.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Frontal del documento</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.document_front_image  class="form-control" %}
+                          {% for error in user_form.document_front_image.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Posterior del documento</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.document_back_image  class="form-control" %}
+                          {% for error in user_form.document_back_image.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Imagen</label>
+                        <div class="col-md-9">
+                          {% render_field user_form.selfie  class="form-control" %}
+                          {% for error in user_form.selfie.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                  <div class="row mt-3 card-footer">
+                    <a href="{% url 'user-list'  %}" class="btn btn-default mr-8">Volver</a>
+                    <button type="submit" class="btn btn-primary float-right ml-4" name="button">Guardar</button>
+                  </div>
+                </form>
+              </div>
+              
+              {% comment %} Pestaña Info residencial {% endcomment %}
+              <div class="tab-pane" id="info_residencial">
+                <form class="form-horizontal">
+                  
+                  <div class="row">
+                    
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Pais de residencia</label>
+                        <div class="col-md-9">
+                          {% render_field resident_form.resident_country  class="form-control" %}
+                          {% for error in resident_form.resident_country.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Región de residencia</label>
+                        <div class="col-md-9">
+                          {% render_field resident_form.resident_region  class="form-control" %}
+                          {% for error in resident_form.resident_region.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Ciudad de residencia</label>
+                        <div class="col-md-9">
+                          {% render_field resident_form.resident_city  class="form-control" %}
+                          {% for error in resident_form.resident_city.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Dirección de residencia</label>
+                        <div class="col-md-9">
+                          {% render_field resident_form.resident_address  class="form-control" %}
+                          {% for error in resident_form.resident_address.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">ZIP de residencia</label>
+                        <div class="col-md-9">
+                          {% render_field resident_form.resident_zip  class="form-control" %}
+                          {% for error in resident_form.resident_zip.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Teléfono</label>
+                        <div class="col-md-9">
+                          {% render_field resident_form.resident_phone  class="form-control" %}
+                          {% for error in resident_form.resident_phone.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+
+                  </div>
+                </form>
+              </div>
+                {% comment %} Pestaña Info lugar de trabajo o empresa {% endcomment %}
+              {% comment %} {% if  workplace %} {% endcomment %}
+                <div class="tab-pane" id="info_workplace">
+                  <form class="form-horizontal">
+                    
+                    <div class="row">
+                      
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">Ocupación</label>
+                          <div class="col-md-9">
+                            {% render_field workplace_form.occupation  class="form-control" %}
+                            {% for error in workplace_form.occupation.errors %}
+                              <p class="text-danger">{{ error }}</p>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">Nombre de la empresa</label>
+                          <div class="col-md-9">
+                            {% render_field workplace_form.company_name  class="form-control" %}
+                            {% for error in workplace_form.company_name.errors %}
+                              <p class="text-danger">{{ error }}</p>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">Cargo en la empresa</label>
+                          <div class="col-md-9">
+                            {% render_field workplace_form.occupation  class="form-control" %}
+                            {% for error in workplace_form.occupation.errors %}
+                              <p class="text-danger">{{ error }}</p>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Pais</label>
+                        <div class="col-md-9">
+                            {% render_field workplace_form.company_country  class="form-control" %}
+                            {% for error in workplace_form.company_country.errors %}
+                              <p class="text-danger">{{ error }}</p>
+                            {% endfor %}
+                          </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Región</label>
+                        <div class="col-md-9">
+                            {% render_field workplace_form.company_region  class="form-control" %}
+                            {% for error in workplace_form.company_region.errors %}
+                              <p class="text-danger">{{ error }}</p>
+                            {% endfor %}
+                          </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Ciudad</label>
+                        <div class="col-md-9">
+                            {% render_field workplace_form.company_city  class="form-control" %}
+                            {% for error in workplace_form.company_city.errors %}
+                              <p class="text-danger">{{ error }}</p>
+                            {% endfor %}
+                          </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Dirección</label>
+                        <div class="col-md-9">
+                            {% render_field workplace_form.company_address  class="form-control" %}
+                            {% for error in workplace_form.company_address.errors %}
+                              <p class="text-danger">{{ error }}</p>
+                            {% endfor %}
+                          </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">ZIP de residencia</label>
+                        <div class="col-md-9">
+                            {% render_field workplace_form.company_zip  class="form-control" %}
+                            {% for error in workplace_form.company_zip.errors %}
+                              <p class="text-danger">{{ error }}</p>
+                            {% endfor %}
+                          </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Teléfono</label>
+                        <div class="col-md-9">
+                            {% render_field workplace_form.company_phone  class="form-control" %}
+                            {% for error in workplace_form.company_phone.errors %}
+                              <p class="text-danger">{{ error }}</p>
+                            {% endfor %}
+                          </div>
+                      </div>
+                    </div>
+
+
+                    </div>
+                  </form>
+                </div>
+              {% comment %} {% endif %} {% endcomment %}
+                {% comment %} Pestaña info Company {% endcomment %}
+              {% if  company %}
+                <div class="tab-pane" id="info_company">
+                  <form class="form-horizontal">
+                    
+                    <div class="row">
+                      
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">Nombre de la empresa</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_name }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">NIT</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.nit }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">Pais</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_country }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">Región</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_region }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">Ciudad</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_city }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">Dirección</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_address }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">ZIP de la empresa</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_zip }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">Teléfono</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.company_phone }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">Cámara y Comercio</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.camara_comercio }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+
+                      <div class="col-md-6">
+                        <div class="form-group row">
+                          <label for="" class="col-md-3 col-form-label">Area de Registro</label>
+                          <div class="col-md-9">
+                            <input type="text" class="form-control" value="{{ company.area_registro }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-12">
+                        <div class="form-group row">
+                          <label for="" class="col-md-2 col-form-label">Información de la empresa</label>
+                          <div class="col-md-10">
+                            <input type="textarea" class="form-control" value="{{ company.info_empresa }}" disabled>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </form>
+                  <table class="table">
+                          <thead>
+                            <tr>
+                              <th class="text-center">Parámetro</th>
+                              <th class="text-center">Archivo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>Logo de empresa</td>
+                              <td class="text-center">
+                                  {% if object.document_front_image %}
+                                    <p>
+                                      <img class="img-fluid img-200" src="{{ company.logo_empresa.url }}" alt="Front">
+                                    </p>
+                                    <a href="javascript:;" class="btn btn-sm btn-primary btn-preview" data-src="{{ company.logo_empresa.url }}">Ver</a>
+                                    <a href="{{ company.logo_empresa.url }}" download="{{ company.text }}logo_empresa" class="btn btn-sm btn-secondary">Descargar</a>
+                                  {% else %}
+                                    <span>No se ha cargado ningún documento</span>
+                                  {% endif %}
+                              </td>
+                            </tr>
+                            
+                          </tbody>
+                        </table>
+
+                </div>
+              {% endif %}
+                {% comment %}  Pestaña Info bancaria {% endcomment %}
+              <div class="tab-pane" id="info_bancaria">
+                <form class="form-horizontal">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Banco</label>
+                        <div class="col-md-9">
+                          {% render_field financial_form.bank  class="form-control" %}
+                          {% for error in financial_form.bank.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Número de cuenta</label>
+                        <div class="col-md-9">
+                          {% render_field financial_form.account_number  class="form-control" %}
+                          {% for error in financial_form.account_number.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Tipo de Cuenta</label>
+                        <div class="col-md-9">
+                          {% render_field financial_form.account_type  class="form-control" %}
+                          {% for error in financial_form.account_type.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Subtipo de Cuenta</label>
+                        <div class="col-md-9">
+                          {% render_field financial_form.account_subtype  class="form-control" %}
+                          {% for error in financial_form.account_subtype.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Código ABA</label>
+                        <div class="col-md-9">
+                          {% render_field financial_form.aba_code  class="form-control" %}
+                          {% for error in financial_form.aba_code.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Código SWIFT</label>
+                        <div class="col-md-9">
+                          {% render_field financial_form.swift_code  class="form-control" %}
+                          {% for error in financial_form.swift_code.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-4 col-form-label">Certificación Bancaria</label>
+                        <div class="col-md-8">
+                          {% render_field financial_form.certification_file  class="form-control" %}
+                          {% for error in financial_form.certification_file.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+    
+                    
+
+                  </div>
+                  <div class="row mt-3 card-footer">
+                    <a href="{% url 'user-list'  %}" class="btn btn-default mr-8">Volver</a>
+                    <button type="submit" class="btn btn-primary float-right ml-4" name="button">Guardar</button>
+                  </div>
+                </form>
+              </div>
+            
+                <!-- /.tab-pane -->
+
+              
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+
+<script type="text/javascript">
+  $("input[data-bootstrap-switch]").each(function(){
+    $(this).bootstrapSwitch('state', $(this).prop('checked'));
+  });
+
+  const select_country = document.getElementById('country');
+  const select_region = document.getElementById('region');
+  const select_city = document.getElementById('city');
+  const select_role = document.getElementById('id_role');
+  const select_subrole = document.getElementById('id_group');
+
+  if (select_region) {
+    select_region.addEventListener('change', (e) => {
+      let country_id = select_country.value;
+      let region_id = e.target.value;
+      if (country_id && region_id) {
+        display_cities(country_id, region_id);
+      }
+    });
+  }
+
+  if (select_country) {
+    select_country.addEventListener('change', (e) => {
+      let country_id = e.target.value;
+      if (country_id) {
+        display_regions(country_id);
+      }
+    });
+  }
+
+  function display_regions(country_id) {
+    select_region.textContent = '';
+    get_regions(country_id)
+      .then(regions => {
+        let first_region = regions[0].id;
+        display_cities(country_id, first_region);
+
+        regions.forEach((region, i) => {
+          let option = document.createElement('option');
+          option.value = region['id'];
+          option.innerHTML = region['name'];
+          select_region.appendChild(option);
+        });
+      })
+      .catch( err => {
+        select_city.textContent = '';
+        console.warn(err)
+      });
+  }
+
+  function display_cities(country_id, region_id) {
+    select_city.textContent = '';
+    get_cities(country_id, region_id)
+      .then(cities => {
+        cities.forEach((city, i) => {
+          let option = document.createElement('option');
+          option.value = city['id'];
+          option.innerHTML = city['name'];
+          select_city.appendChild(option);
+        });
+
+      })
+      .catch( err => console.warn(err) );
+
+  }
+
+
+  if (select_role){
+    select_role.addEventListener('change', (e) => {
+      let role_id = e.target.value
+      if (role_id){
+        display_subroles(role_id)
+      }
+    });
+  }
+
+  function display_subroles(role_id){
+    select_subrole.textContent = ''
+    get_subroles(role_id) 
+      .then(subroles => {
+        subroles.forEach((role, i) => {
+          let option = document.createElement('option');
+          option.value = role['id'];
+          option.innerHTML = role['name'];
+          select_subrole.appendChild(option);
+        });
+    })
+    .catch( err => console.warn(err) );
+  }
+
+  const get_subroles = async (role_id) => {
+    const url = Urls.subrole_apilist(role_id);
+    const response = await fetch(url, {
+      method: 'get',
+    });
+    return response.json();
+  }
+
+</script>
+{% endblock %}

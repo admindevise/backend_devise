@@ -1,0 +1,408 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/select2/css/select2.min.css' %}">
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.css' %}">
+
+<style media="screen">
+  #_action_file_format{
+    display: none;
+  }
+  #_action_file_format.active{
+    display: block;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Usuarios de Notaria</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item active">Users Notaria</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="card">
+      <div class="card-header">
+        {% comment %} <h3 class="card-title">Users</h3> {% endcomment %}
+
+        <div class="card-tools">
+          <button type="button" class="btn btn-tool" data-card-widget="collapse" data-toggle="tooltip" title="Collapse">
+            <i class="fas fa-minus"></i></button>
+          <button type="button" class="btn btn-tool" data-card-widget="remove" data-toggle="tooltip" title="Remove">
+            <i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <form action="" method="get">
+          <div class="row p-2">
+            <div class="col-sm-12 col-md-6 mt-1">
+              <!-- <input type="text" class="form-control" name="filter" value="{{ filter }}" placeholder="usuario, email"> -->
+              <select class="select2" multiple="multiple" name="filter" style="width: 100%">
+                {% if filter_obj.value %}
+                  {% for filter in filter_obj.value %}
+                    <option value="{{ filter }}" selected>{{ filter }}</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            </div>
+
+            <div class="col-sm-12 col-md-6 mt-1">
+              <div class="form-group row">
+                <label  class="col-md-3 col-form-label">Estado:</label>
+                <div class="col-md-9">
+                  <select class="custom-select" name="verified">
+                    <option value="">Todos</option>
+                    <option value="1" {%if filter_obj.filter_verified == '1' %}selected{% endif %}>Activos</option>
+                    <option value="0" {%if filter_obj.filter_verified == '0' %}selected{% endif %}>Inactivos</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="row p-2">
+            <div class="col mt-1">
+              <button type="submit" class="btn btn-primary ml-2">Filtrar</button>
+              {% if perms.user.add_user %}
+                <a href="{% url 'user-notaria-add' %}" class="btn btn-primary">Nuevo</a>
+              {% endif %}
+              {% if filter_obj.url %}
+                <a href="{% url 'user-notaria-list' %}" class="btn btn-warning">Limpiar filtros</a>
+              {% endif %}
+            </div>
+          </div>
+        </form>
+
+        <form action="" method="">
+          <div class="row p-2">
+            <div class="col-4 mt-1">
+              <input type="hidden" name="model_action" value="user">
+              <select id='_action_select' class="custom-select" name="_action">
+                <option value="" selected="">---</option>
+                <option value="export_admin_action">Export Selected Users</option>
+              </select>
+              <div class="">
+                <span id="_action_select_all" class="text-primary pt-2 pl-2" style="display: none; cursor: pointer;">Seleccionar {{ page_obj.paginator.count }} objetos</span>
+                <span id="_action_select_clear" class="text-primary pt-2 pl-2" style="display: none; cursor: pointer;">Limpiar seleccion</span>
+                <span id="_action_error_selection" class="text-danger pt-2 pl-2" style="display: none">No se encuentran elementos</span>
+                <span id="_action_error_action" class="text-danger pt-2 pl-2" style="display: none">Por favor seleccione una acción</span>
+              </div>
+            </div>
+            <div class="col-1 mt-1" id="_action_file_format">
+              <select class="form-control" name="file_format">
+                <option value="" selected="">---</option>
+                <option value="0">csv</option>
+                <option value="1">xls</option>
+                <option value="2">xlsx</option>
+                <option value="3">pdf</option>
+                <!-- <option value="4">ods</option>
+                <option value="5">json</option>
+                <option value="6">yaml</option>
+                <option value="7">html</option> -->
+              </select>
+            </div>
+            <div class="col-7 mt-1">
+              <button id="_action_confirm_button" type="button" class="btn btn-primary">Enviar</button>
+              <span id="_count_selected_items" class="text-muted ml-2" total-elements="{{ page_obj.paginator.count }}">
+              </span>
+            </div>
+
+          </div>
+        </form>
+
+        <form id="action-list-form" class="" action="{% url 'user-list-export' %}" method="post">{% csrf_token %}
+          <input id="_selected_all_elements" type="hidden" name="selected-all-elements" value="0">
+          <input id="_action" type="hidden" name="_action" value="">
+          <input id="_format" type="hidden" name="_format_file" value="">
+          <input id="_filter_verified" type="hidden" name="filter_verified" value="{{ filter_verified }}">
+
+          {% if filter_obj.value %}
+            {% for filter in filter_obj.value %}
+              <input type="hidden" name="filter" value="{{ filter }}">
+            {% endfor %}
+          {% endif %}
+
+          <table class="table table-striped table-responsive projects">
+            <thead>
+              <tr>
+                <th class="" style="width: 1%">
+                  <input id="_action_selection_page" class="" type="checkbox"
+                    name="" value="">
+                </th>
+                <th class="">Correo</th>
+                <th class="text-center">Rol-Subrol</th>
+                <th class="text-center">Telefono</th>
+                <th class="text-center">Notaria</th>
+                <th class="text-center">Active</th>
+                <th class="text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for object in object_list %}
+                <tr>
+                  <td>
+                    <input class="form-checked-input" type="checkbox"
+                      name="_action_selection" value="{{ object.pk }}">
+                  </td>
+                  <td>{{ object.email }}</td>
+                  {% comment %} <td class="text-center">{{ object.get_country_display }}</td> {% endcomment %}
+                  <td class="text-center">{{ object.role }}-{{ object.groups.all.0 }}</td>
+                  <td class="text-center">{{ object.phone}}</td>
+                  <td class="text-center">{{ object.notaria}}</td>
+                  <td class="text-center">
+                    {% if object.is_active %}
+                      <span class="badge badge-primary">Active</span>
+                    {% else %}
+                        <span class="badge badge-danger">Inactive</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-center">
+                    {% if perms.user.view_user %}
+                      <a href="{% url 'user-notaria-detail' object.pk %}" class="ml-2" > <i class="far fa-eye nav-icon"></i> </a>
+                    {% endif %}
+                    
+                    {% if object.is_active %}
+                      <a href="#!" id="deactivate_user" onclick="deactivate_function('{{object.pk}}','{{object.is_active}}')" class="ml-2" ><i class="fas fa-ban nav-icon"> </i> </a>
+                    {% else %}
+                      <a href="#!" id="activate_user" onclick="deactivate_function('{{object.pk}}','{{object.is_active}}')" class="ml-2" ><i class="fas fa-check nav-icon"> </i> </a>
+                    {% endif %}
+                    <a href="#!" id="delete_user" onclick="delete_function('{{object.pk}}')" class="ml-2" ><i class="far fa-trash-alt nav-icon"></i></a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </form>
+      </div>
+      <!-- /.card-body -->
+
+      <div class="card-footer">
+
+        <div class="dataTables_paginate paging_simple_numbers">
+          <ul class="float-left">
+            <span style="font-weight: bold;">Total: {{ page_obj.paginator.count }}</span>
+          </ul>
+          <ul class="pagination float-right">
+            {% if page_obj.has_previous %}
+              <li class="paginate_button page-item"><a class="page-link"
+                  href="?page=1{{filter_obj.url}}">«</a>
+              </li>
+              <li class="paginate_button page-item"><a class="page-link"
+                  href="?page={{ page_obj.previous_page_number }}{{filter_obj.url}}">Previous</a>
+              </li>
+            {% endif %}
+
+            {% for i in pages %}
+              {% if page_obj.number == i %}
+              <li class="paginate_button page-item">
+                <a class="page-link" href="javascript:;">
+                  Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                </a>
+              </li>
+              {% else %}
+              <li class="paginate_button page-item">
+                <a class="page-link" href="?page={{i}}{{filter_obj.url}}">
+                  {{i}}
+                </a>
+              </li>
+              {% endif %}
+
+            {% endfor %}
+            
+            
+
+            {% if page_obj.has_next %}
+              <li class="paginate_button page-item"><a class="page-link"
+                  href="?page={{ page_obj.next_page_number }}{{filter_obj.url}}">Next</a>
+              </li>
+              <li class="paginate_button page-item"><a class="page-link"
+                  href="?page={{ page_obj.paginator.num_pages }}{{filter_obj.url}}">»</a>
+              </li>
+            {% endif %}
+
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/select2/js/select2.full.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.js' %}"></script>
+<script src="{% static 'apps/core/js/actions.js' %}"></script>
+<script type="text/javascript">
+
+{% if perms.user.delete_user %}
+
+  function  delete_function(user_pk) {
+    Swal.fire({
+      title: 'Proceso de eliminación',
+      text: 'Por favor confirme si desea eliminar el usuario. Ésta acción no se puede deshacer',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Eliminar',
+      confirmButtonColor: '#ff0000',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        delete_user(user_pk);
+      }
+    })
+  }
+
+  function delete_user (user_pk, action, notes='') {
+    console.log("borrando acá el usuario", user_pk)
+    let form_data = new FormData();
+		form_data.append("pk", user_pk);
+		form_data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+		url = Urls.user_delete();
+    console.log("URL es ", url);
+
+		fetch(url, {
+			method: 'post',
+			body: form_data,
+		})
+		.then((response) => {
+			return response.json();
+		})
+    .then((data) => {
+      if (data['status'] == 'success') {
+
+        Swal.fire({
+          title: `${data['title']}`,
+          text: `${data['message']}`,
+          confirmButtonText: 'Aceptar',
+          confirmButtonColor: '#a5dc86',
+          icon: 'success',
+        }).then((result) => {
+          console.log("Recargando");
+          location.reload();
+        });
+      }else{
+        Swal.fire({
+          title: `${data['title']}`,
+          text: data['message'],
+          icon: 'error',
+          confirmButtonText: 'Cerrar',
+        });
+      }
+    })
+    .catch((error) => {
+      Swal.fire({
+        title: 'Error al cambiar de estado',
+        text: 'Error procesando la peticion por favor consulte a soporte',
+        icon: 'error',
+        confirmButtonText: "Cerrar",
+        confirmButtonColor: '#6e7d88',
+      });
+    });
+  }
+{% endif %}
+
+{% if perms.user.change_user %}
+function  deactivate_function(user_pk,is_active) {
+  let message = 'activación';
+  let icon = 'success';
+  let color = '#a5dc86'
+  
+  if(is_active == 'True'){
+    message = 'desactivación';
+    icon = 'warning';
+    color = '#f9bd08'
+  }
+  else{
+    console.log("activando")
+
+  }
+
+  Swal.fire({
+    title: 'Proceso de ' + message ,
+    text: '¿Esta seguro de proceder con la ' + message + ' de éste elemento?',
+    cancelButtonText: 'Cancelar',
+    icon: icon,
+    showCancelButton: true,
+    confirmButtonText: 'Proceder',
+    confirmButtonColor: color,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      deactivate(user_pk);
+    }
+  })
+}
+
+function deactivate (user_pk) {
+
+  let form_data = new FormData();
+  form_data.append("pk", user_pk);
+  form_data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+  url = Urls.user_deactivate();
+  fetch(url, {
+    method: 'post',
+    body: form_data,
+  })
+  .then((response) => {
+    return response.json();
+  })
+  .then((data) => {
+    if (data['is_active'] == 'success') {
+      Swal.fire({
+        title: `${data['title']}`,
+        text: `${data['message']}`,
+        icon: 'success',
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: '#a5dc86',
+      }).then((result) => {
+        location.reload();
+      });
+    }else{
+      Swal.fire({
+        title: `${data['title']}`,
+        text: data['message'],
+        icon: 'error',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#a5dc86',
+      });
+    }
+  })
+  .catch((error) => {
+    Swal.fire({
+      title: 'Error al cambiar el estado',
+      text: 'Error procesando la peticion por favor consulte a soporte',
+      icon: 'error',
+      confirmButtonText: 'Cerrar',
+      confirmButtonColor: '#a5dc86',
+    });
+  });
+}
+{% endif %}
+
+  $(function () {
+    $('.select2').select2({
+      placeholder: 'Buscar por: Nombre, E-mail',
+      tags: true,
+      tokenSeparators: [',']
+    });
+  });
+
+
+</script>
+{% endblock %}

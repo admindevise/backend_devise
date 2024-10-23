@@ -1,0 +1,277 @@
+{% load static i18n %}
+{% load auth_extras %}
+
+<!-- Main Sidebar Container -->
+<aside class="main-sidebar sidebar-dark-primary elevation-4">
+  <!-- Brand Logo -->
+  {% block logo %}
+      <a href="/" class="brand-link">
+          <img src="{% static 'icons/device_brand.png' %}" alt="Devise logo" width="220" >
+      </a>
+  {% endblock %}
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <!-- Sidebar user panel (optional) -->
+    {% block user_panel %}
+      <!-- Sidebar user panel (optional) -->
+      <div class="user-panel mt-3 pb-3 mb-3 d-flex">
+        <div class="image">
+          {% if request.user.selfie %}
+            <img src="{{ request.user.selfie.url }}" class="img-circle elevation-2" alt="User Image">
+          {% else %}
+            <img src="{% static 'adminlte-3.1.0/dist/img/unknow_user.png' %}" class="img-circle elevation-2" alt="User Image">
+          {% endif %}
+        </div>
+        <div class="info">
+          <a href="#" class="d-block">{{ request.user.email }}</a>
+        </div>
+      </div>
+    {% endblock %}
+
+    <!-- Sidebar Menu -->
+    <nav class="mt-2">
+      <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+        <!-- Add icons to the links using the .nav-icon class
+             with font-awesome or any other icon font library -->
+
+        <li class="nav-item">
+          <a href="{% url 'devise-dashboard1' %}#" class="nav-link ml-1 {% if nav_inicio %}active{% endif %}">
+            <i class="nav-icon fas fa-home"></i>
+            <p>Dashboard</p>
+          </a>
+        </li>
+
+        
+        {% if perms.user.view_user %}
+        <li class="nav-item">
+          <a href="{% url 'company-list' %}" class="nav-link ml-1 {% if nav_company_list %}active{% endif %} ">
+            <i class="fas fa-building nav-icon"></i>
+            <p>Sponsor Company</p>
+          </a>
+        </li>
+        {% endif %}
+        {% if request.user|has_group:"NOTARIO" %}
+            <li class="nav-item">
+            <a href="{% url 'asset-notaria-list' %}" class="nav-link ml-1 {% if nav_assets %}active{% endif %} ">
+              <i class="fas fa-money-check-alt nav-icon"></i>
+              <p>*Activos Notaria</p>
+            </a>
+          </li>
+        {% else %}
+            {% if perms.asset.view_activoinversion %}
+              <li class="nav-item">
+                <a href="{% url 'asset-admin-list' %}" class="nav-link ml-1 {% if nav_assets %}active{% endif %} ">
+                  <i class="fas fa-money-check-alt nav-icon"></i>
+                  <p>Activos</p>
+                </a>
+              </li>
+            {% endif %}
+        {% endif %}
+        
+        {% if perms.user.view_user %}
+        <li class="nav-item">
+          <a href="{% url 'user-list' %}" class="nav-link ml-1 {% if nav_users_login %}active{% endif %} ">
+            <i class="fas fa-user nav-icon"></i>
+            <p>Usuarios</p>
+          </a>
+        </li>
+        {% endif %}
+        {% if perms.user.view_user %}
+          <li class="nav-item {% if nav_fiducia_list or nav_users_fiducia %} menu-is-opening menu-open active {% endif %} ">
+            <a href="#" class="nav-link ml-1 {% if nav_fiducia_list or nav_users_fiducia %}active {% endif %}">
+              <i class="nav-icon fas fa-dollar-sign"></i>
+              <p>
+                Fiducia
+                <i class="fas fa-angle-left right"></i>
+              </p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item ml-3 ">
+                <a href="{% url 'user-fiducia-list' %}" class="nav-link {% if nav_users_fiducia %}active{% endif %}" style="background-color: {% if nav_users_fiducia %} #B9DE2C; {% endif %}" >
+                  <i class="fas fa-user-tie nav-icon"></i>
+                  <p>Usuarios</p>
+                </a>
+              </li>
+              <li class="nav-item ml-3 ">
+                <a href="{% url 'fiducia-list' %}" class="nav-link {% if nav_fiducia_list %}active{% endif %}" style="background-color: {% if nav_fiducia_list %} #B9DE2C; {% endif %}">
+                  <i class="fas fa-university nav-icon"></i>
+                  <p>Fiducias</p>
+                </a>
+              </li>
+              
+            </ul>
+          </li>
+        
+        {% endif %}
+        {% if perms.user.view_user %}
+          <li class="nav-item  {% if nav_notaria_list or nav_users_notaria %} menu-is-opening menu-open {% endif %} ">
+            <a href="#" class="nav-link ml-1 {% if nav_notaria_list or nav_users_notaria %} active {% endif %}">
+              <i class="nav-icon fas fa-passport"></i>
+              <p>
+                Notaria
+                <i class="fas fa-angle-left right"></i>
+              </p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item ml-3 ">
+                <a href="{% url 'user-notaria-list' %}" class="nav-link {% if nav_users_notaria %}active{% endif %}" style="background-color: {% if nav_users_notaria %} #B9DE2C; {% endif %}">
+                  <i class="fas fa-user-shield nav-icon"></i>
+                  <p>Notarios</p>
+                </a>
+              </li>
+              <li class="nav-item ml-3 ">
+                <a href="{% url 'notaria-list' %}" class="nav-link {% if nav_notaria_list %}active{% endif %}" style="background-color: {% if nav_notaria_list %} #B9DE2C; {% endif %}">
+                  <i class="fas fa-file-signature nav-icon"></i>
+                  <p>Sedes</p>
+                </a>
+              </li>
+              
+            </ul>
+          </li>
+        {% endif %}
+        {% if perms.academia.view_academia %}
+          <li class="nav-item  {% if nav_academia %} menu-is-opening menu-open {% endif %} ">
+            <a href="#" class="nav-link ml-1 {% if nav_academia %} active {% endif %}">
+              <i class="nav-icon fas fa-passport"></i>
+              <p>
+                Academia
+                <i class="fas fa-angle-left right"></i>
+              </p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item ml-3 ">
+                <a href="{% url 'academia-categoria-list' %}" class="nav-link {% if nav_academia_categoria %}active{% endif %}" style="background-color: {% if nav_academia_categoria %} #B9DE2C; {% endif %}">
+                  <i class="fas fa-user-shield nav-icon"></i>
+                  <p>Categoria</p>
+                </a>
+              </li>
+              <li class="nav-item ml-3 ">
+                <a href="{% url 'academia-articulo-list' %}" class="nav-link {% if nav_academia_articulo %}active{% endif %}" style="background-color: {% if nav_academia_articulo %} #B9DE2C; {% endif %}">
+                  <i class="fas fa-file-signature nav-icon"></i>
+                  <p>Articulos</p>
+                </a>
+              </li>
+              
+            </ul>
+          </li>
+        {% endif %}
+
+        {% if perms.user.view_role %}
+        <li class="nav-item">
+          <a href="{% url 'role-list' %}" class="nav-link ml-1 {% if nav_referidos %}active{% endif %} ">
+            <i class="fas fa-users nav-icon"></i>
+            <p>Referidos</p>
+          </a>
+        </li>
+        {% endif %}
+        
+        {% if perms.user.view_role %}
+        <li class="nav-item">
+          <a href="{% url 'role-list' %}" class="nav-link ml-1 {% if nav_roles %}active{% endif %} ">
+            <i class="fas fa-user-tag nav-icon"></i>
+            <p>Rol</p>
+          </a>
+        </li>
+        {% endif %}
+
+        {% if perms.auth.view_group %}
+        <li class="nav-item">
+          <a href="{% url 'subrole-list' %}" class="nav-link ml-1 {% if nav_subroles %}active{% endif %} " >
+            <i class="fas fa-key nav-icon"></i>
+            <p>Sub-Role and Permissions</p>
+          </a>
+        </li>
+        {% endif %}
+
+{% comment %} OJO LA CONFIGURACION {% endcomment %}
+        {% if perms.menu.menu_config_document_type %}
+
+        <li class="nav-item  {% if nav_idtype_list or nav_accounttype_list or nav_accountsubtype_list or nav_bank_list %} menu-is-opening menu-open {% endif %} " >
+            <a href="#" class="nav-link ml-1 {% if nav_idtype_list or nav_accounttype_list or nav_accountsubtype_list or nav_bank_list %} active {% endif %}" style="background-color: {% if nav_idtype_list %} ##b9de2c6b; {% endif %}" >
+              <i class="nav-icon fas fa-passport"></i>
+              <p>
+                Configuración
+                <i class="fas fa-angle-left right"></i>
+              </p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item ml-3 ">
+                <a href="{% url 'idtype-list' %}" class="nav-link {% if nav_idtype_list %}active{% endif %} " style="background-color: {% if nav_idtype_list %} #B9DE2C; {% endif %}" >
+                  <i class="fas fa-user-shield nav-icon"></i>
+                  <p>Tipo Documento</p>
+                </a>
+              </li>
+              <li class="nav-item ml-3 ">
+                <a href="{% url 'accounttype-list' %}" class="nav-link {% if nav_accounttype_list %}active{% endif %}" style="background-color: {% if nav_accounttype_list %} #B9DE2C; {% endif %}">
+                  <i class="fas fa-file-signature nav-icon"></i>
+                  <p>Tipo Cta</p>
+                </a>
+              </li>
+              <li class="nav-item ml-3 ">
+                <a href="{% url 'accountsubtype-list' %}" class="nav-link {% if nav_accountsubtype_list %}active{% endif %}" style="background-color: {% if nav_accountsubtype_list %} #B9DE2C; {% endif %}">
+                  <i class="fas fa-file-signature nav-icon"></i>
+                  <p>Tipo Sub-Cta</p>
+                </a>
+              </li>
+              <li class="nav-item ml-3 ">
+                <a href="{% url 'bank-list' %}" class="nav-link {% if nav_bank_list %}active{% endif %}" style="background-color: {% if nav_bank_list %} #B9DE2C; {% endif %}">
+                  <i class="fas fa-university nav-icon"></i>
+                  <p>Bancos</p>
+                </a>
+              </li>
+            </ul>
+          </li>
+
+        {% endif %}
+
+{% comment %} OJO LA CONFIGURACION {% endcomment %}
+
+{% comment %} OJO LA SEGURIDAD {% endcomment %}
+        {% if user.is_staff %}
+
+        <li class="nav-item  {% if nav_list_fail_users or nav_config_security %} menu-is-opening menu-open {% endif %} " >
+            <a href="#" class="nav-link ml-1 {% if nav_list_fail_users or nav_config_security %} active {% endif %}" style="background-color: {% if nav_list_fail_users %} ##b9de2c6b; {% endif %}" >
+              <i class="nav-icon fas fa-lock"></i>
+              <p>
+                SEGURIDAD
+                <i class="fas fa-angle-left right"></i>
+              </p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item ml-3 ">
+                <a href="{% url 'user-locked-list' %}" class="nav-link {% if nav_list_fail_users %}active{% endif %} " style="background-color: {% if nav_list_fail_users %} #B9DE2C; {% endif %}" >
+                  <i class="fas fa-user-shield nav-icon"></i>
+                  <p>Intentos Fallidos</p>
+                </a>
+              </li>
+              <li class="nav-item ml-3 ">
+                <a href="{% url 'params-detail' 1 %}" class="nav-link {% if nav_config_security %}active{% endif %}" style="background-color: {% if nav_config_security %} #B9DE2C; {% endif %}">
+                  <i class="fas fa-file-signature nav-icon"></i>
+                  <p>Configuracion</p>
+                </a>
+              </li>
+              
+            </ul>
+          </li>
+
+        {% endif %}
+
+{% comment %} OJO LA CONFIGURACION {% endcomment %}
+
+        <li class="nav-item">
+          <a href="{% url 'logout' %}" class="nav-link ml-1">
+            <i class="nav-icon fas fa-sign-out-alt"></i>
+            <p>Log out</p>
+          </a>
+        </li>
+
+      {% comment %} AutoLogout function paso 3{% endcomment %}
+      {{ redirect_to_login_immediately }}
+
+      </ul>
+    </nav>
+    <!-- /.sidebar-menu -->
+  </div>
+  <!-- /.sidebar -->
+</aside>

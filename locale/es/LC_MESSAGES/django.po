@@ -1,0 +1,338 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-21 09:32-0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/asset/models.py:56
+msgid "Activo pendiente aprobacion Sponsor "
+msgstr ""
+
+#: apps/asset/models.py:57
+msgid "Pendiente respuesta del Propietario"
+msgstr ""
+
+#: apps/asset/models.py:59
+msgid "Activo aprobado por el Sponsor"
+msgstr ""
+
+#: apps/asset/models.py:60
+msgid "Pendiente respuesta del Sponsor"
+msgstr ""
+
+#: apps/asset/models.py:62
+msgid "Activo aprobado por Devise"
+msgstr ""
+
+#: apps/asset/templates/asset_list.html:75
+msgid "Status User"
+msgstr ""
+
+#: apps/asset/views/asset_views.py:213 apps/asset/views/asset_views.py:229
+msgid "Activo Actualizado"
+msgstr ""
+
+#: apps/asset/views/asset_views.py:214
+msgid "Se ha enviado el mensaje al sponsor"
+msgstr ""
+
+#: apps/asset/views/asset_views.py:230
+msgid "Queda a la espera de la constitucion del fideicomiso"
+msgstr ""
+
+#: apps/user/templates/user/role/role_create.html:14
+#: apps/user/templates/user/role/role_create.html:20
+#: apps/user/templates/user/subrole/subrole_create.html:17
+#: apps/user/templates/user/subrole/subrole_create.html:23
+msgid "Create"
+msgstr "Crear"
+
+#: apps/user/templates/user/role/role_create.html:14
+#: apps/user/templates/user/role/role_create.html:19
+#: apps/user/templates/user/role/role_create.html:48
+#: apps/user/templates/user/role/role_detail.html:14
+#: apps/user/templates/user/role/role_detail.html:19
+#: apps/user/templates/user/role/role_detail.html:47
+#: apps/user/templates/user/role/role_list.html:24
+#: apps/user/templates/user/role/role_list.html:29
+#: apps/user/templates/user/role/role_update.html:16
+#: apps/user/templates/user/role/role_update.html:21
+#: apps/user/templates/user/subrole/subrole_update.html:22
+msgid "Role"
+msgstr "Rol"
+
+#: apps/user/templates/user/role/role_create.html:18
+#: apps/user/templates/user/role/role_detail.html:18
+#: apps/user/templates/user/role/role_update.html:20
+#: apps/user/templates/user/subrole/subrole_create.html:21
+#: apps/user/templates/user/subrole/subrole_detail.html:18
+#: apps/user/templates/user/subrole/subrole_update.html:21
+msgid "Home"
+msgstr "Inicio"
+
+#: apps/user/templates/user/role/role_create.html:37
+#: apps/user/templates/user/role/role_detail.html:37
+#: apps/user/templates/user/role/role_update.html:39
+#: apps/user/templates/user/subrole/subrole_create.html:40
+#: apps/user/templates/user/subrole/subrole_detail.html:37
+#: apps/user/templates/user/subrole/subrole_update.html:40
+msgid "General information"
+msgstr ""
+
+#: apps/user/templates/user/role/role_create.html:48
+#: apps/user/templates/user/role/role_detail.html:47
+#: apps/user/templates/user/role/role_list.html:98
+#: apps/user/templates/user/role/role_list.html:184
+#: apps/user/templates/user/role/role_update.html:50
+#: apps/user/templates/user/subrole/subrole_create.html:51
+#: apps/user/templates/user/subrole/subrole_detail.html:48
+#: apps/user/templates/user/subrole/subrole_list.html:96
+#: apps/user/templates/user/subrole/subrole_list.html:182
+#: apps/user/templates/user/subrole/subrole_update.html:51
+msgid "Name"
+msgstr "Nombre"
+
+#: apps/user/templates/user/role/role_create.html:59
+#: apps/user/templates/user/role/role_detail.html:55
+#: apps/user/templates/user/role/role_update.html:61
+#: apps/user/templates/user/subrole/subrole_create.html:17
+#: apps/user/templates/user/subrole/subrole_create.html:22
+#: apps/user/templates/user/subrole/subrole_detail.html:14
+#: apps/user/templates/user/subrole/subrole_detail.html:19
+#: apps/user/templates/user/subrole/subrole_list.html:24
+#: apps/user/templates/user/subrole/subrole_list.html:29
+#: apps/user/templates/user/subrole/subrole_update.html:17
+msgid "Sub-role"
+msgstr "Sub-rol"
+
+#: apps/user/templates/user/role/role_create.html:74
+#: apps/user/templates/user/role/role_update.html:80
+#: apps/user/templates/user/subrole/subrole_create.html:78
+#: apps/user/templates/user/subrole/subrole_update.html:82
+msgid "Save"
+msgstr "Guardar"
+
+#: apps/user/templates/user/role/role_create.html:75
+#: apps/user/templates/user/role/role_detail.html:71
+#: apps/user/templates/user/role/role_update.html:81
+#: apps/user/templates/user/subrole/subrole_create.html:79
+#: apps/user/templates/user/subrole/subrole_detail.html:74
+#: apps/user/templates/user/subrole/subrole_update.html:83
+msgid "Back"
+msgstr "Volver"
+
+#: apps/user/templates/user/role/role_detail.html:14
+#: apps/user/templates/user/role/role_detail.html:20
+#: apps/user/templates/user/subrole/subrole_detail.html:14
+#: apps/user/templates/user/subrole/subrole_detail.html:20
+msgid "Detail"
+msgstr "Detalle"
+
+#: apps/user/templates/user/role/role_list.html:28
+#: apps/user/templates/user/subrole/subrole_list.html:28
+msgid "home"
+msgstr "inicio"
+
+#: apps/user/templates/user/role/role_list.html:64
+#: apps/user/templates/user/subrole/subrole_list.html:64
+msgid "Filter"
+msgstr "Filtrar"
+
+#: apps/user/templates/user/role/role_list.html:66
+#: apps/user/templates/user/subrole/subrole_list.html:65
+msgid "Add"
+msgstr "Agregar"
+
+#: apps/user/templates/user/role/role_list.html:69
+#: apps/user/templates/user/subrole/subrole_list.html:67
+msgid "Clear Filter"
+msgstr ""
+
+#: apps/user/templates/user/role/role_list.html:99
+#: apps/user/templates/user/subrole/subrole_list.html:97
+msgid "Actions"
+msgstr ""
+
+#: apps/user/templates/user/role/role_list.html:127
+#: apps/user/templates/user/subrole/subrole_list.html:125
+msgid "Total"
+msgstr ""
+
+#: apps/user/templates/user/role/role_list.html:135
+#: apps/user/templates/user/subrole/subrole_list.html:133
+msgid "Previous"
+msgstr ""
+
+#: apps/user/templates/user/role/role_list.html:143
+#: apps/user/templates/user/subrole/subrole_list.html:141
+msgid "Page"
+msgstr ""
+
+#: apps/user/templates/user/role/role_list.html:143
+#: apps/user/templates/user/subrole/subrole_list.html:141
+msgid "of"
+msgstr ""
+
+#: apps/user/templates/user/role/role_list.html:160
+#: apps/user/templates/user/subrole/subrole_list.html:158
+msgid "Next"
+msgstr ""
+
+#: apps/user/templates/user/role/role_update.html:16
+#: apps/user/templates/user/role/role_update.html:22
+#: apps/user/templates/user/subrole/subrole_update.html:17
+#: apps/user/templates/user/subrole/subrole_update.html:23
+msgid "Update"
+msgstr ""
+
+#: apps/user/templates/user/role/role_update.html:82
+#: apps/user/templates/user/role/role_update.html:109
+msgid "Delete"
+msgstr "Borrar"
+
+#: apps/user/templates/user/role/role_update.html:105
+msgid "Removal Process"
+msgstr ""
+
+#: apps/user/templates/user/role/role_update.html:106
+msgid "Please confirm if you want to delete the user."
+msgstr ""
+
+#: apps/user/templates/user/role/role_update.html:154
+msgid "Error changing state"
+msgstr ""
+
+#: apps/user/templates/user/role/role_update.html:155
+msgid "Error processing the request, Contact your Administrator!"
+msgstr ""
+
+#: apps/user/templates/user/subrole/subrole_create.html:65
+#: apps/user/templates/user/subrole/subrole_update.html:65
+msgid "Select Sub-role permissions"
+msgstr ""
+
+#: apps/user/templates/user/subrole/subrole_detail.html:56
+msgid "Permissions"
+msgstr ""
+
+#: apps/user/templates/user/user_create.html:118
+msgid "Choose"
+msgstr ""
+
+#: apps/user/views/backoffice_config_views.py:135
+#: apps/user/views/backoffice_config_views.py:286
+#: apps/user/views/backoffice_config_views.py:437
+#: apps/user/views/backoffice_config_views.py:588
+#: apps/user/views/backoffice_user_views.py:386
+msgid "Eliminacion exitosa!"
+msgstr ""
+
+#: apps/user/views/backoffice_config_views.py:136
+msgid "El Tipo Id a sido borrado"
+msgstr ""
+
+#: apps/user/views/backoffice_config_views.py:141
+#: apps/user/views/backoffice_config_views.py:292
+#: apps/user/views/backoffice_config_views.py:443
+#: apps/user/views/backoffice_config_views.py:594
+#: apps/user/views/backoffice_user_views.py:392
+msgid "Fallo al intentar eliminar el elemento!"
+msgstr ""
+
+#: apps/user/views/backoffice_config_views.py:142
+#: apps/user/views/backoffice_config_views.py:293
+#: apps/user/views/backoffice_config_views.py:444
+#: apps/user/views/backoffice_config_views.py:595
+#: apps/user/views/backoffice_user_views.py:393
+msgid "El elemento posee historicos en base de datos no puede ser eliminado"
+msgstr ""
+
+#: apps/user/views/backoffice_config_views.py:287
+msgid "El tipo Cta Bancaria a sido borrado"
+msgstr ""
+
+#: apps/user/views/backoffice_config_views.py:438
+msgid "El tipo Subcuenta Bancaria a sido borrado"
+msgstr ""
+
+#: apps/user/views/backoffice_config_views.py:589
+msgid "El Banco a sido borrado"
+msgstr ""
+
+#: apps/user/views/backoffice_user_views.py:387
+msgid "El usuario a sido borrado"
+msgstr ""
+
+#: apps/user/views/backoffice_user_views.py:409
+msgid "Desactivación exitosa"
+msgstr ""
+
+#: apps/user/views/backoffice_user_views.py:410
+msgid "El usuario ha sido deshabilitado"
+msgstr ""
+
+#: apps/user/views/backoffice_user_views.py:414
+msgid "Activación Exitosa"
+msgstr ""
+
+#: apps/user/views/backoffice_user_views.py:415
+msgid "El usuario a sido habilitado exitosamente"
+msgstr ""
+
+#: apps/user/views/roles_views.py:117 apps/user/views/subrole_views.py:133
+msgid "Successful Creation!"
+msgstr ""
+
+#: apps/user/views/roles_views.py:162 apps/user/views/subrole_views.py:172
+msgid "Successful Update!"
+msgstr ""
+
+#: apps/user/views/roles_views.py:202
+msgid "Successful removal!"
+msgstr ""
+
+#: apps/user/views/roles_views.py:203
+msgid "Role has been deleted!"
+msgstr ""
+
+#: apps/user/views/roles_views.py:208
+msgid "Failed Delete!"
+msgstr ""
+
+#: apps/user/views/roles_views.py:209
+msgid "This item is in use, cannot be deleted!"
+msgstr ""
+
+#: config/settings.py:188
+msgid "Spanish"
+msgstr ""
+
+#: config/settings.py:189
+msgid "English"
+msgstr ""
+
+#: templates/adminlte/base/login.html:80
+msgid "Email-User"
+msgstr ""
+
+#: templates/adminlte/base/login.html:87
+msgid "Password"
+msgstr ""
+
+#: templates/adminlte/base/login.html:94
+msgid "Sign In"
+msgstr ""

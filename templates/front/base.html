@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        #main {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        {% block styles %}
+        {% endblock %}
+    </style>
+</head>
+<body>
+    <div id="main">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+<script>
+    const post_api = async (method, path, data, callback, headers = {}) => {
+        const resp = await fetch(
+            'http://127.0.0.1:8000/' + path,
+            {
+                method: method,
+                body: JSON.stringify(data),
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...headers
+                },
+            }
+        );
+
+        callback(resp);
+    }
+
+    const handle_password_reset = (resp) => {
+        const password_error = document.querySelector('#password_error');
+        password_error.style.display = 'block';
+
+        if (resp.status !== 201) {
+            password_error.style.backgroundColor='lightcoral';
+
+            resp.json().then(data => {
+                password_error.innerHTML = data['detail']
+            });
+        } else {
+            password_error.style.backgroundColor='lightseagreen';
+            password_error.innerHTML = 'Se cambio la contraseña de forma exitosa.'
+        }
+    }
+
+    const send_info = (e) => {
+        const password_confirmation = document.querySelector('input[name="password_confirmation"]');
+        const password = document.querySelector('input[name="password"]');
+
+        const data = {
+            'password_confirmation': password_confirmation.value,
+            'password': password.value
+        }
+
+        post_api('POST', 'users/password/reset/done/{{ password_reset_slug }}/', data, handle_password_reset);
+
+        return false;
+    }
+</script>
+</html>

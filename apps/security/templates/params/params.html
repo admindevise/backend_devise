@@ -1,0 +1,134 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+{% load widget_tweaks %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.css' %}">
+
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Edición de tipo Cuenta Bancaria</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'accounttype-list' %}">Tipos</a></li>
+          <li class="breadcrumb-item active">Nuevo</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <!-- /.col -->
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header p-2">
+            
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal" action="" method="post" id="id_form_accounttype">
+                  {% csrf_token %}
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Maximo de intentos fallidos:</label>
+                        <div class="col-md-9">
+                          {% render_field form.max_failed_login_attempts  class="form-control" %}
+                          {% for error in form.max_failed_login_attempts.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <hr>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Tiempo por bloqueo Fallido</label>
+                        <div class="col-md-9">
+                          {% render_field form.login_lockout_duration  class="form-control" %}
+                          {% for error in form.login_lockout_duration.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <hr>
+                  <div class="row">
+                    <div class="col-md-12">
+                      <div class="form-group row">
+                        <label for="" class="col-md-2 col-form-label">Dias de vigencia de la claves</label>
+                        <div class="col-md-10">
+                          {% render_field form.password_expiry_days  class="form-control" type="text" %}
+                          {% for error in form.password_expiry_days.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <hr>
+                  <div class="row">
+                    <div class="col-md-12">
+                      <div class="form-group row">
+                        <label for="" class="col-md-2 col-form-label">Tiempo de Vigencia Token Recuperación de Contraseña:</label>
+                        <div class="col-md-10">
+                          {% render_field form.password_max_delta_change  class="form-control" type="text" %}
+                          {% for error in form.password_max_delta_change.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <hr>
+                  
+                  <div class="row mt-3">
+                    <button type="submit" class="btn btn-primary mr-2" name="button">Guardar</button>
+                    <a href="{% url 'accounttype-list'  %}" class="btn btn-default">Volver</a>
+                  </div>
+                </form>
+              </div>
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.js' %}"></script>
+
+<script type="text/javascript">
+  $("input[data-bootstrap-switch]").each(function(){
+    $(this).bootstrapSwitch('state', $(this).prop('checked'));
+  });
+
+  
+
+</script>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<link href='https://fonts.googleapis.com/css?family=Poppins' rel='stylesheet'>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Export</title>
+
+    <style>
+        @page {
+            size: letter landscape;
+            margin: 2cm;
+        }
+        body {
+			margin: 0;
+			padding: 0;
+			font-family: 'Poppins';font-size: 16px;
+		}
+
+        #list_items tr {
+            border-bottom: 1px solid black;
+            border-top: 1px solid black;
+            padding: 1rem 0;
+        }
+
+        #list_items td {
+            padding: .6rem 0;
+            font-size: 12px;
+        }
+
+        .red {
+            width: 50px;
+        }
+    </style>
+</head>
+
+<body>
+
+
+    <table>
+        <tr>
+            <td>
+                <img src="{{ current_scheme_host }}{% static 'pdf/logo_devise_1.png' %}" width="359"; name="logo devise">
+            </td>
+            <td style="vertical-align: bottom; text-align: center;">
+                Sponsor companies report - {% now "d M Y" %}
+            </td>
+        </tr>
+    </table>
+
+    <p style="margin: 2rem 0 0;">Exported by</p>
+    <p style="margin: 0 0 2rem;">
+        <strong>{{ user_report.get_full_name }}</strong>
+    </p>
+    <p></p>
+    <table style="border-collapse: collapse; width: 100%;" id="list_items">
+        <tbody>
+            <tr style="background-color: #B9DE2C; color: #261E60; padding: 0.5rem 0; border: 1px;">
+                <td style="text-align: center; padding: 0.5rem 0;"><strong>Nombre</strong></td>
+                <td style="text-align: center; padding: 0.5rem 0;"><strong>responsable</strong></td>
+                <td style="text-align: center; padding: 0.5rem 0;"><strong>City</strong></td>
+                <td style="text-align: center; padding: 0.5rem 0;"><strong>Teléono</strong></td>
+                <td style="text-align: center; padding: 0.5rem 0;"><strong>Dirección</strong></td>
+                <td style="text-align: center; padding: 0.5rem 0;"><strong>Zip Code</strong></td>
+                <td style="text-align: center; padding: 0.5rem 0;"><strong>NIT</strong></td>
+                <td style="text-align: center; padding: 0.5rem 0;"><strong>Camara Comercio</strong></td>
+                <td style="text-align: center; padding: 0.5rem 0;"><strong>Información</strong></td>
+                <td style="text-align: center; padding: 0.5rem 0;"><strong>Area registro</strong></td>
+                <td style="text-align: center; padding: 0.5rem 0;"><strong>Admin Approved</strong></td>
+
+
+            </tr>
+            {% for object in object_list %}
+            <tr>
+                <td style="text-align: center;">{{ object.company_name }}</td>
+                <td style="text-align: center;">{{ object.user.first_name }} {{ object.user.last_name }}</td>
+                <td style="text-align: center;">{{ object.company_city }}</td>
+                <td style="text-align: center;">{{ object.company_phone }}</td>
+                <td style="text-align: center;">{{ object.company_address }}</td>
+                <td style="text-align: center;">{{ object.company_zip_code }}</td>
+                <td style="text-align: center;">{{ object.nit }}</td>
+                <td style="text-align: center;">{{ object.camara_comercio }}</td>
+                <td style="text-align: center;">{{ object.info_empresa }}</td>
+                <td style="text-align: center;">{{ object.area_registro }}</td>
+                {% if object.admin_approved %}
+                    <td style="text-align: center;"> Aprobado</td>
+                {% else %}
+                    <td style="text-align: center;"> Sin aprobar</td>
+                {% endif %}
+                
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+
+</html>

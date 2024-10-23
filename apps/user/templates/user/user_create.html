@@ -1,0 +1,305 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+{% load widget_tweaks %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.css' %}">
+
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Nuevo Usuario</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-list' %}">Usuarios</a></li>
+          <li class="breadcrumb-item active">Nuevo</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <!-- /.col -->
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header p-2">
+            <ul class="nav nav-pills">
+              <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab">Información de ingreso</a></li>
+            </ul>
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal" action="" method="post" id="id_form_user">
+                  {% csrf_token %}
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Email</label>
+                        <div class="col-md-9">
+                          {% render_field form.email  class="form-control" %}
+                          {% for error in form.email.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    
+                  </div>
+
+                  <div class="row">
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Codigo referido</label>
+                        <div class="col-md-9">
+                          {% render_field form.referred_by_code  class="form-control" %}
+                          {% for error in form.referred_by_code.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Pais</label>
+                        <div class="col-md-9">
+                          {% render_field form.birth_country  class="form-control" type="number" %}
+                          {% for error in form.birth_country.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-2 col-form-label">Indicativo Teléfono:</label>
+                        <div class="col-md-4">
+                          <select id="id_indicative" class="form-control" name="indicative" required>
+                            <option value="">---</option>
+                                {% for country in countries %}
+                                  <option value="{{ country.phone }}" {% if object.indicative == country.phone %}selected{% endif %}
+                                  >{{ country.name }} +{{country.phone}}</option>
+                                  
+                                {% endfor %}
+                              </select>
+                        </div>
+                        <div class="col-md-6">
+                          <input type="number" name="phone" value="{{object.get_phone_number}}" maxlength="64" class="form-control" required="" id="id_phone">
+                          {% for error in form.phone.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                        
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Role</label>
+                        <div class="col-md-9">
+                          {% render_field form.role  class="form-control" %}
+                          {% for error in form.role.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                     <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Sub-role</label>
+                        <div class="col-md-9">
+                          <select class="form-control" name="group" id="id_group">
+                            <option value="">{% trans "Choose" %}</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Password</label>
+                        <div class="col-md-9">
+                          <input type="password" class="form-control" name="password" id="password" value="">
+                          {% for error in form.password.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Confirm Password</label>
+                        <div class="col-md-9">
+                          <input type="password" class="form-control" name="password2" id="password2" value="">
+                          {% for error in form.password.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <hr>
+                  
+                  <div class="row mt-3">
+                    <button type="submit" class="btn btn-primary mr-2" name="button">Guardar</button>
+                    <a href="{% url 'user-list'  %}" class="btn btn-default">Volver</a>
+                  </div>
+                </form>
+              </div>
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.js' %}"></script>
+
+<script type="text/javascript">
+  $("input[data-bootstrap-switch]").each(function(){
+    $(this).bootstrapSwitch('state', $(this).prop('checked'));
+  });
+
+  const select_country = document.getElementById('country');
+  const referred_by_code = document.getElementById('id_referred_by_code');
+  const select_role = document.getElementById('id_role');
+  const select_subrole = document.getElementById('id_group');
+
+
+  if (referred_by_code) {
+    referred_by_code.addEventListener('change', (e) => {
+      let referred_code = referred_by_code.value;
+      url = Urls.verify_referred_code(referred_code);
+      fetch(url, {
+        method: 'get',
+      })
+      .then((response) => {
+        return response.json();
+      })
+      .then((data) => {
+        if (data['found'] == true) {
+          console.log('encontramos el man')
+          Swal.fire({
+          title: 'Código exitoso',
+          icon: 'success',
+          showConfirmButton: false,
+          timer: 2000
+          });
+        }
+        else{
+          console.log('pailas')
+          Swal.fire({
+          title: 'Código no existe',
+          text: 'No se encuentra el referente con dicho código',
+          icon: 'error',
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#a5dc86',
+          });
+          referred_by_code.value = ''
+        }
+
+      })
+      //checking_referred(referred_code);
+    });
+  }
+
+  if (select_country) {
+    select_country.addEventListener('change', (e) => {
+      let country_id = e.target.value;
+      if (country_id) {
+        display_regions(country_id);
+      }
+    });
+  }
+
+
+  if (select_role){
+    select_role.addEventListener('change', (e) => {
+      let role_id = e.target.value
+      if (role_id){
+        display_subroles(role_id)
+      }
+    });
+  }
+
+  function display_subroles(role_id){
+    select_subrole.textContent = ''
+    get_subroles(role_id) 
+      .then(subroles => {
+        subroles.forEach((role, i) => {
+          let option = document.createElement('option');
+          option.value = role['id'];
+          option.innerHTML = role['name'];
+          select_subrole.appendChild(option);
+        });
+    })
+    .catch( err => console.warn(err) );
+  }
+
+  const get_subroles = async (role_id) => {
+    const url = Urls.subrole_apilist(role_id);
+    const response = await fetch(url, {
+      method: 'get',
+    });
+    return response.json();
+  }
+
+  const pw1 = document.getElementById("password")  
+  const pw2 = document.getElementById("password2")
+
+  function validateForm(e) {
+    e.preventDefault();
+    
+    if(pw1.value != pw2.value)  
+    {   
+      Swal.fire({
+        title: `Password don't match"  %}`,
+        icon: 'error',
+        showConfirmButton: false,
+        timer: 2000
+      });
+      pw1.className ='form-control is-invalid'
+      pw2.className ='form-control is-invalid'
+    } else {  
+      form.submit();
+    }
+  }
+
+  var form = document.getElementById('id_form_user');
+  form.addEventListener('submit', validateForm);
+
+  pw1.onchange = function(){
+    pw1.className ='form-control'
+    pw2.className ='form-control'
+  }
+
+
+</script>
+{% endblock %}

@@ -1,0 +1,116 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+{% load widget_tweaks %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.css' %}">
+
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Detalle Banco</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'bank-list' %}">Tipos</a></li>
+          <li class="breadcrumb-item active">Nuevo</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <!-- /.col -->
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header p-2">
+            
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal" action="" method="post" id="id_form_bank">
+                  {% csrf_token %}
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Nombre</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.institution_name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Código UUID</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.uuid }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Pais</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.country }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Red</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.network }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                  <hr>
+                  
+                  
+                </form>
+                <div class="card-footer">
+                  <a href="{% url 'bank-list' %}" class="btn btn-default">Volver</a>
+                    <a href="{% url 'bank-update' object.pk %}" class="btn btn-primary float-right">
+                      <b>Editar</b>
+                    </a>
+                </div>
+              </div>
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.js' %}"></script>
+
+<script type="text/javascript">
+
+
+</script>
+{% endblock %}

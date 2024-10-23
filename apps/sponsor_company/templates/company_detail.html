@@ -1,0 +1,375 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.css' %}">
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.css' %}">
+<style media="screen">
+  .img-150 {
+    width: 150px;
+    height: 150px;
+    max-width: 150px;
+    max-height: 150px;
+    border: 1px solid #80b229;
+    border-radius: 5px;
+  }
+  .img-200 {
+    width: 200px;
+    height: 200px;
+    max-width: 200px;
+    max-height: 200px;
+    border: 1px solid #80b229;
+    border-radius: 5px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Detalle de Sponsor</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-list' %}">Usuarios</a></li>
+          <li class="breadcrumb-item active">{{ object.username }}</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-3">
+
+ 
+
+        <!-- Profile Image -->
+            <div class="card card-indigo card-outline">
+              <div class="card-body box-profile">
+                <div class="text-center">
+                  <img class="profile-user-img img-fluid "
+                       src="{{ object.logo_empresa.url }}"
+                       alt="User profile picture">
+                </div>
+
+                <h3 class="profile-username text-center">{{ object.company_name}}</h3>
+
+                <p class="text-muted text-center">NIT: {{ object.nit}}</p>
+
+                <ul class="list-group list-group-unbordered mb-3">
+                  <li class="list-group-item">
+                    <b>Activos administrados</b> <a class="float-right">1,322</a>
+                  </li>
+                  <li class="list-group-item">
+                    <b>Clientes</b> <a class="float-right">543</a>
+                  </li>
+                  <li class="list-group-item">
+                    <b>Inversión</b> <a class="float-right">13,287</a>
+                  </li>
+                </ul>
+
+                {% comment %} <a href="#" class="btn btn-primary btn-block"><b>Follow</b></a> {% endcomment %}
+              </div>
+              <!-- /.card-body -->
+            </div>
+            <!-- /.card -->
+            <!-- About Me Box -->
+            <div class="card card-indigo">
+              <div class="card-header">
+                <h3 class="card-title">Resumen</h3>
+              </div>
+              <!-- /.card-header -->
+              <div class="card-body">
+                <strong><i class="fas fa-book mr-1"></i> Información</strong>
+
+                <p class="text-muted">
+                  {{ object.info_empresa}}
+                </p>
+
+                <hr>
+
+                <strong><i class="fas fa-map-marker-alt mr-1"></i> Ubicación</strong>
+
+                <p class="text-muted">
+                {{ object.company_city }} <br>
+                {{ object.company_address }}
+                </p>
+
+                <hr>
+
+                {% comment %} <strong><i class="far fa-file-alt mr-1"></i> Camara y Comercio</strong>
+
+                <p class="text-muted">
+                  {{ object.camara_comercio }}
+                </p>
+
+                <hr> {% endcomment %}
+
+              </div>
+              <!-- /.card-body -->
+            </div>
+            <!-- /.card -->
+      </div>
+      <!-- /.col -->
+      <div class="col-md-9">
+        <div class="card">
+          <div class="card-header p-2">
+            <ul class="nav nav-pills">
+              <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab">General</a></li>
+              
+            </ul>
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+{% comment %} Pestaña General {% endcomment %}
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal">
+                  
+                  <div class="row">
+                      <div class="col-md-12 p-3">
+                        {% comment %} {% if perms.user.change_user %} {% endcomment %}
+                          {% if object.admin_approved %}
+                            <button id="btn" class="btn btn-success btn-block" type="button" onclick="activate_asset('{{object.pk}}', '{{object.company_name}}', '{{object.admin_approved}}')" name="button"><b>Sponsor aprobado</b></button>
+                          {% else %}
+                            <button id="btn-aprobar" class="btn btn-warning btn-block" type="button" onclick="activate_asset('{{object.pk}}', '{{object.company_name}}', '{{object.admin_approved}}')" name="button"><b>Pendiente de aprobación</b></button>
+                          {% endif %}
+                        {% comment %} {% endif %} {% endcomment %}
+                      </div>
+                    </div>
+
+                  <div class="row">
+                    <input id="object_id" type="hidden" name="object_id" value="{{ object.pk }}">
+                    
+                    <div class="col-md-12">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Responsable</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.user.first_name }} {{ object.user.last_name }} - {{ object.user }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Nombre de Compañia</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.company_name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Pais</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.company_country }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Región</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.company_region }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Ciudad</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.company_city }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Teléfono</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.company_phone }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Codigo ZIP</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.company_zip_code }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Area</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.area_registro }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">NIT</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.nit }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Camara y Comercio</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.camara_comercio }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                  </div>
+                </form>
+              </div>
+
+
+              <a href="{% url 'company-list' %}" class="btn btn-default">Volver</a>
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+
+<div class="modal fade" id="imagemodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" data-dismiss="modal">
+    <div class="modal-content"  >
+      <div class="modal-body">
+      	<button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+        <img src="" class="imagepreview" style="width: 100%;" >
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.js' %}"></script>
+
+<script type="text/javascript">
+
+  const object_id = document.getElementById('object_id');
+  const btn_aprobar = document.getElementById('btn-aprobar');
+
+  $("input[data-bootstrap-switch]").each(function(){
+    $(this).bootstrapSwitch('state', $(this).prop('checked'));
+  });
+
+  $('.btn-preview').on('click', function() {
+		$('.imagepreview').attr('src', $(this).attr('data-src'));
+		$('#imagemodal').modal('show');
+	});
+
+  {% if perms.user.update_user %}
+
+
+function  activate_asset(sponsor_pk, company_name, admin_approved) {
+  console.log("Tenemos el admin actial", admin_approved)
+  let message = 'aprobar';
+  let icon = 'success';
+  let color = '#a5dc86'
+  
+  if(admin_approved == 'True'){
+    message = 'desaprobar';
+    icon = 'warning';
+    color = '#f9bd08'
+  }
+  console.log("modificando  el sponsor: ", sponsor_pk)
+
+    Swal.fire({
+      title: 'Aprobación de compañia',
+      text:`Por favor seleccione si desea ${message} la compañia ${company_name}`,
+      icon: icon,
+      showCancelButton: true,
+      confirmButtonText: 'Proceder',
+      confirmButtonColor: '#28a745',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        approve_sponsor(sponsor_pk);
+      }
+    })
+  }
+
+function approve_sponsor (sponsor_pk, action, notes='') {
+    console.log("enviando peticion al backend", sponsor_pk)
+    let form_data = new FormData();
+		form_data.append("pk", sponsor_pk);
+		form_data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+		url = Urls.approved_sponsor();
+		fetch(url, {
+			method: 'post',
+			body: form_data,
+		})
+		.then((response) => {
+			return response.json();
+		})
+    .then((data) => {
+      if (data['status'] == 'success') {
+        console.log("Backend ok");
+
+        Swal.fire({
+          title: `${data['title']}`,
+          text: `${data['message']}`,
+          confirmButtonText: 'Aceptar',
+          confirmButtonColor: '#a5dc86',
+          icon: 'success',
+        }).then((result) => {
+          console.log("Recargando");
+          location.reload();
+        });
+      }else{
+        Swal.fire({
+          title: `${data['title']}`,
+          text: data['message'],
+          icon: 'error',
+          confirmButtonText: 'Cerrar',
+        });
+      }
+    })
+    .catch((error) => {
+      Swal.fire({
+        title: 'Error al cambiar de estado',
+        text: 'Error procesando la peticion por favor consulte a soporte',
+        icon: 'error',
+        confirmButtonText: "Cerrar",
+        confirmButtonColor: '#6e7d88',
+      });
+    });
+  }
+  
+{% endif %}
+
+</script>
+{% endblock %}

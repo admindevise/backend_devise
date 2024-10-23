@@ -1,0 +1,371 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+{% load widget_tweaks %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Actualizar información usuario Fiducia</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-list' %}">Usuarios</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-detail' object.pk %}">{{ object.email }}</a></li>
+          <li class="breadcrumb-item active">Personal</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <!-- /.col -->
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header p-2">
+            <ul class="nav nav-pills">
+              <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab"><b>Personal</b></a></li>
+            </ul>
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+              {% comment %} Pestaña General {% endcomment %}
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal" name="user_info" enctype="multipart/form-data" method="post">
+                  {% csrf_token %}
+                  
+                  <div class="row">
+                    <input id="object_id" type="hidden" name="object_id" value="{{ object.pk }}">
+
+                    
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Correo Electronico</label>
+                        <div class="col-md-9">
+                          {% render_field form.email  class="form-control" %}
+                          {% for error in form.email.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Nombres</label>
+                        <div class="col-md-9">
+                          {% render_field form.first_name  class="form-control" %}
+                          {% for error in form.first_name.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Apellidos</label>
+                        <div class="col-md-9">
+                          {% render_field form.last_name  class="form-control" %}
+                          {% for error in form.last_name.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Fecha de nacimiento</label>
+                        <div class="col-md-9">
+                          {% render_field form.birth_date  class="form-control" type="date"%}
+                          {% for error in form.birth_date.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Pais Nacimiento</label>
+                        <div class="col-md-9">
+                          {% render_field form.birth_country  class="form-control" %}
+                          {% for error in form.birth_country.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Región Nacimiento</label>
+                        <div class="col-md-9">
+                          <select id="id_birth_region" class="form-control" name="birth_region" required>
+                            <option value="">Seleccione</option>
+                            {% for region in regions %}
+                              <option value="{{ region.id }}" {% if object.birth_region.id == region.id %}selected{% endif %}>
+                                {{ region.name }}
+                              </option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Ciudad Nacimiento</label>
+                        <div class="col-md-9">
+                          <select id="id_birth_city" class="form-control" name="birth_city" required>
+                              <option value="">Seleccione</option>
+                              {% for city in cities %}
+                                <option value="{{ city.id }}" {% if object.birth_city.id == city.id %}selected{% endif %}>
+                                  {{ city.name }}
+                                </option>
+                              {% endfor %}
+                            </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-2 col-form-label">Indicativo Teléfono:</label>
+                        <div class="col-md-4">
+                          <select id="id_indicative" class="form-control" name="indicative" required>
+                            <option value="">---</option>
+                                {% for country in countries %}
+                                  <option value="{{ country.phone }}" {% if object.indicative == country.phone %}selected{% endif %}
+                                  >{{ country.name }} +{{country.phone}}</option>
+                                  
+                                {% endfor %}
+                              </select>
+                        </div>
+                        <div class="col-md-6">
+                          <input type="number" name="phone" value="{{object.get_phone_number}}" maxlength="64" class="form-control" required="" id="id_phone">
+                          {% for error in form.phone.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Rol</label>
+                        <div class="col-md-9">
+                          {% render_field form.role  class="form-control" %}
+                          {% for error in form.role.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Subrol</label>
+                        <div class="col-md-9">
+                          <select id='id_group' class="form-control" name="group">
+                            <option value="">---------</option>
+                            {% for group in groups %}
+                              <option value="{{ group.pk }}"
+
+                                {% if group in object.groups.all %}selected{% endif %}
+                              >
+                                {{ group.name }}
+                              </option>
+                            {% endfor %}
+
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Notificaciones</label>
+                        <div class="col-md-9">
+                          {% render_field form.mail_delivery  class="form-control" %}
+                          {% for error in form.mail_delivery.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-4 col-form-label">Usuario Activo</label>
+                        <label for="" class="col-md-4 col-form-label">
+                          <input type="checkbox" id='id_is_active' name='is_active' class="form-control" data-bootstrap-switch {% if object.is_active %}checked{% endif %}>
+                        </label>
+                      </div>
+                    </div>
+
+                    
+                  </div>
+                  <div class="row mt-3 card-footer">
+                    <button onclick="goBack()" class="btn btn-default">Volver</button>
+
+                    <button type="submit" class="btn btn-primary float-right ml-4" name="button">Guardar</button>
+                  </div>
+                </form>
+              </div>
+              
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+
+<script type="text/javascript">
+  $("input[data-bootstrap-switch]").each(function(){
+    $(this).bootstrapSwitch('state', $(this).prop('checked'));
+  });
+
+  const select_country = document.getElementById('id_birth_country');
+  const select_region = document.getElementById('id_birth_region');
+  const select_city = document.getElementById('id_birth_city');
+  const select_role = document.getElementById('id_role');
+  const select_subrole = document.getElementById('id_group');
+  let is_natural_person = document.getElementById('id_is_natural_person');
+  const div_juridic_xlsx = document.getElementById('id_juridic_xlsx');
+  const clear_xlsx_file = document.getElementById('juridic_xlsx-clear_id')
+
+
+   // IF ARE A JURIDIC SHOW AN ADITIONAL FIELD
+  if (is_natural_person) {
+    is_natural_person.addEventListener('change', (e) => {
+      console.log("cambianodo: ", is_natural_person.checked  )
+      if (is_natural_person.checked == true) {
+        div_juridic_xlsx.style.display = "none";
+        clear_xlsx_file.checked = true;
+      }else{
+        div_juridic_xlsx.style.display = "block";
+        clear_xlsx_file.checked = false;
+      }
+    });
+  } 
+
+  if (select_region) {
+    select_region.addEventListener('change', (e) => {
+      let country_id = select_country.value;
+      let region_id = e.target.value;
+      if (country_id && region_id) {
+        display_cities(country_id, region_id);
+      }
+    });
+  }
+
+  if (select_country) {
+    select_country.addEventListener('change', (e) => {
+      let country_id = e.target.value;
+      if (country_id) {
+        display_regions(country_id);
+      }
+    });
+  }
+
+  function display_regions(country_id) {
+    select_region.textContent = '';
+    get_regions(country_id)
+      .then(regions => {
+        let first_region = regions[0].id;
+        display_cities(country_id, first_region);
+
+        regions.forEach((region, i) => {
+          let option = document.createElement('option');
+          option.value = region['id'];
+          option.innerHTML = region['name'];
+          select_region.appendChild(option);
+        });
+      })
+      .catch( err => {
+        select_city.textContent = '';
+        console.warn(err)
+      });
+  }
+
+  function display_cities(country_id, region_id) {
+    select_city.textContent = '';
+    get_cities(country_id, region_id)
+      .then(cities => {
+        cities.forEach((city, i) => {
+          let option = document.createElement('option');
+          option.value = city['id'];
+          option.innerHTML = city['name'];
+          select_city.appendChild(option);
+        });
+
+      })
+      .catch( err => console.warn(err) );
+
+  }
+
+
+  if (select_role){
+    select_role.addEventListener('change', (e) => {
+      let role_id = e.target.value
+      if (role_id){
+        display_subroles(role_id)
+      }
+    });
+  }
+
+  function display_subroles(role_id){
+    select_subrole.textContent = ''
+    get_subroles(role_id) 
+      .then(subroles => {
+        subroles.forEach((role, i) => {
+          let option = document.createElement('option');
+          option.value = role['id'];
+          option.innerHTML = role['name'];
+          select_subrole.appendChild(option);
+        });
+    })
+    .catch( err => console.warn(err) );
+  }
+
+  const get_subroles = async (role_id) => {
+    const url = Urls.subrole_apilist(role_id);
+    const response = await fetch(url, {
+      method: 'get',
+    });
+    return response.json();
+  }
+
+  function goBack() {
+      window.history.back();
+    }
+
+ 
+</script>
+{% endblock %}

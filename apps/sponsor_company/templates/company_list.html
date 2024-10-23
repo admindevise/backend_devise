@@ -1,0 +1,346 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/select2/css/select2.min.css' %}">
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.css' %}">
+
+<style media="screen">
+  #_action_file_format{
+    display: none;
+  }
+  #_action_file_format.active{
+    display: block;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    {% if messages %}
+      <ul class="messages">
+          {% for message in messages %}
+          <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+          {% endfor %}
+      </ul>
+    {% endif %}
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Sponsor Company List</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item active">Compañias</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="card">
+      <div class="card-header">
+
+        <div class="card-tools">
+          <button type="button" class="btn btn-tool" data-card-widget="collapse" data-toggle="tooltip" title="Collapse">
+            <i class="fas fa-minus"></i></button>
+          <button type="button" class="btn btn-tool" data-card-widget="remove" data-toggle="tooltip" title="Remove">
+            <i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <form action="" method="get">
+          <div class="row p-2">
+            <div class="col-sm-12 col-md-6 mt-1">
+              <!-- <input type="text" class="form-control" name="filter" value="{{ filter }}" placeholder="usuario, email"> -->
+              <select class="select2" multiple="multiple" name="filter" style="width: 100%">
+                {% if filter_obj.value %}
+                  {% for filter in filter_obj.value %}
+                    <option value="{{ filter }}" selected>{{ filter }}</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            </div>
+
+            <div class="col-sm-12 col-md-6 mt-1 ">
+              <div class="form-group row">
+                <label for="" class="col-md-4 col-form-label">Estado Compañia:</label>
+                <div class="col-md-8">
+                  <select class="custom-select" name="verified">
+                    <option value="">Todos</option>
+                    <option value="1" {%if filter_obj.filter_verified == '1' %}selected{% endif %}>Aprobada</option>
+                    <option value="0" {%if filter_obj.filter_verified == '0' %}selected{% endif %}>Sin Aprobar</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="row p-2">
+            <div class="col mt-1">
+              <button type="submit" class="btn btn-primary ml-2">Filtrar</button>
+              {% comment %} {% if perms.company.add_company %}
+                <a href="{#% url 'company-add' %#}" class="btn btn-primary">Nuevo</a>
+              {% endif %} {% endcomment %}
+              {% if filter_obj.url %}
+                <a href="{% url 'company-list' %}" class="btn btn-warning">Limpiar filtros</a>
+              {% endif %}
+            </div>
+          </div>
+        </form>
+
+        <form action="" action="">
+          {% csrf_token %}
+          <div class="row p-2">
+            <div class="col-4 mt-1">
+              <input type="hidden" name="model_action" value="company">
+              <select id='_action_select' class="custom-select" name="_action">
+                <option value="" selected="">---</option>
+                <option value="export_admin_action">Exportar Compañias seleccionadas</option>
+              </select>
+              <div class="">
+                <span id="_action_select_all" class="text-primary pt-2 pl-2" style="display: none; cursor: pointer;">Seleccionar {{ page_obj.paginator.count }} objetos</span>
+                <span id="_action_select_clear" class="text-primary pt-2 pl-2" style="display: none; cursor: pointer;">Limpiar seleccion</span>
+                <span id="_action_error_selection" class="text-danger pt-2 pl-2" style="display: none">No se encuentran elementos</span>
+                <span id="_action_error_action" class="text-danger pt-2 pl-2" style="display: none">Por favor seleccione una acción</span>
+              </div>
+            </div>
+            <div class="col-1 mt-1" id="_action_file_format">
+              <select class="form-control" name="file_format">
+                <option value="" selected="">---</option>
+                <option value="0">csv</option>
+                <option value="1">xls</option>
+                <option value="2">xlsx</option>
+                <option value="3">pdf</option>
+
+              </select>
+            </div>
+            <div class="col-7 mt-1">
+              <button id="_action_confirm_button" type="button" class="btn btn-primary">Enviar</button>
+              <span id="_count_selected_items" class="text-muted ml-2" total-elements="{{ page_obj.paginator.count }}">
+              </span>
+            </div>
+
+          </div>
+        </form>
+
+        <form id="action-list-form" class="" action="{% url 'company-list-export' %}" method="post">{% csrf_token %}
+          <input id="_selected_all_elements" type="hidden" name="selected-all-elements" value="0">
+          <input id="_action" type="hidden" name="_action" value="">
+          <input id="_format" type="hidden" name="_format_file" value="">
+          <input id="_filter_verified" type="hidden" name="filter_verified" value="{{ filter_verified }}">
+
+          {% if filter_obj.value %}
+            {% for filter in filter_obj.value %}
+              <input type="hidden" name="filter" value="{{ filter }}">
+            {% endfor %}
+          {% endif %}
+
+          <table class="table table-striped table-responsive projects">
+            <thead>
+              <tr>
+                <th class="" style="width: 1%">
+                  <input id="_action_selection_page" class="" type="checkbox"
+                    name="" value="">
+                </th>
+                <th class="">Nombre</th>
+                <th class="text-center">NIT</th>
+                <th class="text-center">Representante</th>
+                <th class="text-center">Telefono</th>
+                <th class="text-center">Aprobación</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for object in object_list %}
+                <tr>
+                  <td>
+                    <input class="form-checked-input" type="checkbox"
+                      name="_action_selection" value="{{ object.pk }}">
+                  </td>
+                  <td>{{ object }}</td>
+                  <td class="text-center">{{ object.nit}}</td>
+                  <td class="text-center">{{ object.user.first_name }} {{ object.user.last_name }}</td>
+                  <td class="text-center">{{ object.company_phone}}</td>
+                  <td class="text-center">
+                    {% if object.admin_approved %}
+                      <span class="badge badge-primary">Aprobado</span>
+                    {% else %}
+                        <span class="badge badge-danger">Pendiente</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-center">
+                    {% if perms.company.view_company %}
+                      <a href="{% url 'company-detail' object.pk %}" class="ml-2" > <i class="far fa-eye nav-icon"></i> </a>
+                    {% endif %}
+                    {% comment %} {% if perms.company.change_company %}
+                    <a href="{% url 'company-update' object.pk %}" class="ml-2" > <i class="far fa-edit nav-icon"></i> </a>
+                    {% endif %}
+                    {% if object.admin_approved %}
+                      <a href="#!" id="deactivate_company" onclick="deactivate_function('{{object.pk}}','{{object.admin_approved}}')" class="ml-2" ><i class="fas fa-ban nav-icon"> </i> </a>
+                    {% else %}
+                      <a href="#!" id="activate_company" onclick="deactivate_function('{{object.pk}}','{{object.admin_approved}}')" class="ml-2" ><i class="fas fa-check nav-icon"> </i> </a>
+                    {% endif %} {% endcomment %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </form>
+      </div>
+      <!-- /.card-body -->
+
+      <div class="card-footer">
+
+        <div class="dataTables_paginate paging_simple_numbers">
+          <ul class="float-left">
+            <span style="font-weight: bold;">Total: {{ page_obj.paginator.count }}</span>
+          </ul>
+          <ul class="pagination float-right">
+            {% if page_obj.has_previous %}
+              <li class="paginate_button page-item"><a class="page-link"
+                  href="?page=1{{filter_obj.url}}">«</a>
+              </li>
+              <li class="paginate_button page-item"><a class="page-link"
+                  href="?page={{ page_obj.previous_page_number }}{{filter_obj.url}}">Previous</a>
+              </li>
+            {% endif %}
+
+            {% for i in pages %}
+              {% if page_obj.number == i %}
+              <li class="paginate_button page-item">
+                <a class="page-link" href="javascript:;">
+                  Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                </a>
+              </li>
+              {% else %}
+              <li class="paginate_button page-item">
+                <a class="page-link" href="?page={{i}}{{filter_obj.url}}">
+                  {{i}}
+                </a>
+              </li>
+              {% endif %}
+
+            {% endfor %}
+            
+            
+
+            {% if page_obj.has_next %}
+              <li class="paginate_button page-item"><a class="page-link"
+                  href="?page={{ page_obj.next_page_number }}{{filter_obj.url}}">Next</a>
+              </li>
+              <li class="paginate_button page-item"><a class="page-link"
+                  href="?page={{ page_obj.paginator.num_pages }}{{filter_obj.url}}">»</a>
+              </li>
+            {% endif %}
+
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/select2/js/select2.full.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.js' %}"></script>
+<script src="{% static 'apps/core/js/actions.js' %}"></script>
+<script type="text/javascript">
+
+
+
+{% if perms.company.change_company %}
+function  deactivate_function(company_pk, admin_approved) {
+  let message = 'aprobación';
+  let icon = 'success';
+  let color = '#a5dc86'
+  
+  if(admin_approved == 'True'){
+    message = 'desaprovación';
+    icon = 'warning';
+    color = '#f9bd08'
+  }
+  else{
+    console.log("activando")
+
+  }
+
+  Swal.fire({
+    title: 'Proceso de ' + message ,
+    text: '¿Esta seguro de proceder con la ' + message + ' de la empresa?',
+    cancelButtonText: 'Cancelar',
+    icon: icon,
+    showCancelButton: true,
+    confirmButtonText: 'Proceder',
+    confirmButtonColor: color,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      deactivate(company_pk);
+    }
+  })
+}
+
+function deactivate (company_pk) {
+
+  let form_data = new FormData();
+  form_data.append("pk", company_pk);
+  form_data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+  url = Urls.company_deactivate();
+  fetch(url, {
+    method: 'post',
+    body: form_data,
+  })
+  .then((response) => {
+    return response.json();
+  })
+  .then((data) => {
+    if (data['admin_approved'] == 'success') {
+      Swal.fire({
+        title: `${data['title']}`,
+        text: `${data['message']}`,
+        icon: 'success',
+        confirmButtonText: 'Acceptar',
+        confirmButtonColor: '#a5dc86',
+      }).then((result) => {
+        location.reload();
+      });
+    }else{
+      Swal.fire({
+        title: `${data['title']}`,
+        text: data['message'],
+        icon: 'error',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#a5dc86',
+      });
+    }
+  })
+  .catch((error) => {
+    Swal.fire({
+      title: 'Error al cambiar el estado',
+      text: 'Error procesando la peticion por favor consulte a soporte',
+      icon: 'error',
+      confirmButtonText: 'Cerrar',
+      confirmButtonColor: '#a5dc86',
+    });
+  });
+}
+{% endif %}
+
+  $(function () {
+    $('.select2').select2({
+      placeholder: 'Buscar por: Nombre compañia',
+      tags: true,
+      tokenSeparators: [',']
+    });
+  });
+</script>
+{% endblock %}

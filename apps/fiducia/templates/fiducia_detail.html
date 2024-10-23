@@ -1,0 +1,375 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.css' %}">
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.css' %}">
+<style media="screen">
+  .img-150 {
+    width: 150px;
+    height: 150px;
+    max-width: 150px;
+    max-height: 150px;
+    border: 1px solid #80b229;
+    border-radius: 5px;
+  }
+  .img-200 {
+    width: 200px;
+    height: 200px;
+    max-width: 200px;
+    max-height: 200px;
+    border: 1px solid #80b229;
+    border-radius: 5px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Detalle Fiducia</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'fiducia-list' %}">Fiducias</a></li>
+          <li class="breadcrumb-item active">{{ object.name }}</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-3">
+
+ 
+
+        <!-- Profile Image -->
+            <div class="card card-indigo card-outline">
+              <div class="card-body box-profile">
+                <div class="text-center">
+                  <img class="profile-user-img img-fluid "
+                       src="{{ object.logo.url }}"
+                       alt="User profile picture">
+                </div>
+
+                <h3 class="profile-username text-center">{{ object.name}}</h3>
+
+                <p class="text-muted text-center">NIT: {{ object.nit}}</p>
+
+                <ul class="list-group list-group-unbordered mb-3">
+                  <li class="list-group-item">
+                    <b>Activos administrados</b> <a class="float-right">1,322</a>
+                  </li>
+                  <li class="list-group-item">
+                    <b>Clientes</b> <a class="float-right">543</a>
+                  </li>
+                  <li class="list-group-item">
+                    <b>Inversión</b> <a class="float-right">13,287</a>
+                  </li>
+                </ul>
+
+                {% comment %} <a href="#" class="btn btn-primary btn-block"><b>Follow</b></a> {% endcomment %}
+              </div>
+              <!-- /.card-body -->
+            </div>
+            <!-- /.card -->
+            <!-- About Me Box -->
+            <div class="card card-indigo">
+              <div class="card-header">
+                <h3 class="card-title">Resumen</h3>
+              </div>
+              <!-- /.card-header -->
+              <div class="card-body">
+                <strong><i class="fas fa-book mr-1"></i> Información</strong>
+
+                <p class="text-muted">
+                  {{ object.informacion}}
+                </p>
+
+                <hr>
+
+                <strong><i class="fas fa-map-marker-alt mr-1"></i> Ubicación</strong>
+
+                <p class="text-muted">
+                {{ object.city }} <br>
+                {{ object.address }}
+                </p>
+
+                <hr>
+
+
+              </div>
+              <!-- /.card-body -->
+            </div>
+            <!-- /.card -->
+      </div>
+      <!-- /.col -->
+      <div class="col-md-9">
+        <div class="card">
+
+          <div class="card-header p-2">
+            <ul class="nav nav-pills">
+              <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab">General</a></li>
+              <li class="nav-item"><a class="nav-link" href="#info_financial" data-toggle="tab">Bancaria</a></li>
+              
+            </ul>
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+              {% comment %} Pestaña General {% endcomment %}
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal">
+                  
+                  <div class="row">
+                      <div class="col-md-12 p-3">
+                        {% comment %} {% if perms.user.change_user %} {% endcomment %}
+                          {% if object.status %}
+                            <button id="btn" class="btn btn-success btn-block" type="button" onclick="activate_asset('{{object.pk}}', '{{object.name}}')" name="button"><b>Fiducia activa</b></button>
+                          {% else %}
+                            <button id="btn-aprobar" class="btn btn-warning btn-block" type="button" onclick="activate_asset('{{object.pk}}', '{{object.name}}')" name="button"><b>Fiducia desactivada</b></button>
+                          {% endif %}
+                        {% comment %} {% endif %} {% endcomment %}
+                      </div>
+                    </div>
+
+                  <div class="row">
+                    <input id="object_id" type="hidden" name="object_id" value="{{ object.pk }}">
+                    
+                    
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Nombre de Fiducia</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Pais</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.country }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Región</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.region }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Ciudad</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.city }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Teléfono</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.phone }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Codigo ZIP</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.zip_code }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">NIT</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.nit }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Camara y Comercio</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ object.camara_comercio }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                  </div>
+                </form>
+                <div class="card-footer">
+                  <a href="{% url 'fiducia-list' %}" class="btn btn-default">Volver</a>
+                    <a href="{% url 'fiducia-update' object.pk %}" class="btn btn-primary float-right">
+                      <b>Editar</b>
+                    </a>
+                </div>
+              </div>
+
+              {% comment %}  Pestaña Info Financial {% endcomment %}
+              <div class="tab-pane" id="info_financial">
+                <form class="form-horizontal">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Banco</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ financial.bank }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Número de cuenta</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ financial.account_number }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Tipo de Cuenta</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ financial.account_type.name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Subtipo de Cuenta</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ financial.account_subtype.name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Código ABA</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ financial.aba_code }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-3 col-form-label">Código SWIFT</label>
+                        <div class="col-md-9">
+                          <input type="text" class="form-control" value="{{ financial.swift_code }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Certificación Bancaria</label>
+                        <div class="col-md-8">
+                          {% if financial.certification_file %}
+                            <hr><iframe src="{{ financial.certification_file.url }}"></iframe><hr>
+
+                            <a href="{{ financial.certification_file.url }}" download="{{ object.text }}_document_front_image" class="btn btn-sm btn-secondary" target="_blank" >Descargar</a>
+                          {% else %}
+                            <span>No se ha cargado ningún documento</span>
+                          {% endif %}
+                          {% comment %} <a href="{% url 'file_download' %}">Download File</a>
+                          <input type="file" class="form-control" value="{{ financial.certification_file }}" disabled> {% endcomment %}
+                        </div>
+                      </div>
+                    </div>
+
+                    
+
+                  </div>
+                </form>
+                <div class="card-footer">
+                  <a href="{% url 'fiducia-list' %}" class="btn btn-default">Volver</a>
+                  {% if object.financial_profile %}
+                    <a href="{% url 'user-financialinfo-update' object.pk %}" class="btn btn-primary float-right">
+                      <b>Editar</b>
+                    </a>
+                  {% else %}
+                    <a href="{% url 'fiducia-financialinfo-create' object.pk %}" class="btn btn-primary float-right">
+                      <b>Crear</b>
+                    </a>
+                  {% endif %}
+                </div>
+              </div>
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.js' %}"></script>
+
+<script type="text/javascript">
+
+  const object_id = document.getElementById('object_id');
+  const btn_aprobar = document.getElementById('btn-aprobar');
+
+  $("input[data-bootstrap-switch]").each(function(){
+    $(this).bootstrapSwitch('state', $(this).prop('checked'));
+  });
+
+  
+
+  var Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 4000
+    });
+
+  {% if messages %}
+    {% for message in messages %}
+      Toast.fire({
+        icon: 'success',
+        title: `{{message}}`
+      })
+    {% endfor %}
+  {% endif %}
+
+</script>
+{% endblock %}

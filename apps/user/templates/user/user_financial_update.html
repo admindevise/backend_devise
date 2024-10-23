@@ -1,0 +1,230 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+{% load widget_tweaks %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Creación</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-list' %}">Usuarios</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-detail' user.pk %}">{{ user.email }}</a></li>
+          <li class="breadcrumb-item active">Financiera</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <!-- /.col -->
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header p-2">
+            <ul class="nav nav-pills">
+              <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab"><b>Financiera</b></a></li>
+            </ul>
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+              {% comment %} Pestaña General {% endcomment %}
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal" name="user_residential" enctype="multipart/form-data" method="post">
+                  {% csrf_token %}
+                  <div class="row">
+                    
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Banco</label>
+                        <div class="col-md-9">
+                          {% render_field form.bank  class="form-control" %}
+                          {% for error in form.bank.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Número de cuenta</label>
+                        <div class="col-md-9">
+                          {% render_field form.account_number  class="form-control" %}
+                          {% for error in form.account_number.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Tipo de cuenta</label>
+                        <div class="col-md-9">
+                          {% render_field form.account_type  class="form-control" %}
+                          {% for error in form.account_type.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Tipo de Sub-Cuenta</label>
+                        <div class="col-md-9">
+                          {% render_field form.account_subtype  class="form-control" %}
+                          {% for error in form.account_subtype.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Certificado de cuenta</label>
+                        <div class="col-md-9">
+                          {% render_field form.certification_file  class="form-control" %}
+                          {% for error in form.certification_file.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Código ABA</label>
+                        <div class="col-md-9">
+                          {% render_field form.aba_code  class="form-control" %}
+                          {% for error in form.aba_code.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label for="" class="col-md-3 col-form-label">Código SWIFT</label>
+                        <div class="col-md-9">
+                          {% render_field form.swift_code  class="form-control" %}
+                          {% for error in form.swift_code.errors %}
+                            <p class="text-danger">{{ error }}</p>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+
+                  </div>
+                  <div class="row mt-3 card-footer">
+                    <button onclick="goBack()" class="btn btn-default">Volver</button>
+                    <button type="submit" class="btn btn-primary float-right ml-4" name="button">Guardar</button>
+                  </div>
+                </form>
+              </div>
+              
+                <!-- /.tab-pane -->
+
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+
+<script type="text/javascript">
+  $("input[data-bootstrap-switch]").each(function(){
+    $(this).bootstrapSwitch('state', $(this).prop('checked'));
+  });
+
+  const select_country = document.getElementById('id_resident_country');
+  const select_region = document.getElementById('id_resident_region');
+  const select_city = document.getElementById('id_resident_city');
+
+  if (select_region) {
+    select_region.addEventListener('change', (e) => {
+      let country_id = select_country.value;
+      let region_id = e.target.value;
+      if (country_id && region_id) {
+        display_cities(country_id, region_id);
+      }
+    });
+  }
+
+  if (select_country) {
+    select_country.addEventListener('change', (e) => {
+      let country_id = e.target.value;
+      if (country_id) {
+        display_regions(country_id);
+      }
+    });
+  }
+
+  function display_regions(country_id) {
+    select_region.textContent = '';
+    get_regions(country_id)
+      .then(regions => {
+        let first_region = regions[0].id;
+        display_cities(country_id, first_region);
+
+        regions.forEach((region, i) => {
+          let option = document.createElement('option');
+          option.value = region['id'];
+          option.innerHTML = region['name'];
+          select_region.appendChild(option);
+        });
+      })
+      .catch( err => {
+        select_city.textContent = '';
+        console.warn(err)
+      });
+  }
+
+  function display_cities(country_id, region_id) {
+    select_city.textContent = '';
+    get_cities(country_id, region_id)
+      .then(cities => {
+        cities.forEach((city, i) => {
+          let option = document.createElement('option');
+          option.value = city['id'];
+          option.innerHTML = city['name'];
+          select_city.appendChild(option);
+        });
+
+      })
+      .catch( err => console.warn(err) );
+
+  }
+
+
+  function goBack() {
+      window.history.back();
+    }
+
+</script>
+{% endblock %}

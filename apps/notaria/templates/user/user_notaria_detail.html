@@ -1,0 +1,478 @@
+{% extends 'adminlte/base/base.html' %}
+{% load static i18n %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.css' %}">
+<link rel="stylesheet" href="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.css' %}">
+<style media="screen">
+  .img-150 {
+    width: 150px;
+    height: 150px;
+    max-width: 150px;
+    max-height: 150px;
+    border: 1px solid #80b229;
+    border-radius: 5px;
+  }
+  .img-200 {
+    width: 200px;
+    height: 200px;
+    max-width: 200px;
+    max-height: 200px;
+    border: 1px solid #80b229;
+    border-radius: 5px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<div class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="m-0 text-dark">Detalle de Usuario de Notaria</h1>
+      </div><!-- /.col -->
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'user-notaria-list' %}">Usuarios Notaria</a></li>
+          <li class="breadcrumb-item active">{{ notaria.username }}</li>
+        </ol>
+      </div><!-- /.col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div>
+<!-- /.content-header -->
+
+<!-- Main content -->
+<section class="content">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-3">
+
+        <!-- Profile Image -->
+            <div class="card card-indigo card-outline">
+              <div class="card-header">
+                <h3 class="card-title">Info. Notaria</h3>
+              </div>
+              <div class="card-body box-profile">
+                <h2 class="profile-username text-center">Notaria:</h2>
+
+
+                <h3 class="profile-username text-center">{{ notaria.name}}</h3>
+
+                <ul class="list-group list-group-unbordered mb-3">
+                  
+                  <li class="list-group-item">
+                    <b>Rol</b> <a class="float-right">{{object.role}}</a>
+                  </li>
+
+                  <li class="list-group-item">
+                    <b>sub-rol</b> <a class="float-right">{{group_name}}</a>
+                  </li>
+
+                  <li class="list-group-item">
+                    <b>Email:</b>
+                    <br>
+                    <a class="float-right">{{object.email}}</a>
+                  </li>
+                  
+                </ul>
+
+                <strong><i class="fas fa-book mr-1"></i> Información notarial</strong>
+
+                <p class="text-muted">
+                Numero:  {{ notaria.numero}}
+                <br>
+                Codigo:  {{ notaria.codigo}}
+
+                </p>
+
+                <hr>
+
+                <strong><i class="fas fa-map-marker-alt mr-1"></i> Ubicación</strong>
+
+                <p class="text-muted">
+                {{ notaria.city }} <br>
+                {{ notaria.address }}
+                </p>
+
+                <hr>
+
+                {% comment %} <a href="#" class="btn btn-primary btn-block"><b>Follow</b></a> {% endcomment %}
+              </div>
+              <!-- /.card-body -->
+            </div>
+            <!-- /.card -->
+            
+      </div>
+      <!-- /.col -->
+      <div class="col-md-9">
+        <div class="card">
+          <div class="card-header p-2">
+            <ul class="nav nav-pills">
+              <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab">Personal</a></li>
+              <li class="nav-item"><a class="nav-link" href="#documentos" data-toggle="tab">Personal</a></li>
+
+
+            </ul>
+          </div><!-- /.card-header -->
+          <div class="card-body">
+            <div class="tab-content">
+            
+              {% comment %} Pestaña General {% endcomment %}
+              <div class="active tab-pane" id="general">
+                <form class="form-horizontal">
+                  
+                  <div class="row">
+                    <input id="object_id" type="hidden" name="object_id" value="{{ object.pk }}">
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Nombres</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.first_name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Apellidos</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.last_name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Fecha de nacimiento</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.birth_date|date:'d M Y' }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Pais Nacimiento</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.birth_country }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Región Nacimiento</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.birth_region }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Ciudad Nacimiento</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.birth_city }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Teléfono</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.phone }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Rol</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.role }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Subrol</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.groups.all.0.name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+                    {% if object.company_asociated %}
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Compañia</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.company_asociated.company_name }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Notificaciones</label>
+                        <div class="col-md-8">
+                          <input type="text" class="form-control" value="{{ object.get_mail_delivery_display }}" disabled>
+                        </div>
+                      </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                      <div class="form-group row">
+                        <label  class="col-md-4 col-form-label">Usuario Activo</label>
+                        <label  class="col-md-4 col-form-label">
+                          <input type="checkbox" class="form-control" data-bootstrap-switch {% if object.is_active %}checked{% endif %} disabled>
+                        </label>
+                      </div>
+                    </div>
+
+                  </div>
+                </form>
+                <div class="card-footer">
+                  <a href="{% url 'user-notaria-list' %}" class="btn btn-default">Volver</a>
+                  {% if perms.user.change_user %}
+                    <a href="{% url 'user-notaria-basicinfo-update' object.pk %}" class="btn btn-primary float-right">
+                      <b>Editar</b>
+                    </a>
+                  {% endif %}
+                </div>
+                
+              </div>
+              {% comment %} Pestaña documentos {% endcomment %}
+              <div class="tab-pane" id="documentos">
+                <div class="row">
+
+                  <div class="col-12">
+                    <div class="card">
+                      <div class="card-header">
+                        <h3 class="card-title">Documento de Identidad</h3>
+
+                        <div class="card-tools">
+                          <button type="button" class="btn btn-tool" data-card-widget="collapse" data-toggle="tooltip" title="Collapse">
+                            <i class="fas fa-minus"></i></button>
+                          <button type="button" class="btn btn-tool" data-card-widget="remove" data-toggle="tooltip" title="Remove">
+                            <i class="fas fa-times"></i></button>
+                        </div>
+                      </div>
+                      <div class="card-body p-0">
+
+                        <div class="row ml-2 mt-4 col-md-12">
+                          <div class="col-md-6">
+                            <div class="form-group row">
+                              <label  class="col-md-4 col-form-label">Tipo Documento</label>
+                              <div class="col-md-8">
+                                <input type="text" class="form-control" value="{{ object.local_id_type }}" disabled>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="col-md-6">
+                            <div class="form-group row">
+                              <label  class="col-md-4 col-form-label">No. documento</label>
+                              <div class="col-md-8">
+                                <input type="text" class="form-control" value="{{ object.document_number }}" disabled>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="col-md-6">
+                            <div class="form-group row">
+                              <label  class="col-md-4 col-form-label">Fecha de Expedición</label>
+                              <div class="col-md-8">
+                                <input type="text" class="form-control" value="{{ object.expedition_date }}" disabled>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="col-md-6">
+                            <div class="form-group row">
+                              <label  class="col-md-4 col-form-label">Pais de Expedición</label>
+                              <div class="col-md-8">
+                                <input type="text" class="form-control" value="{{ object.doc_country_expedition }}" disabled>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="col-md-6">
+                            <div class="form-group row">
+                              <label  class="col-md-4 col-form-label">Región de Expedición</label>
+                              <div class="col-md-8">
+                                <input type="text" class="form-control" value="{{ object.doc_region_expedition }}" disabled>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="col-md-6">
+                            <div class="form-group row">
+                              <label  class="col-md-4 col-form-label">Ciudad de Expedición</label>
+                              <div class="col-md-8">
+                                <input type="text" class="form-control" value="{{ object.doc_city_expedition }}" disabled>
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        <div class="row">
+                          <div class="col-md-12 p-3">
+                            {% comment %} {% if perms.user.change_user %} {% endcomment %}
+                              {% if object.kyc_validated == 'pending_document' %}
+                                <button id="btn-verificar" class="btn btn-danger btn-block" type="button" name="button"><b>{{object.get_kyc_validated_display}}</b></button>
+                              {% elif object.kyc_validated == 'sucessfull_document' %}
+                                <button id="btn-verificar" class="btn btn-success btn-block" type="button" name="button"><b>{{object.get_kyc_validated_display}}</b></button>
+                              {% elif object.kyc_validated == 'fail_document' %}
+                                <button id="btn-verificar" class="btn btn-danger btn-block" type="button" name="button"><b>{{object.get_kyc_validated_display}}</b></button>
+                              {% else %}
+                                <button id="btn-verificar" class="btn btn-warning btn-block" type="button" name="button"><b>{{object.get_kyc_validated_display}}</b></button>
+                              {% endif %}
+                            {% comment %} {% endif %} {% endcomment %}
+                          </div>
+                        </div>
+
+                        <table class="table">
+                          <thead>
+                            <tr>
+                              <th class="text-center">Imagen</th>
+                              <th class="text-center">Archivo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>Frontal Documento</td>
+                              <td class="text-center">
+                                  {% if object.document_front_image %}
+                                    <p>
+                                      <img class="img-fluid img-150" src="{{ object.document_front_image.url }}" alt="Front">
+                                    </p>
+                                    <a href="javascript:;" class="btn btn-sm btn-primary btn-preview" data-src="{{ object.document_front_image.url }}">Ver</a>
+                                    <a href="{{ object.document_front_image.url }}" download="{{ object.text }}_document_front_image" class="btn btn-sm btn-secondary">Descargar</a>
+                                  {% else %}
+                                    <span>No se ha cargado ningún documento</span>
+                                  {% endif %}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Reverso Documento</td>
+                              <td class="text-center">
+                                  {% if object.document_back_image %}
+                                    <p>
+                                      <img class="img-fluid img-150" src="{{ object.document_back_image.url }}" alt="Front">
+                                    </p>
+                                    <a href="javascript:;" class="btn btn-sm btn-primary btn-preview"  data-src="{{ object.document_back_image.url }}">Ver</a>
+                                    <a href="{{ object.document_back_image.url }}" download="{{ object.text }}_reverso_documento" class="btn btn-sm btn-secondary">Descargar</a>
+                                  {% else %}
+                                    <span>No se ha cargado ningún documento</span>
+                                  {% endif %}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Selfie</td>
+                              <td class="text-center">
+                                  {% if object.selfie %}
+                                    <p>
+                                      <img class="img-fluid img-150" src="{{ object.selfie.url }}" alt="Front">
+                                    </p>
+                                    <a href="javascript:;" class="btn btn-sm btn-primary btn-preview"  data-src="{{ object.selfie.url }}">Ver</a>
+                                    <a href="{{ object.selfie.url }}" download="{{ object.text }}_selfie" class="btn btn-sm btn-secondary">Descargar</a>
+                                  {% else %}
+                                    <span>No se ha cargado ningún documento</span>
+                                  {% endif %}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                          
+                      </div>
+                      <!-- /.card-body -->
+                    </div>
+                  </div>
+
+                 
+
+                </div>
+                <div class="card-footer">
+                  <a href="{% url 'user-notaria-list' %}" class="btn btn-default">Volver</a>
+                  {% if perms.user.change_user %}
+                    <a href="{% url 'user-notaria-documentinfo-update' object.pk %}" class="btn btn-primary float-right">
+                      <b>Editar</b>
+                    </a>
+                  {% endif %}
+                </div>
+              </div>
+              
+            </div>
+            <!-- /.tab-content -->
+          </div><!-- /.card-body -->
+        </div>
+        <!-- /.nav-tabs-custom -->
+      </div>
+      <!-- /.col -->
+    </div>
+  </div><!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+
+<div class="modal fade" id="imagemodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" data-dismiss="modal">
+    <div class="modal-content"  >
+      <div class="modal-body">
+      	<button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+        <img src="" class="imagepreview" style="width: 100%;" >
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'adminlte-3.1.0/plugins/bootstrap-switch/js/bootstrap-switch.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/sweetalert2/sweetalert2.min.js' %}"></script>
+<script src="{% static 'adminlte-3.1.0/plugins/toastr/toastr.min.js' %}"></script>
+
+<script type="text/javascript">
+
+  const object_id = document.getElementById('object_id');
+  const btn_verificar = document.getElementById('btn-verificar');
+
+  $("input[data-bootstrap-switch]").each(function(){
+    $(this).bootstrapSwitch('state', $(this).prop('checked'));
+  });
+
+  $('.btn-preview').on('click', function() {
+		$('.imagepreview').attr('src', $(this).attr('data-src'));
+		$('#imagemodal').modal('show');
+	});
+
+  var Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 4000
+    });
+
+  {% if messages %}
+    {% for message in messages %}
+      Toast.fire({
+        icon: 'success',
+        title: `{{message}}`
+      })
+    {% endfor %}
+  {% endif %}
+
+</script>
+{% endblock %}
