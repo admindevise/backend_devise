@@ -3,7 +3,7 @@ from pathlib import Path
 from django.utils.translation import ugettext_lazy as _
 import datetime as dt
 from pathlib import Path
-import dj_database_url
+#import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -147,25 +147,25 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 
-""" DATABASES = {
+DATABASES = {
     'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
             'NAME': 'devise',
-            'USER': 'adminpg',
-            'PASSWORD': 'devise2024*',
-            'HOST': 'localhost',
+            'USER': 'devise',
+            'PASSWORD': 'devise2023*',
+            'HOST': '127.0.0.1',
             'PORT': '5432',
     }
-} """
+}
 
 
-DATABASES = {
+""" DATABASES = {
     'default': dj_database_url.parse(
         'postgresql://adminpg:devise2024*@localhost:5432/devise_origin',
         conn_max_age=600,
         conn_health_checks=True,
     )
-}
+} """
 
 
 
@@ -244,15 +244,15 @@ LANGUAGES = (
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
-STATIC_URL = 'static/'
+
+STATIC_URL = '/static/'
 
 if (DEBUG == True):
     STATICFILES_DIRS = [
-        BASE_DIR / 'static'
+        BASE_DIR / 'static/'
     ]
 else:
-    STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
-    #STATIC_ROOT = BASE_DIR / 'static/'
+    STATIC_ROOT = BASE_DIR / 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
@@ -261,13 +261,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 #=====    Custom Configurations    ===================
 MEDIA_URL = '/media/'
-#MEDIA_ROOT = BASE_DIR / 'media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
+MEDIA_ROOT = BASE_DIR / 'media/'
 AUTH_USER_MODEL = 'user.User'
 
 LOGIN_URL = '/auth/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/auth/login/'
+
 #=====================================================
 
 
