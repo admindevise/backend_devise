@@ -46,7 +46,7 @@
           <span class="info-box-icon bg-success elevation-1"><i class="fas fa-shopping-cart"></i></span>
 
           <div class="info-box-content">
-            <span class="info-box-text">Total Activos</span>
+            <span class="info-box-text">Total Fondos</span>
             <span class="info-box-number">{{ transactions.count }}</span>
           </div>
           <!-- /.info-box-content -->
@@ -84,7 +84,7 @@
         <!-- TABLE: LATEST ORDERS -->
         <div class="card">
           <div class="card-header border-transparent">
-            <h3 class="card-title">Ultimas Usuarios Registrados</h3>
+            <h3 class="card-title">Ultimos Usuarios Registrados</h3>
 
             <div class="card-tools">
               <button type="button" class="btn btn-tool" data-card-widget="collapse">
@@ -108,6 +108,42 @@
                   </tr>
                 </thead>
                 <tbody>
+                  <tr>
+                    <th>admin</th>
+                    <th>001445</th>
+                    <th>Admin</th>
+                    <th>Colombia</th>
+                  </tr>
+                  <tr>
+                    <th>rafael204</th>
+                    <th>008594</th>
+                    <th>Inversionista</th>
+                    <th>Colombia</th>
+                  </tr>
+                  <tr>
+                    <th>andres84</th>
+                    <th>002345</th>
+                    <th>Inversionista</th>
+                    <th>Colombia</th>
+                  </tr>
+                  <tr>
+                    <th>v1ctor04</th>
+                    <th>003445</th>
+                    <th>Inversionista</th>
+                    <th>Colombia</th>
+                  </tr>
+                  <tr>
+                    <th>mario234</th>
+                    <th>004853</th>
+                    <th>Inversionista</th>
+                    <th>Colombia</th>
+                  </tr>
+                  <tr>
+                    <th>miguel400</th>
+                    <th>009943</th>
+                    <th>Inversionista</th>
+                    <th>Colombia</th>
+                  </tr>
                   {% for transaction in transactions|slice:":8"%}
                     <tr>
                       <td>
@@ -138,9 +174,9 @@
           <!-- /.card-body -->
           <div class="card-footer clearfix">
             {% if perms.wallet.view_wallettransaction %}
-              <a href="{% url 'devise-dashboard1' %}" class="btn btn-sm btn-secondary float-right">Ver Todas</a>
+              <a href="{% url 'devise-dashboard1' %}" class="btn btn-sm btn-secondary float-right">Ver Todos</a>
             {% else %}
-              <a href="#" class="btn btn-sm btn-secondary float-right disabled">Ver Todas</a>
+              <a href="#" class="btn btn-sm btn-secondary float-right disabled">Ver Todos</a>
             {% endif %}
           </div>
           <!-- /.card-footer -->
@@ -154,7 +190,7 @@
         <!-- USERS LIST -->
         <div class="card">
           <div class="card-header">
-            <h3 class="card-title">Ultimos Activos Registrados</h3>
+            <h3 class="card-title">Ultimos Fondos Registrados</h3>
 
             <div class="card-tools">
               <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i>
@@ -166,6 +202,41 @@
           <!-- /.card-header -->
           <div class="card-body p-0">
             <ul class="users-list clearfix">
+
+              {% comment %} ejemplos para acciones y valores {% endcomment %}
+
+              <li>
+                  <img class="img-circle img-circle-90" src="https://static.vecteezy.com/system/resources/previews/028/029/033/non_2x/3d-icon-business-empty-briefcase-free-png.png" alt="User Image">
+
+                  <a class="users-list-name" href="javascript:;">SiRenta</a>
+                
+                <span class="users-list-date">23/11/2024</span>
+              </li>
+              <li>
+                <img class="img-circle img-circle-90" src="https://static.vecteezy.com/system/resources/previews/028/029/033/non_2x/3d-icon-business-empty-briefcase-free-png.png" alt="User Image">
+
+                <a class="users-list-name" href="javascript:;">FORE</a>
+              
+              <span class="users-list-date">29/11/2024</span>
+            </li>
+            <li>
+              <img class="img-circle img-circle-90" src="https://static.vecteezy.com/system/resources/previews/028/029/033/non_2x/3d-icon-business-empty-briefcase-free-png.png" alt="User Image">
+
+              <a class="users-list-name" href="javascript:;">ACCIVAL</a>
+            
+            <span class="users-list-date">02/12/2024</span>
+          </li>
+          <li>
+            <img class="img-circle img-circle-90" src="https://static.vecteezy.com/system/resources/previews/028/029/033/non_2x/3d-icon-business-empty-briefcase-free-png.png" alt="User Image">
+
+            <a class="users-list-name" href="javascript:;">ACCICUENTA</a>
+          
+          <span class="users-list-date">01/12/2024</span>
+        </li>
+        
+
+              {% comment %} ejemplos para acciones y valores {% endcomment %}
+
               {% for user in users_registered|slice:":10" %}
                 <li>
                   {% if user.image_profile %}

@@ -23,6 +23,7 @@
     border: 1px solid #80b229;
     border-radius: 5px;
   }
+ 
 </style>
 {% endblock %}
 
@@ -32,7 +33,7 @@
   <div class="container-fluid">
     <div class="row mb-2">
       <div class="col-sm-6">
-        <h1 class="m-0 text-dark">Detalle de Usuario</h1>
+        <h1 class="m-0 text-dark">Detalle de Cliente</h1>
       </div><!-- /.col -->
       <div class="col-sm-6">
         <ol class="breadcrumb float-sm-right">
@@ -60,7 +61,7 @@
           </div>
           <div class="widget-user-image">
             {% if object.selfie %}
-              <img class="img-circle img-circle-90 elevation-2" src="{{ object.selfie.url }}" alt="User Avatar">
+              <img class="img-circle img-circle-90 elevation-2" src="https://static.vecteezy.com/system/resources/previews/014/300/061/non_2x/man-profile-glyph-icon-anonymous-photo-for-documents-illustration-vector.jpg" alt="User Avatar">
             {% else %}
               <img class="img-circle img-circle-90 elevation-2" src="{% static 'adminlte-3.1.0/dist/img/unknow_user.png' %}" alt="User Avatar">
             {% endif %}
@@ -69,8 +70,9 @@
             <div class="row">
               <div class="col-sm-6 border-right">
                 <div class="description-block">
-                  <span class="description-text">BALANCE</span>
+                  <span class="description-text">VALOR PORTAFOLIO</span>
                   <h5 class="description-header">{{ wallet_info.balance }} {{ wallet_info.crypto_coin.symbol }}</h5>
+                  <h5 class="description-header">COP 130.000.000</h5>
                   {% comment %} <h5 class="description-header">{{ wallet_info.balance_currency|currency }} {{ wallet_info.local_currency.symbol }}</h5> {% endcomment %}
                 </div>
                 <!-- /.description-block -->
@@ -78,8 +80,8 @@
               <!-- /.col -->
               <div class="col-sm-6 border-right">
                 <div class="description-block">
-                  <span class="description-text">REFERIDOS</span>
-                  <h5 class="description-header">{{ total_referreds }}</h5>
+                  <span class="description-text">UNIDADES</span>
+                  <h5 class="description-header">8.140</h5>
                 </div>
                 <!-- /.description-block -->
               </div>
@@ -94,7 +96,9 @@
         <!-- Profile Image -->
         <div class="card">
           <div class="card-body">
-            <a href="#">ver referidos</a>
+            <div class="btn btn-secondary btn-block" data-toggle="modal" data-target="#portfolioDetailsModal" onclick="showPortfolioDetails()">
+              Detalle del portafolio
+            </div>
             <ul class="list-group list-group-unbordered mb-3">
               <li class="list-group-item">
                 <table class="table table-striped mt-2 mb-0">
@@ -119,10 +123,10 @@
           </div>
           <!-- /.card-body -->
         </div>
-        {% if perms.user.is_superuser %}
+        
         <div class="card collapsed-card">
           <div class="card-header">
-             {% if wallet %}Wallet{% else %}Sin wallet asociada  {% endif %}
+             Wallet
             <div class="card-tools">
               <button type="button" class="btn btn-tool" data-card-widget="collapse" data-toggle="tooltip" title="Collapse">
                 <i class="fas fa-plus"></i></button>
@@ -131,7 +135,7 @@
           </div>
           <div class="card-body">
             
-            {% if wallet %}
+            {% comment %} {% if wallet %}
             <div>
               <label>Id wallet:</label>
               <span id="id_wallet">{{ wallet.id_wallet }}</span><span style="cursor:pointer;color:#b9de2c" id="id_wallet_copy"> <i class="fa fa-copy" aria-hidden="true"></i>
@@ -153,7 +157,30 @@
             {% endif %}
           </div>
         </div>
-        {% endif %}
+        {% endif %} {% endcomment %}
+
+        
+        
+        <div>
+          <label>Id wallet:</label>
+          <span id="id_wallet">0x742d35Cc6634C0532925a3b844Bc454e4438f44e</span><span style="cursor:pointer;color:#b9de2c" id="id_wallet_copy"> <i class="fa fa-copy" aria-hidden="true"></i>
+          </span>
+        </div>
+        <div>
+          <label>Secret:</label>
+          <div >
+            <span id="secret">            0x4c0883a69102937d6231471b5dbb6204fe51296170827970a8c0884fcdb61b24
+
+            </span>
+            <span style="cursor:pointer;color:#b9de2c" id="secret_copy">
+              <i class="fa fa-copy" aria-hidden="true"></i>
+            </span>
+          </div>
+        </div>        
+      </div>
+    </div>
+    
+        
         <!-- /.card -->
       </div>
       <!-- /.col -->
@@ -163,12 +190,12 @@
             <ul class="nav nav-pills">
               <li class="nav-item"><a class="nav-link active" href="#general" data-toggle="tab">Personal</a></li>
               <li class="nav-item"><a class="nav-link" href="#documentos" data-toggle="tab">Documental</a></li>
-              <li class="nav-item"><a class="nav-link" href="#info_residencial" data-toggle="tab">Residencial</a></li>
+              <li class="nav-item"><a class="nav-link" href="#info_residencial" data-toggle="tab">Residencia</a></li>
               <li class="nav-item"><a class="nav-link" href="#info_workplace" data-toggle="tab">Laboral</a></li>
               <li class="nav-item"><a class="nav-link" href="#info_company" data-toggle="tab">Empresa</a></li>
               <li class="nav-item"><a class="nav-link" href="#info_bancaria" data-toggle="tab">Bancaria</a></li>
               <li class="nav-item"><a class="nav-link" href="#info_socioeconomica" data-toggle="tab">SocioEconomica</a></li>
-              <li class="nav-item"><a class="nav-link" href="#transacciones" data-toggle="tab">Transaccional</a></li>
+              <li class="nav-item"><a class="nav-link" href="#transacciones" data-toggle="tab">Movimientos</a></li>
 
             </ul>
           </div><!-- /.card-header -->
@@ -415,9 +442,9 @@
 
                         </div>
 
-                        <div class="row">
+                        {% comment %} <div class="row">
                           <div class="col-md-12 p-3">
-                            {% comment %} {% if perms.user.change_user %} {% endcomment %}
+                            
                               {% if object.kyc_validated == 'pending_document' %}
                                 <button id="btn-verificar" class="btn btn-danger btn-block" type="button" name="button"><b>{{object.get_kyc_validated_display}}</b></button>
                               {% elif object.kyc_validated == 'sucessfull_document' %}
@@ -427,9 +454,9 @@
                               {% else %}
                                 <button id="btn-verificar" class="btn btn-warning btn-block" type="button" name="button"><b>{{object.get_kyc_validated_display}}</b></button>
                               {% endif %}
-                            {% comment %} {% endif %} {% endcomment %}
+                            
                           </div>
-                        </div>
+                        </div> {% endcomment %}
 
                         <table class="table">
                           <thead>
@@ -830,7 +857,7 @@
 
                     </div>
                   </form>
-                  <table class="table">
+                  {% comment %} <table class="table">
                           <thead>
                             <tr>
                               <th class="text-center">Parámetro</th>
@@ -854,7 +881,7 @@
                             </tr>
                             
                           </tbody>
-                        </table>
+                        </table> {% endcomment %}
 
                 </div>
                 
@@ -958,7 +985,7 @@
                       <div class="form-group row">
                         <label  class="col-md-3 col-form-label">Ingresos Mensuales</label>
                         <div class="col-md-9">
-                          <input type="text" class="form-control" value="{{ socioeconomic.monthly_income }}" disabled>
+                          <input type="text" class="form-control" value="11.000.000" disabled>
                         </div>
                       </div>
                     </div>
@@ -976,7 +1003,7 @@
                       <div class="form-group row">
                         <label  class="col-md-3 col-form-label">Valor otros ingresos</label>
                         <div class="col-md-9">
-                          <input type="text" class="form-control" value="{{ socioeconomic.value_other_income }}" disabled>
+                          <input type="text" class="form-control" value="20.000.000" disabled>
                         </div>
                       </div>
                     </div>
@@ -985,7 +1012,7 @@
                       <div class="form-group row">
                         <label  class="col-md-3 col-form-label">Gastos Mensuales</label>
                         <div class="col-md-9">
-                          <input type="text" class="form-control" value="{{ socioeconomic.monthly_expenses }}" disabled>
+                          <input type="text" class="form-control" value="13.000.000" disabled>
                         </div>
                       </div>
                     </div>
@@ -994,7 +1021,7 @@
                       <div class="form-group row">
                         <label  class="col-md-3 col-form-label">Total Activos</label>
                         <div class="col-md-9">
-                          <input type="text" class="form-control" value="{{ socioeconomic.total_assets }}" disabled>
+                          <input type="text" class="form-control" value="14" disabled>
                         </div>
                       </div>
                     </div>
@@ -1003,7 +1030,7 @@
                       <div class="form-group row">
                         <label  class="col-md-3 col-form-label">Total Pasivos</label>
                         <div class="col-md-9">
-                          <input type="text" class="form-control" value="{{ socioeconomic.total_liabilities }}" disabled>
+                          <input type="text" class="form-control" value="7" disabled>
                         </div>
                       </div>
                     </div>
@@ -1012,14 +1039,14 @@
                       <div class="form-group row">
                         <label  class="col-md-3 col-form-label">Origen de Fondos</label>
                         <div class="col-md-9">
-                          <input type="text" class="form-control" value="{{ socioeconomic.origin_of_funds.name }}" disabled>
+                          <input type="text" class="form-control" value="Criptomonedas" disabled>
                         </div>
                       </div>
                     </div>
 
                     <div class="col-md-6">
                       <div class="form-group row">
-                        <label  class="col-md-3 col-form-label">Expliación de Fondos</label>
+                        <label  class="col-md-3 col-form-label">Explicación de Fondos</label>
                         <div class="col-md-9">
                           <input type="text" class="form-control" value="{{ socioeconomic.income_explanation }}" disabled>
                         </div>
@@ -1097,7 +1124,7 @@
                       <div class="form-group row">
                         <label  class="col-md-3 col-form-label">Numero TIN o equivalente</label>
                         <div class="col-md-9">
-                          <input type="text" class="form-control" value="{{ socioeconomic.tin_number_or_equivalent }}" disabled>
+                          <input type="text" class="form-control" value="8598349" disabled>
                         </div>
                       </div>
                     </div>
@@ -1221,7 +1248,7 @@
                         </span>
 
                         <div class="info-box-content">
-                          <span class="info-box-text">Depositos</span>
+                          <span class="info-box-text">Compras</span>
                           <span class="info-box-number">{{ object.get_transactions_count.deposit }}</span>
                         </div>
                         <!-- /.info-box-content -->
@@ -1235,7 +1262,7 @@
                         </span>
 
                         <div class="info-box-content">
-                          <span class="info-box-text">Retiros</span>
+                          <span class="info-box-text">Ventas</span>
                           <span class="info-box-number">{{ object.get_transactions_count.withdrawal }}</span>
                         </div>
                         <!-- /.info-box-content -->
@@ -1250,7 +1277,7 @@
                         </span>
 
                         <div class="info-box-content">
-                          <span class="info-box-text">Pago</span>
+                          <span class="info-box-text">Distribuciones</span>
                           <span class="info-box-number">{{ object.get_transactions_count.payment }}</span>
                         </div>
                         <!-- /.info-box-content -->
@@ -1263,7 +1290,7 @@
                       <div class="card">
                         <div class="card-header border-0">
                           <div class="d-flex justify-content-between">
-                            <h3 class="card-title">Ultimas 10 transacciones</h3>
+                            <h3 class="card-title">Ultimos 10 movimientos</h3>
                             <a href="#">ver todo</a>
                           </div>
                         </div>
@@ -1271,14 +1298,371 @@
                         <div class="card-body p-0">
                           <table class="table">
                             <thead>
-                              <th class="text-center">Tipo</th>
+                              <th class="text-center">Tipo de Movimiento
+                                <th class="text-center">Fondo</th>
+                                <th class="text-center">Fecha</th>
+                                <th class="text-center">Saldo</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Detalle</th>
+                            </thead>
+{% comment %}                         <thead>
+                              <th class="text-center">Tipo Movimiento
                               <th class="text-center">Monto</th>
                               <th class="text-center">Fee</th>
                               <th class="text-center">Sender / Receiver</th>
                               <th class="text-center">Estado</th>
                               <th class="text-center">Fecha Registro</th>
-                            </thead>
+                            </thead>  {% endcomment %}
+
                             <tbody>
+                              
+                                <tr>
+                                  <td class="text-center">Inversion en proyecto</td>
+                                  <td class="text-center">SiRenta</td>
+                                  <td class="text-center">02 Dic 2022 - 4:59 p.m</td>
+                                  <td class="text-center">+$5.000.004</td>
+                                  <td class="text-center">
+                                    
+                                    <span class="badge badge-warning">Pendiente</span>
+                                    
+                                  </td>
+                                  <td class="text-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 100 100" fill="none">
+                                    <!-- Fondo del documento -->
+                                    <rect x="20" y="15" width="60" height="70" rx="8" stroke="black" stroke-width="3" fill="white" />
+                                    
+                                    <!-- Línea superior (contenido del documento) -->
+                                    <line x1="30" y1="30" x2="70" y2="30" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea media (contenido del documento) -->
+                                    <line x1="30" y1="45" x2="70" y2="45" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea inferior extra (más detalle) -->
+                                    <line x1="30" y1="60" x2="70" y2="60" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Círculo de "añadir detalle" -->
+                                    <circle cx="50" cy="85" r="8" fill="black" />
+                                    
+                                    <!-- Símbolo "+" en el círculo -->
+                                    <line x1="50" y1="81" x2="50" y2="89" stroke="white" stroke-width="2" />
+                                    <line x1="46" y1="85" x2="54" y2="85" stroke="white" stroke-width="2" />
+                                  </svg>
+                                  
+                                  </td>
+                                </tr>
+
+                                <tr>
+                                  <td class="text-center">Inversión en proyecto</td>
+                                  <td class="text-center">FORE</td>
+                                  <td class="text-center">02 Dic 2022 - 4:59 p.m</td>
+                                  <td class="text-center">+$15.045.004</td>
+                                  <td class="text-center">
+                                    <span class="badge badge-warning">Pendiente</span>
+                                  </td>
+                                  <td class="text-center" style="cursor: pointer;"> 
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 100 100" fill="none" class="transaction-detail" data-toggle="modal" Kdata-target="#transactionModal" data-emitter="DirecciónEmisora" data-receiver="DirecciónReceptora" data-date="Dic-02-2022 04:59:23 PM UTC" data-amount="$15.045.004"
+                                      data-transactionHash="0x3295abf10384b818fcddd49a77e0379a2e6d004c0375825abdf7bfc137ae676e"
+                                      data-block="234566223"
+                                      data-transactionAction="Transfer 0.923564232355 ETH (COP 15.045.004) by Andres to unknow"
+                                      data-from="Andres Mauricio Garcia"
+                                      data-to="Miguel Stiven Fernandez"
+                                      data-value="COP 12.465"
+                                      data-transactionFee="0.123564232355 ETH (COP 1.045.004)"
+                                      data-gasPrice="9.510835306 Gwei (0.000000009510835306 ETH)">
+                                          <rect x="20" y="15" width="60" height="70" rx="8" stroke="black" stroke-width="3" fill="white" />
+                                          <line x1="30" y1="30" x2="70" y2="30" stroke="black" stroke-width="2" />
+                                          <line x1="30" y1="45" x2="70" y2="45" stroke="black" stroke-width="2" />
+                                          <line x1="30" y1="60" x2="70" y2="60" stroke="black" stroke-width="2" />
+                                          <circle cx="50" cy="85" r="8" fill="black" />
+                                          <line x1="50" y1="81" x2="50" y2="89" stroke="white" stroke-width="2" />
+                                          <line x1="46" y1="85" x2="54" y2="85" stroke="white" stroke-width="2" />
+                                      </svg>
+                                  </td>
+                              </tr>
+
+                                <tr>
+                                  <td class="text-center">Inversion en proyecto</td>
+                                  <td class="text-center">EFT 500 Acciones U.S.</td>
+                                  <td class="text-center">02 Dic 2022 - 4:59 p.m</td>
+                                  <td class="text-center">+$700.004</td>
+                                  <td class="text-center">
+
+                                    <span class="badge badge-success">Confirmado</span>
+                                    
+                                  </td>
+                                  <td class="text-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 100 100" fill="none">
+                                    <!-- Fondo del documento -->
+                                    <rect x="20" y="15" width="60" height="70" rx="8" stroke="black" stroke-width="3" fill="white" />
+                                    
+                                    <!-- Línea superior (contenido del documento) -->
+                                    <line x1="30" y1="30" x2="70" y2="30" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea media (contenido del documento) -->
+                                    <line x1="30" y1="45" x2="70" y2="45" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea inferior extra (más detalle) -->
+                                    <line x1="30" y1="60" x2="70" y2="60" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Círculo de "añadir detalle" -->
+                                    <circle cx="50" cy="85" r="8" fill="black" />
+                                    
+                                    <!-- Símbolo "+" en el círculo -->
+                                    <line x1="50" y1="81" x2="50" y2="89" stroke="white" stroke-width="2" />
+                                    <line x1="46" y1="85" x2="54" y2="85" stroke="white" stroke-width="2" />
+                                  </svg>
+                                  
+                                  </td>
+                                </tr>
+
+                                <tr>
+                                  <td class="text-center">Liquidacion de proyecto</td>
+                                  <td class="text-center">Accival Vista</td>
+                                  <td class="text-center">02 Dic 2022 - 4:59 p.m</td>
+                                  <td class="text-center">-$15.000.000</td>
+                                  <td class="text-center">
+                                    
+                                      <span class="badge badge-success">Confirmado</span>
+                                    
+                                  </td>
+                                  <td class="text-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 100 100" fill="none">
+                                    <!-- Fondo del documento -->
+                                    <rect x="20" y="15" width="60" height="70" rx="8" stroke="black" stroke-width="3" fill="white" />
+                                    
+                                    <!-- Línea superior (contenido del documento) -->
+                                    <line x1="30" y1="30" x2="70" y2="30" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea media (contenido del documento) -->
+                                    <line x1="30" y1="45" x2="70" y2="45" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea inferior extra (más detalle) -->
+                                    <line x1="30" y1="60" x2="70" y2="60" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Círculo de "añadir detalle" -->
+                                    <circle cx="50" cy="85" r="8" fill="black" />
+                                    
+                                    <!-- Símbolo "+" en el círculo -->
+                                    <line x1="50" y1="81" x2="50" y2="89" stroke="white" stroke-width="2" />
+                                    <line x1="46" y1="85" x2="54" y2="85" stroke="white" stroke-width="2" />
+                                  </svg>
+                                  
+                                  </td>
+                                </tr>
+
+                                <tr>
+                                  <td class="text-center">Liquidacion de proyecto</td>
+                                  <td class="text-center">Accival 180</td>
+                                  <td class="text-center">02 Dic 2022 - 4:59 p.m</td>
+                                  <td class="text-center">-$1.500.000</td>
+                                  <td class="text-center">
+                                    
+                                      <span class="badge badge-success">Confirmado</span>
+                                    
+                                  </td>
+                                  <td class="text-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 100 100" fill="none">
+                                    <!-- Fondo del documento -->
+                                    <rect x="20" y="15" width="60" height="70" rx="8" stroke="black" stroke-width="3" fill="white" />
+                                    
+                                    <!-- Línea superior (contenido del documento) -->
+                                    <line x1="30" y1="30" x2="70" y2="30" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea media (contenido del documento) -->
+                                    <line x1="30" y1="45" x2="70" y2="45" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea inferior extra (más detalle) -->
+                                    <line x1="30" y1="60" x2="70" y2="60" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Círculo de "añadir detalle" -->
+                                    <circle cx="50" cy="85" r="8" fill="black" />
+                                    
+                                    <!-- Símbolo "+" en el círculo -->
+                                    <line x1="50" y1="81" x2="50" y2="89" stroke="white" stroke-width="2" />
+                                    <line x1="46" y1="85" x2="54" y2="85" stroke="white" stroke-width="2" />
+                                  </svg>
+                                  
+                                  </td>
+                                </tr>
+
+                                <tr>
+                                  <td class="text-center">Inversión de pryecto</td>
+                                  <td class="text-center">Accicuenta Conservador</td>
+                                  <td class="text-center">02 Dic 2022 - 4:59 p.m</td>
+                                  <td class="text-center">+$25.045.004</td>
+                                  <td class="text-center">
+                                    
+                                      <span class="badge badge-success">Confirmado</span>
+                                    
+                                  </td>
+                                  <td class="text-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 100 100" fill="none">
+                                    <!-- Fondo del documento -->
+                                    <rect x="20" y="15" width="60" height="70" rx="8" stroke="black" stroke-width="3" fill="white" />
+                                    
+                                    <!-- Línea superior (contenido del documento) -->
+                                    <line x1="30" y1="30" x2="70" y2="30" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea media (contenido del documento) -->
+                                    <line x1="30" y1="45" x2="70" y2="45" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea inferior extra (más detalle) -->
+                                    <line x1="30" y1="60" x2="70" y2="60" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Círculo de "añadir detalle" -->
+                                    <circle cx="50" cy="85" r="8" fill="black" />
+                                    
+                                    <!-- Símbolo "+" en el círculo -->
+                                    <line x1="50" y1="81" x2="50" y2="89" stroke="white" stroke-width="2" />
+                                    <line x1="46" y1="85" x2="54" y2="85" stroke="white" stroke-width="2" />
+                                  </svg>
+                                  
+                                  </td>
+                                </tr>
+
+                                <tr>
+                                  <td class="text-center">Distribucion</td>
+                                  <td class="text-center">Acciones Dinámico</td>
+                                  <td class="text-center">31 Dic 2022 - 4:59 p.m</td>
+                                  <td class="text-center">$10.000</td>
+                                  <td class="text-center">
+                                    
+                                      <span class="badge badge-success">Confirmado</span>
+                                    
+                                  </td>
+                                  <td class="text-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 100 100" fill="none">
+                                    <!-- Fondo del documento -->
+                                    <rect x="20" y="15" width="60" height="70" rx="8" stroke="black" stroke-width="3" fill="white" />
+                                    
+                                    <!-- Línea superior (contenido del documento) -->
+                                    <line x1="30" y1="30" x2="70" y2="30" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea media (contenido del documento) -->
+                                    <line x1="30" y1="45" x2="70" y2="45" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea inferior extra (más detalle) -->
+                                    <line x1="30" y1="60" x2="70" y2="60" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Círculo de "añadir detalle" -->
+                                    <circle cx="50" cy="85" r="8" fill="black" />
+                                    
+                                    <!-- Símbolo "+" en el círculo -->
+                                    <line x1="50" y1="81" x2="50" y2="89" stroke="white" stroke-width="2" />
+                                    <line x1="46" y1="85" x2="54" y2="85" stroke="white" stroke-width="2" />
+                                  </svg>
+                                  
+                                  </td>
+                                </tr>
+
+                                <tr>
+                                  <td class="text-center">Liquidacion de proyecto</td>
+                                  <td class="text-center">Accival Vista</td>
+                                  <td class="text-center">02 Dic 2022 - 4:59 p.m</td>
+                                  <td class="text-center">-$1.000.000</td>
+                                  <td class="text-center">
+                                    
+                                      <span class="badge badge-success">Confirmado</span>
+                                    
+                                  </td>
+                                  <td class="text-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 100 100" fill="none">
+                                    <!-- Fondo del documento -->
+                                    <rect x="20" y="15" width="60" height="70" rx="8" stroke="black" stroke-width="3" fill="white" />
+                                    
+                                    <!-- Línea superior (contenido del documento) -->
+                                    <line x1="30" y1="30" x2="70" y2="30" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea media (contenido del documento) -->
+                                    <line x1="30" y1="45" x2="70" y2="45" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea inferior extra (más detalle) -->
+                                    <line x1="30" y1="60" x2="70" y2="60" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Círculo de "añadir detalle" -->
+                                    <circle cx="50" cy="85" r="8" fill="black" />
+                                    
+                                    <!-- Símbolo "+" en el círculo -->
+                                    <line x1="50" y1="81" x2="50" y2="89" stroke="white" stroke-width="2" />
+                                    <line x1="46" y1="85" x2="54" y2="85" stroke="white" stroke-width="2" />
+                                  </svg>
+                                  
+                                  </td>
+                                </tr>
+
+                                <tr>
+                                  <td class="text-center">Inversion en proyecto</td>
+                                  <td class="text-center">SiRenta</td>
+                                  <td class="text-center">02 Dic 2022 - 4:59 p.m</td>
+                                  <td class="text-center">+$9.000.004</td>
+                                  <td class="text-center">
+                                    
+                                    <span class="badge badge-success">Confirmado</span>
+                                    
+                                  </td>
+                                  <td class="text-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 100 100" fill="none">
+                                    <!-- Fondo del documento -->
+                                    <rect x="20" y="15" width="60" height="70" rx="8" stroke="black" stroke-width="3" fill="white" />
+                                    
+                                    <!-- Línea superior (contenido del documento) -->
+                                    <line x1="30" y1="30" x2="70" y2="30" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea media (contenido del documento) -->
+                                    <line x1="30" y1="45" x2="70" y2="45" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea inferior extra (más detalle) -->
+                                    <line x1="30" y1="60" x2="70" y2="60" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Círculo de "añadir detalle" -->
+                                    <circle cx="50" cy="85" r="8" fill="black" />
+                                    
+                                    <!-- Símbolo "+" en el círculo -->
+                                    <line x1="50" y1="81" x2="50" y2="89" stroke="white" stroke-width="2" />
+                                    <line x1="46" y1="85" x2="54" y2="85" stroke="white" stroke-width="2" />
+                                  </svg>
+                                  
+                                  </td>
+                                </tr>
+
+                                <tr>
+                                  <td class="text-center">Liquidacion de proyecto</td>
+                                  <td class="text-center">Accival Vista</td>
+                                  <td class="text-center">02 Dic 2022 - 4:59 p.m</td>
+                                  <td class="text-center">-$5.000.000</td>
+                                  <td class="text-center">
+                                    
+                                      <span class="badge badge-success">Confirmado</span>
+                                    
+                                  </td>
+                                  <td class="text-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 100 100" fill="none">
+                                    <!-- Fondo del documento -->
+                                    <rect x="20" y="15" width="60" height="70" rx="8" stroke="black" stroke-width="3" fill="white" />
+                                    
+                                    <!-- Línea superior (contenido del documento) -->
+                                    <line x1="30" y1="30" x2="70" y2="30" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea media (contenido del documento) -->
+                                    <line x1="30" y1="45" x2="70" y2="45" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Línea inferior extra (más detalle) -->
+                                    <line x1="30" y1="60" x2="70" y2="60" stroke="black" stroke-width="2" />
+                                    
+                                    <!-- Círculo de "añadir detalle" -->
+                                    <circle cx="50" cy="85" r="8" fill="black" />
+                                    
+                                    <!-- Símbolo "+" en el círculo -->
+                                    <line x1="50" y1="81" x2="50" y2="89" stroke="white" stroke-width="2" />
+                                    <line x1="46" y1="85" x2="54" y2="85" stroke="white" stroke-width="2" />
+                                  </svg>
+                                  
+                                  </td>
+                                </tr>
+                              
+                            </tbody>
+
+{% comment %}                             <tbody>
                               {% for transaction in transactions %}
                                 <tr>
                                   <td>{{ transaction.get_type_display }}</td>
@@ -1297,7 +1681,7 @@
                                   <td class="text-center">{{ transaction.created_at }}</td>
                                 </tr>
                               {% endfor %}
-                            </tbody>
+                            </tbody> {% endcomment %}
                           </table>
                         </div>
                       </div>
@@ -1327,6 +1711,75 @@
       <div class="modal-body">
       	<button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
         <img src="" class="imagepreview" style="width: 100%;" >
+      </div>
+    </div>
+  </div>
+</div>
+
+{% comment %} modal detalle de transaccion {% endcomment %}
+
+<div class="modal fade" id="transactionModal" tabindex="-1" role="dialog" aria-labelledby="transactionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" role="document">
+      <div class="modal-content" style="max-width: 50rem; width: auto;"> <!-- Ajuste el ancho máximo aquí -->
+          <div class="modal-header">
+              <h5 class="modal-title" id="transactionModalLabel" style="font-weight: bold;">Detalle de Transacción</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+              </button>
+          </div>
+          <div class="modal-body">              
+              {% comment %} <p><strong>Monto:</strong> <span id="amount"></span></p>
+              <hr> {% endcomment %}
+              <p><strong>Hash de transacción:</strong> <span id="transactionHash">0x3295abf10384b818fcddd49a77e0379a2e6d004c0375825abdf7bfc137ae676e</span></p>
+              <p><strong>Bloque:</strong> <span id="block"></span></p>
+              <p><strong>Fecha:</strong> <span id="date"></span></p>
+              <hr>
+              <p><strong>Tipo de transacción:</strong> <span id="transactionAction">Transferencia 1.206,97986 n.Unidades (COP 15.045.004) de Miguel para Andres</span></p>
+              <hr>
+              <p><strong>De:</strong> <span id="from"></span><br> <span>0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5</span></p>
+              <p><strong>Para:</strong> <span id="to"></span><br> <span>0x388C818CA8B9251b393131C08a736A67ccB19297</span></p>
+              <hr>
+              <p><strong>Valor Unidad:</strong> <span id="value"></span></p>
+              <p><strong>Saldo antes:</strong> <span id="transactionFee">COP 0</span> </p>
+              <p><strong>Saldo despues:</strong> <span id="gasPrice">COP 15.045.004</span></p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" data-dismiss="modal">Aprobar</button>
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Rechazar</button>
+              
+          </div>
+      </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="portfolioDetailsModal" tabindex="-1" role="dialog" aria-labelledby="portfolioDetailsModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="portfolioDetailsModalLabel">Detalles del Portafolio</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body d-flex">
+        <div class="col-md-6">
+          <div class="pie-chart">
+            <img src="http://127.0.0.1:8000/media/char.png" alt="Descripción de la imagen" width="250">
+          </div>
+        </div>
+        <div class="col-md-6">
+          <ul id="portfolioData" class="list-group">
+            <li class="list-group-item d-flex justify-content-between align-items-center">verde <span class="badge badge-primary badge-pill">20%</span></li>
+            <li class="list-group-item d-flex justify-content-between align-items-center">purpura B <span class="badge badge-primary badge-pill">10%</span></li>
+            <li class="list-group-item d-flex justify-content-between align-items-center">rosa C <span class="badge badge-primary badge-pill">25%</span></li>
+            <li class="list-group-item d-flex justify-content-between align-items-center">rosa oscuro D <span class="badge badge-primary badge-pill">10%</span></li>
+            <li class="list-group-item d-flex justify-content-between align-items-center">azul <span class="badge badge-primary badge-pill">35%</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -1414,6 +1867,36 @@
       })
     {% endfor %}
   {% endif %}
+
+  $('.transaction-detail').on('click', function() {
+    var emitter = $(this).data('emitter');
+    var receiver = $(this).data('receiver');
+    var date = $(this).data('date');
+    var amount = $(this).data('amount');
+    var transactionHash = $(this).data('transactionHash');
+    var block = $(this).data('block');
+    var transactionAction = $(this).data('transactionAction');
+    var from = $(this).data('from');
+    var to = $(this).data('to');
+    var value = $(this).data('value');
+    var transactionFee = $(this).data('transactionFee');
+    var gasPrice = $(this).data('gasPrice');
+
+    $('#emitter').text(emitter);
+    $('#receiver').text(receiver);
+    $('#date').text(date);
+    $('#amount').text(amount);
+    $('#transactionHash').text(transactionHash);
+    $('#block').text(block);
+    $('#transactionAction').text(transactionAction);
+    $('#from').text(from);
+    $('#to').text(to);
+    $('#value').text(value);
+    $('#transactionFee').text(transactionFee);
+    $('#gasPrice').text(gasPrice);
+
+    $('#transactionModal').modal('show');
+});
 
 </script>
 {% endblock %}

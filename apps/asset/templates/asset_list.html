@@ -28,12 +28,12 @@
     {% endif %}
     <div class="row mb-2">
       <div class="col-sm-6">
-        <h1 class="m-0 text-dark">Activos de inversión</h1>
+        <h1 class="m-0 text-dark">Fondos de inversión</h1>
       </div><!-- /.col -->
       <div class="col-sm-6">
         <ol class="breadcrumb float-sm-right">
           <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Home</a></li>
-          <li class="breadcrumb-item active">Activos</li>
+          <li class="breadcrumb-item active">Fondos</li>
         </ol>
       </div><!-- /.col -->
     </div><!-- /.row -->
@@ -75,10 +75,50 @@
                 <div class="col-md-9">
                   <select class="custom-select" name="verified">
                     <option value="">Todos</option>
-                    {% for estado in estados_aprobacion %}
+                    {% comment %} {% for estado in estados_aprobacion %}
                       <option value="{{ estado.pk }}" {%if filter_obj.filter_verified == estado.pk %}selected{% endif %} >{{estado.nombre }}</option>
-                    {% endfor %}
+                    {% endfor %} {% endcomment %}
                     
+                    <option value="10">Fondo pendiente aprobación Sponsor</option>
+                  
+                    <option value="11">Pendiente respuesta del Propietario</option>
+                  
+                    <option value="12">Fondo aprobado por el Sponsor</option>
+                  
+                    <option value="13">Pendiente respuesta del Sponsor</option>
+                  
+                    <option value="14">Fondo aprobado por Devise</option>
+                  
+                    <option value="15">Fondo aprobado por Fiducia</option>
+                  
+                    <option value="16">Fondo con fideicomiso cargado</option>
+                  
+                    <option value="17">Fondo con firmas de fideicomiso pendientes</option>
+                  
+                    <option value="18">Fondo con fideicomiso firmado</option>
+                  
+                    <option value="19">Fondo con minuta de escrituracion cargada y pendiente por aprobar</option>
+                  
+                    <option value="20">Fondo con minuta de escrituracion aprobada</option>
+                  
+                    <option value="21">Fondo pendiente por nueva escritura</option>
+                  
+                    <option value="22">Fondo con escriruras actualizadas</option>
+                  
+                    <option value="23">Fondo con certificado tradición y libertad actualizado</option>
+                  
+                    <option value="24">Fondo pendiente por configuracion KPI</option>
+                  
+                    <option value="25">Pendiente respuesta KPI por Devise</option>
+                  
+                    <option value="26">Fondo con KPI aprobado por Devise</option>
+                  
+                    <option value="27">Fondo con ID. contrato Kaleido</option>
+                  
+                    <option value="28">Fondo con KPI aprobado por Devise</option>
+                  
+                    <option value="29">Fondo con documento de sesion cargado por el Sponsor</option>
+                  
                   </select>
                 </div>
               </div>
@@ -104,7 +144,7 @@
               <input type="hidden" name="model_action" value="user">
               <select id='_action_select' class="custom-select" name="_action">
                 <option value="" selected="">---</option>
-                <option value="export_admin_action">Exportar Activos Seleccionados</option>
+                <option value="export_admin_action">Exportar Fondos Seleccionados</option>
               </select>
               <div class="">
                 <span id="_action_select_all" class="text-primary pt-2 pl-2" style="display: none; cursor: pointer;">Seleccionar {{ page_obj.paginator.count }} objetos</span>
@@ -154,17 +194,263 @@
                   <input id="_action_selection_page" class="" type="checkbox"
                     name="" value="">
                 </th>
-                <th class="text-center" style="width: 150px;">Codigo</th>
-                <th class="text-center">Sponsor</th>
-                <th class="text-center">Nombre</th>
-                <th class="text-center">Ubicación</th>
-                <th class="text-center">Categoría</th>
-                <th class="text-center">Estado Aprobación</th>
-                <th class="text-center">Acción</th>
+                <th class="text-center" style="width: 150px;">Id</th>
+                <th class="text-center">Fondo</th>
+                <th class="text-center">Tipo de fondo</th>
+                <th class="text-center">Valor del fondo</th>
+                <th class="text-center">Valor de la unidad</th>
+                <th class="text-center">Estado</th>
               </tr>
             </thead>
             <tbody>
-              {% for object in object_list %}
+              {% comment %} Editado para Acciones y Valores {% endcomment %}
+              <tr>
+                <td>
+                  <input class="form-checked-input" type="checkbox"
+                    name="_action_selection" value="0000">
+                </td>
+                <td class="text-center">
+                  <a>
+                    001
+                  </a>
+                  <br/>
+                    <small>
+                        Acciones y Valores
+                    </small>
+                </td>
+                <td class="text-center">SiRenta</td>
+                <td class="text-center">Inmobiliario</td>
+                <td class="text-center">78.352.439.315</td>
+                <td class="text-center">13.608</td>
+
+                <td class="project_progress">
+                        <small>
+                            {{ object.estado_aprobacion.porcentaje }}0%
+                        </small>
+                        <div class="progress progress-sm">
+                            <div class="progress-bar bg-green" role="progressbar" aria-valuenow="" aria-valuemin="0" aria-valuemax="100" style="color: red;">
+                            </div>
+                        </div>
+                        <small>
+                            Fondo pendiente de aprobacion
+                        </small>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#detailsModal" onclick="showDetails">
+                        <i class="fas fa-folder"></i>
+                        Ver
+                      </button>
+                    </td>
+              </tr>
+
+              <tr>
+                <td>
+                  <input class="form-checked-input" type="checkbox"
+                    name="_action_selection" value="0000">
+                </td>
+                <td class="text-center">
+                  <a>
+                    002
+                  </a>
+                  <br/>
+                    <small>
+                        Acciones y Valores
+                    </small>
+                </td>
+                <td class="text-center">FORE</td>
+                <td class="text-center">Fondo de capital privado</td>
+                <td class="text-center">4.379.337.256</td>
+                <td class="text-center">12.465</td>
+
+                <td class="project_progress">
+                        <small>
+                            {{ object.estado_aprobacion.porcentaje }}0%
+                        </small>
+                        <div class="progress progress-sm">
+                            <div class="progress-bar bg-green" role="progressbar" aria-valuenow="" aria-valuemin="0" aria-valuemax="100" style="">
+                            </div>
+                        </div>
+                        <small>
+                            Fondo pendiente de aprobacion
+                        </small>
+                    </td>
+                <td class="text-center">
+                  <a class="btn btn-primary btn-sm" href="/">
+                      <i class="fas fa-folder">
+                      </i>
+                      Ver
+                  </a>
+                  {% comment %} <a href="#!" id="delete_user" onclick="delete_function('{{object.pk}}')" class="ml-2" ><i class="far fa-trash-alt nav-icon"></i></a> {% endcomment %}
+                </td>
+              </tr>
+
+              <tr>
+                <td>
+                  <input class="form-checked-input" type="checkbox"
+                    name="_action_selection" value="0000">
+                </td>
+                <td class="text-center">
+                  <a>
+                    003
+                  </a>
+                  <br/>
+                    <small>
+                        Acciones y Valores
+                    </small>
+                </td>
+                <td class="text-center">Accival</td>
+                <td class="text-center">Renta Fija</td>
+                <td class="text-center">540.301.931.653</td>
+                <td class="text-center">8.763</td>
+
+                <td class="project_progress">
+                        <small>
+                            {{ object.estado_aprobacion.porcentaje }}0%
+                        </small>
+                        <div class="progress progress-sm">
+                            <div class="progress-bar bg-green" role="progressbar" aria-valuenow="" aria-valuemin="0" aria-valuemax="100" style="">
+                            </div>
+                        </div>
+                        <small>
+                            Fondo pendiente de aprobacion
+                        </small>
+                    </td>
+                <td class="text-center">
+                  <a class="btn btn-primary btn-sm" href="/">
+                      <i class="fas fa-folder">
+                      </i>
+                      Ver
+                  </a>
+                  {% comment %} <a href="#!" id="delete_user" onclick="delete_function('{{object.pk}}')" class="ml-2" ><i class="far fa-trash-alt nav-icon"></i></a> {% endcomment %}
+                </td>
+              </tr>
+
+              <tr>
+                <td>
+                  <input class="form-checked-input" type="checkbox"
+                    name="_action_selection" value="0000">
+                </td>
+                <td class="text-center">
+                  <a>
+                    004
+                  </a>
+                  <br/>
+                    <small>
+                        Acciones y Valores
+                    </small>
+                </td>
+                <td class="text-center">Accicuenta (Moderado)</td>
+                <td class="text-center">Renta fija, renta variable</td>
+                <td class="text-center">44.899.838.715</td>
+                <td class="text-center">11.814</td>
+
+                <td class="project_progress">
+                        <small>
+                            {{ object.estado_aprobacion.porcentaje }}0%
+                        </small>
+                        <div class="progress progress-sm">
+                            <div class="progress-bar bg-green" role="progressbar" aria-valuenow="" aria-valuemin="0" aria-valuemax="100" style="">
+                            </div>
+                        </div>
+                        <small>
+                            Fondo pendiente de aprobacion
+                        </small>
+                    </td>
+                <td class="text-center">
+                  <a class="btn btn-primary btn-sm" href="/">
+                      <i class="fas fa-folder">
+                      </i>
+                      Ver
+                  </a>
+                  {% comment %} <a href="#!" id="delete_user" onclick="delete_function('{{object.pk}}')" class="ml-2" ><i class="far fa-trash-alt nav-icon"></i></a> {% endcomment %}
+                </td>
+              </tr>
+
+              <tr>
+                <td>
+                  <input class="form-checked-input" type="checkbox"
+                    name="_action_selection" value="0000">
+                </td>
+                <td class="text-center">
+                  <a>
+                    005
+                  </a>
+                  <br/>
+                    <small>
+                        Acciones y Valores
+                    </small>
+                </td>
+                <td class="text-center">ETF 500 Acciones U.S</td>
+                <td class="text-center">Renta variable</td>
+                <td class="text-center">26.481.124.794</td>
+                <td class="text-center">12.592</td>
+
+                <td class="project_progress">
+                        <small>
+                            {{ object.estado_aprobacion.porcentaje }}0%
+                        </small>
+                        <div class="progress progress-sm">
+                            <div class="progress-bar bg-green" role="progressbar" aria-valuenow="" aria-valuemin="0" aria-valuemax="100" style="">
+                            </div>
+                        </div>
+                        <small>
+                            Fondo pendiente de aprobacion
+                        </small>
+                    </td>
+                <td class="text-center">
+                  <a class="btn btn-primary btn-sm" href="/">
+                      <i class="fas fa-folder">
+                      </i>
+                      Ver
+                  </a>
+                  {% comment %} <a href="#!" id="delete_user" onclick="delete_function('{{object.pk}}')" class="ml-2" ><i class="far fa-trash-alt nav-icon"></i></a> {% endcomment %}
+                </td>
+              </tr>
+
+              <tr>
+                <td>
+                  <input class="form-checked-input" type="checkbox"
+                    name="_action_selection" value="0000">
+                </td>
+                <td class="text-center">
+                  <a>
+                    006
+                  </a>
+                  <br/>
+                    <small>
+                        Acciones y Valores
+                    </small>
+                </td>
+                <td class="text-center">Acciones Dinámico</td>
+                <td class="text-center">Renta variable</td>
+                <td class="text-center">11.948.774.647</td>
+                <td class="text-center">11.487</td>
+
+                <td class="project_progress">
+                        <small>
+                            {{ object.estado_aprobacion.porcentaje }}0%
+                        </small>
+                        <div class="progress progress-sm">
+                            <div class="progress-bar bg-green" role="progressbar" aria-valuenow="" aria-valuemin="0" aria-valuemax="100" style="">
+                            </div>
+                        </div>
+                        <small>
+                            Fondo pendiente de aprobacion
+                        </small>
+                    </td>
+                <td class="text-center">
+                  <a class="btn btn-primary btn-sm" href="/">
+                      <i class="fas fa-folder">
+                      </i>
+                      Ver
+                  </a>
+                  {% comment %} <a href="#!" id="delete_user" onclick="delete_function('{{object.pk}}')" class="ml-2" ><i class="far fa-trash-alt nav-icon"></i></a> {% endcomment %}
+                </td>
+              </tr>
+
+              {% comment %} Editado para Acciones y Valores {% endcomment %}
+
+{% comment %}               {% for object in object_list %}
                 <tr>
                   <td>
                     <input class="form-checked-input" type="checkbox"
@@ -202,10 +488,9 @@
                         </i>
                         Ver
                     </a>
-                    {% comment %} <a href="#!" id="delete_user" onclick="delete_function('{{object.pk}}')" class="ml-2" ><i class="far fa-trash-alt nav-icon"></i></a> {% endcomment %}
                   </td>
                 </tr>
-              {% endfor %}
+              {% endfor %} {% endcomment %}
             </tbody>
           </table>
         </form>
@@ -216,7 +501,7 @@
 
         <div class="dataTables_paginate paging_simple_numbers">
           <ul class="float-left">
-            <span style="font-weight: bold;">Total: {{ page_obj.paginator.count }}</span>
+            <span style="font-weight: bold;">Total: 6</span>
           </ul>
           <ul class="pagination float-right">
             {% if page_obj.has_previous %}
@@ -232,7 +517,7 @@
               {% if page_obj.number == i %}
               <li class="paginate_button page-item">
                 <a class="page-link" href="javascript:;">
-                  Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                  Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.
                 </a>
               </li>
               {% else %}
@@ -262,6 +547,48 @@
       </div>
     </div>
   </div><!-- /.container-fluid -->
+
+  <div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="detailsModalLabel" style="color:#322579">Detalles del Fondo</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p><strong>ID:</strong> <span id="modal-fondo-id">001</span></p>
+          <p><strong>Fondo:</strong> <span id="modal-fondo-nombre">SiRenta</span></p>
+          <p><strong>Tipo de fondo:</strong> <span id="modal-fondo-tipo">Inmobiliario</span></p>
+          <p><strong>Valor del fondo:</strong> <span id="modal-fondo-valor">78.352.439.315</span></p>
+          <p><strong>Valor de la unidad:</strong> <span id="modal-fondo-valor">13.608</span></p>
+          <p><strong>Estado:</strong> <span id="modal-fondo-estado">Fondo pendiente de aprobacion</span></p>
+          <p><strong>Numero de inversionistas:</strong> <span id="modal-fondo-estado">596.949</span></p>
+          <p><strong>TIR E.A.:</strong> <span id="modal-fondo-estado">9.5-11.5%</span></p>
+
+          <hr>
+
+          <div style="font-size:1.2rem;font-weight:bold;padding-bottom:8px;color:#322579">Informacion Tecnica</div>
+          <p><strong>Tipo de FIC:</strong> <span id="modal-fondo-estado">Fondo de inversion colectiva nmobiliario</span></p>
+          <p><strong>Inicio de operaciones</strong> <span id="modal-fondo-estado">18/12/2019</span></p>
+          <p><strong>Valor del FIc (Millones COP)</strong> <span id="modal-fondo-estado">200.000.000.000</span></p>
+          <p><strong>N de Unidades en circulacion</strong> <span id="modal-fondo-estado">5.004.567,6554</span></p>
+
+          <hr>
+
+          <div style="font-size:1.2rem;font-weight:bold;padding-bottom:8px;color:#322579">Historico</div>
+          <p><strong>N de transacciones historicas:</strong> <span id="modal-fondo-estado">323.343.596</span></p>
+          <p><strong>Ultimo mes</strong> <span id="modal-fondo-estado">954</span></p>
+          <p><strong>Ultimos 6 meses:</strong> <span id="modal-fondo-estado">7.405</span></p>
+          <p><strong>Ultimo año</strong> <span id="modal-fondo-estado">18.950</span></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
 <!-- /.content -->
 {% endblock %}
@@ -416,10 +743,18 @@ function deactivate (user_pk) {
 
   $(function () {
     $('.select2').select2({
-      placeholder: 'Buscar por: Propietario, Sponsor, Nombre, Codigo',
+      placeholder: 'Buscar por: Tipo de proyecto, Valor del fondo, Valor de la unidad, Id',
       tags: true,
       tokenSeparators: [',']
     });
   });
+
+  function showDetails(id, nombre, tipo, valor, estado) {
+    document.getElementById('modal-fondo-id').innerText = id;
+    document.getElementById('modal-fondo-nombre').innerText = nombre;
+    document.getElementById('modal-fondo-tipo').innerText = tipo;
+    document.getElementById('modal-fondo-valor').innerText = valor;
+    document.getElementById('modal-fondo-estado').innerText = estado;
+  }
 </script>
 {% endblock %}

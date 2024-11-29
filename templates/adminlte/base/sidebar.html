@@ -44,12 +44,14 @@
 
         
         {% if perms.user.view_user %}
-        <li class="nav-item">
+        {% comment %} DELETE SPONSOR COMPANY {% endcomment %}
+
+        {% comment %} <li class="nav-item">
           <a href="{% url 'company-list' %}" class="nav-link ml-1 {% if nav_company_list %}active{% endif %} ">
             <i class="fas fa-building nav-icon"></i>
             <p>Sponsor Company</p>
           </a>
-        </li>
+        </li> {% endcomment %}
         {% endif %}
         {% if request.user|has_group:"NOTARIO" %}
             <li class="nav-item">
@@ -63,7 +65,7 @@
               <li class="nav-item">
                 <a href="{% url 'asset-admin-list' %}" class="nav-link ml-1 {% if nav_assets %}active{% endif %} ">
                   <i class="fas fa-money-check-alt nav-icon"></i>
-                  <p>Activos</p>
+                  <p>Fondos</p>
                 </a>
               </li>
             {% endif %}
@@ -73,7 +75,7 @@
         <li class="nav-item">
           <a href="{% url 'user-list' %}" class="nav-link ml-1 {% if nav_users_login %}active{% endif %} ">
             <i class="fas fa-user nav-icon"></i>
-            <p>Usuarios</p>
+            <p>Clientes</p>
           </a>
         </li>
         {% endif %}
@@ -82,7 +84,7 @@
             <a href="#" class="nav-link ml-1 {% if nav_fiducia_list or nav_users_fiducia %}active {% endif %}">
               <i class="nav-icon fas fa-dollar-sign"></i>
               <p>
-                Fiducia
+                 Admin
                 <i class="fas fa-angle-left right"></i>
               </p>
             </a>
@@ -96,7 +98,7 @@
               <li class="nav-item ml-3 ">
                 <a href="{% url 'fiducia-list' %}" class="nav-link {% if nav_fiducia_list %}active{% endif %}" style="background-color: {% if nav_fiducia_list %} #B9DE2C; {% endif %}">
                   <i class="fas fa-university nav-icon"></i>
-                  <p>Fiducias</p>
+                  <p>SuperAdmin</p>
                 </a>
               </li>
               
@@ -135,7 +137,7 @@
             <a href="#" class="nav-link ml-1 {% if nav_academia %} active {% endif %}">
               <i class="nav-icon fas fa-passport"></i>
               <p>
-                Academia
+                Deber de Asesoría
                 <i class="fas fa-angle-left right"></i>
               </p>
             </a>
@@ -149,7 +151,7 @@
               <li class="nav-item ml-3 ">
                 <a href="{% url 'academia-articulo-list' %}" class="nav-link {% if nav_academia_articulo %}active{% endif %}" style="background-color: {% if nav_academia_articulo %} #B9DE2C; {% endif %}">
                   <i class="fas fa-file-signature nav-icon"></i>
-                  <p>Articulos</p>
+                  <p>Formularios</p>
                 </a>
               </li>
               
@@ -157,14 +159,14 @@
           </li>
         {% endif %}
 
-        {% if perms.user.view_role %}
+{% comment %}         {% if perms.user.view_role %}
         <li class="nav-item">
           <a href="{% url 'role-list' %}" class="nav-link ml-1 {% if nav_referidos %}active{% endif %} ">
             <i class="fas fa-users nav-icon"></i>
             <p>Referidos</p>
           </a>
         </li>
-        {% endif %}
+        {% endif %} {% endcomment %}
         
         {% if perms.user.view_role %}
         <li class="nav-item">

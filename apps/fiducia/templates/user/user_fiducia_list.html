@@ -21,12 +21,12 @@
   <div class="container-fluid">
     <div class="row mb-2">
       <div class="col-sm-6">
-        <h1 class="m-0 text-dark">Usuarios de Fiducia</h1>
+        <h1 class="m-0 text-dark">Usuarios</h1>
       </div><!-- /.col -->
       <div class="col-sm-6">
         <ol class="breadcrumb float-sm-right">
           <li class="breadcrumb-item"><a href="{% url 'devise-dashboard1' %}">Inicio</a></li>
-          <li class="breadcrumb-item active">Users Fiducia</li>
+          <li class="breadcrumb-item active">Usuarios</li>
         </ol>
       </div><!-- /.col -->
     </div><!-- /.row -->
@@ -147,10 +147,10 @@
                 </th>
                 <th class="">Correo</th>
                 <th class="text-center">Rol-Subrol</th>
-                <th class="text-center">Fiduciaria</th>
-                <th class="text-center">Phone</th>
+                <th class="text-center">Administrador</th>
+                <th class="text-center">Telefono</th>
                 <th class="text-center">Active</th>
-                <th class="text-center">Actions</th>
+                <th class="text-center">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -162,7 +162,9 @@
                   </td>
                   <td>{{ object.email }}</td>
                   {% comment %} <td class="text-center">{{ object.get_country_display }}</td> {% endcomment %}
-                  <td class="text-center">{{ object.role }}-{{ object.groups.all.0 }}</td>
+
+                  {% comment %} <td class="text-center">{{ object.role }}-{{ object.groups.all.0 }}</td> {% endcomment %}
+                  <td class='text-center'>ADMINISTRADOR-LEGAL</td>
                   <td class="text-center">{{ object.fiducia}}</td>
                   <td class="text-center">{{ object.phone}}</td>
                   <td class="text-center">
