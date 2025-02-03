@@ -43,8 +43,6 @@ class Wallet(base_model.BaseModel):
         blank = False,
         )
     
-
-
 class WalletSmartContract(base_model.BaseModel):
     activo_inversion = models.ForeignKey(ActivoInversion, on_delete=models.CASCADE)
     id_wallet = models.CharField(
@@ -83,3 +81,21 @@ class WalletSmartContract(base_model.BaseModel):
         null = True,
         blank = True,
         )
+    
+""" class SmartContract(base_model.BaseModel):
+    # This field links the smart contract to a specific user
+    # The name of the token contract
+    name = models.CharField(max_length=255, blank=False, null=False)
+    name = models.CharField(max_length=255, blank=False, null=False)
+    membership_id = models.CharField(max_length=255, blank=False, null=False)
+    contract_type = models.CharField(max_length=255, blank=False, null=False) """
+    
+class InstanceOfTokenContract721(base_model.BaseModel):
+    """
+    This class represents an instance of a Token Contract 721.
+    It is used to manage the details of a specific token contract, including the user who created it,
+    the name of the contract, and its symbol.
+    """
+    smart_contract_user = models.OneToOneField(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255, blank=False, null=False)
+    symbol = models.CharField(max_length=255, blank=False, null=False)

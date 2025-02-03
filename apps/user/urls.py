@@ -73,7 +73,6 @@ urlpatterns = [
     path('deactivate/', UserDeactivateView.as_view(), name=UserDeactivateView.url_name),
     path('delete/', UserDeleteView.as_view(), name=UserDeleteView.url_name),
 
-    
 
     # # ========================  Api User Endpoints  ===============================
     path('active/', ActiveEmailView.as_view()),

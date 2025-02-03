@@ -67,6 +67,7 @@ class Categoria(base_model.BaseModel): # Residencial comercial....
     
     def __str__(self):
         return str(self.nombre)
+    
 class EstadoAprobacion(base_model.BaseModel):
     nombre = models.CharField(max_length=125)
     paso = models.DecimalField(

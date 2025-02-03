@@ -3,7 +3,7 @@ from pathlib import Path
 from django.utils.translation import ugettext_lazy as _
 import datetime as dt
 from pathlib import Path
-#import dj_database_url
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -16,7 +16,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-b!us_8&h-@!&$xxr#g7efz_kpb*tjt@k#i=t1=4gf5*h7letpc'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
@@ -69,8 +69,18 @@ INSTALLED_APPS = [
     #custom drf errors
     'drf_standardized_errors',
     
+    #new integrations
+    'apps.fund.apps.FundConfig',
+    
 
 ]
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'TIMEOUT': 300,
+    }
+}
 
 
 REST_FRAMEWORK = {
@@ -147,7 +157,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 
-DATABASES = {
+""" DATABASES = {
     'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
             'NAME': 'devise',
@@ -157,15 +167,15 @@ DATABASES = {
             'PORT': '5432',
     }
 }
+ """
 
-
-""" DATABASES = {
+DATABASES = {
     'default': dj_database_url.parse(
-        'postgresql://adminpg:devise2024*@localhost:5432/devise_origin',
+        'postgresql://adminpg:devise2024*@localhost:5432/devise',
         conn_max_age=600,
         conn_health_checks=True,
     )
-} """
+}
 
 
 
@@ -324,8 +334,8 @@ XS_SHARING_ALLOWED_METHODS = ['POST','GET','OPTIONS', 'PUT', 'DELETE']
 #Conexion to weetrust
 WEETRUST_URL = 'https://api-sandbox.weetrust.com.mx/' #sandbox
 #WEE_TRUST_URL = 'https://api.weetrust.mx/' #Production server
-WEETRUST_USER_ID = '7kwqj1GWzKes0cYbMT3bY6QlegX2'
-WEETRUST_API_KEY = '46356b93d6d1245a5eee5f64157562034c97a919'
+WEETRUST_USER_ID = 'dkAwsWaQuFUjdDZzzchEmbYJr342'
+WEETRUST_API_KEY = '1bfaf2328766f35eef96b9c7fcf4a4821934fad0'
 MIN_LIVENESS_RECORD = 800 # RANGE 1-1000
 MIN_FACERECOGNITION = 90 # RANGE 1-100
 #CONFIG DRUO CONEXION

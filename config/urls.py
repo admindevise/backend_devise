@@ -20,6 +20,7 @@ from apps.security import urls as security_urls
 from apps.academia import urls as academia_urls
 
 from apps.kaleido import urls as kaleido_urls
+from apps.fund import urls as fund_urls
 
 
 from rest_framework_simplejwt.views import ( TokenObtainPairView, TokenRefreshView )
@@ -69,6 +70,9 @@ urlpatterns = [
 
     #Kaleido Urls:
     path('kaleido/', include(kaleido_urls)),
+    
+    #Fund Urls
+    path('fund/', include(fund_urls)),
 
     # #wee trust
     # path('weetrust/', include(weetrust_urls)),
