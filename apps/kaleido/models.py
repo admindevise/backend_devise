@@ -96,6 +96,6 @@ class InstanceOfTokenContract721(base_model.BaseModel):
     It is used to manage the details of a specific token contract, including the user who created it,
     the name of the contract, and its symbol.
     """
-    smart_contract_user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=255, blank=False, null=False)
     symbol = models.CharField(max_length=255, blank=False, null=False)

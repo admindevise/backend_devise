@@ -1,6 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.decorators import permission_classes, authentication_classes
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import get_user
 from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, BEARER, SERVICE_HOST, NODE_ID, CONSOLE_URL, SERVICE_WALLET, MEMBERSHIP_ID, ZONE_DOMAIN
@@ -10,7 +11,7 @@ import time
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import FundPrice, Fund
+from .models import Fund, FundPrice
 from apps.kaleido.models import Wallet
 from .serializers import FundPriceSerializer, FundSerializer
 
@@ -884,7 +885,18 @@ class FundPriceViewSet(viewsets.ViewSet):
         return Response(serializer.data)
 
 class FundViewSet(viewsets.ModelViewSet):
-    queryset = Fund.objects.all()
+    """
+    API endpoint that allows Fund to be viewed or edited.
+    Cada vez que se cree un Fund, se invoca la señal post_save que crea
+    la wallet asociada.
+    """
+    permission_classes = [IsAuthenticated]
     serializer_class = FundSerializer
-    permission_classes = []
 
+    def get_queryset(self):
+        # Listamos los Fund del usuario autenticado
+        return Fund.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        # Asigna el usuario autenticado al fondo
+        serializer.save(user=self.request.user)

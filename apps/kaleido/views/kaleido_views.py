@@ -1,6 +1,7 @@
 from rest_framework import generics
-from rest_framework.decorators import permission_classes, api_view
+from rest_framework.decorators import permission_classes, api_view, authentication_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework_simplejwt.authentication import JWTAuthentication
 #from rest_framework.decorators import permission_classes
 #from rest_framework.permissions import IsAuthenticated
 
@@ -1101,3 +1102,4 @@ def CreateSmartContractTokenTest(activo):
     except ActivoInversion.DoesNotExist:
         print("El activo con el ID proporcionado no existe")
         return {"status_code":404}
+

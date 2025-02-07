@@ -5,6 +5,7 @@ MEMBERSHIP_ID = "u0sr0d20st"
 #Node AV
 NODE_ID = "u0cs0do427"
 ZONE_DOMAIN = "us0-aws"
+USER_ACCOUNTS = "0xdc2162b4d2e41beb1d6bc07d2e2ce865235b4cac"
 
 #Runtime Wallet
 SERVICE = "u0bjjeaxpr"

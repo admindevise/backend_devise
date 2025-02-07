@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import FundViewSet, FundPriceViewSet, ListRuntimeWalletsView, ListWalletsView, CreateWalletView, IndexWalletView, CreateContractView, CompileContractView, PromoteContractView, DeployInstanceOfTokenContract20View, DeployInstanceOfTokenContract721View, Mint721View, SafeTransfer721View, SafeTransfer721IndexToIndexView, ReceipStoreView, CreateWalletCDView, IndexWalletCDView
 
 router = DefaultRouter()
-router.register(r'main', FundViewSet)
+router.register(r'main', FundViewSet, basename='fund')
 
 fund_price_list = FundPriceViewSet.as_view({
     'get': 'list'
