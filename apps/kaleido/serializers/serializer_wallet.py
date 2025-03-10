@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from ..models import Wallet
+from apps.kaleido.models import Wallet, InstanceOfTokenContract721
 from apps.user.serializers.basic_info_user_serializer import UserBasicInfoSerializer
 
 class WalletSerializer(serializers.ModelSerializer):

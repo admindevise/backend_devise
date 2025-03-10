@@ -1,9 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import FundViewSet, FundPriceViewSet, ListRuntimeWalletsView, ListWalletsView, CreateWalletView, IndexWalletView, CreateContractView, CompileContractView, PromoteContractView, DeployInstanceOfTokenContract20View, DeployInstanceOfTokenContract721View, Mint721View, SafeTransfer721View, SafeTransfer721IndexToIndexView, ReceipStoreView, CreateWalletCDView, IndexWalletCDView
+from .views import FundViewSet, FundPriceViewSet, FundInvestmentViewSet, ListRuntimeWalletsView, ListWalletsView, CreateWalletView, IndexWalletView, CreateContractView, CompileContractView, PromoteContractView, DeployInstanceOfTokenContract20View, DeployInstanceOfTokenContract721View, Mint721View, SafeTransfer721View, SafeTransfer721IndexToIndexView, ReceipStoreView, CreateWalletCDView, IndexWalletCDView, OwnerOfView, TransferReceiptViewSet
 
 router = DefaultRouter()
-router.register(r'main', FundViewSet, basename='fund')
+router.register(r'main', FundViewSet, basename='fund'),
+router.register(r'fund_investment', FundInvestmentViewSet, basename='fund-investment'),
+router.register(r'transfer_receipt', TransferReceiptViewSet, basename='transfer-receipt'),
 
 fund_price_list = FundPriceViewSet.as_view({
     'get': 'list'
@@ -36,5 +38,7 @@ urlpatterns = [
     # Wallets CD
     path('create_wallet_cd/', CreateWalletCDView.as_view(), name='create-wallet-cd'),
     path('index_wallet_cd/', IndexWalletCDView.as_view(), name='index-wallet-cd'),
+    
+    path('owner_of/', OwnerOfView.as_view(), name='owner-of'),
     
 ]

@@ -4,16 +4,16 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import permission_classes, authentication_classes
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import get_user
-from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, BEARER, SERVICE_HOST, NODE_ID, CONSOLE_URL, SERVICE_WALLET, MEMBERSHIP_ID, ZONE_DOMAIN
+from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, BEARER, SERVICE_HOST, NODE_ID, CONSOLE_URL, SERVICE_WALLET, MEMBERSHIP_ID, ZONE_DOMAIN, USER_ACCOUNTS
 
 import time
 
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import Fund, FundPrice
+from apps.fund.models import Fund, FundPrice, FundInvestment, TransferReceipt
 from apps.kaleido.models import Wallet
-from .serializers import FundPriceSerializer, FundSerializer
+from apps.fund.serializers import FundPriceSerializer, FundSerializer, FundInvestmentSerializer, TransferReceiptSerializer
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -318,7 +318,7 @@ class CompileContractView(APIView):
     permission_classes = [AllowAny]
     def post(self, request):
         # value a 'contract_id' create contract
-        contract_id = 'u0rkfqjqrs'
+        contract_id = 'u0jv7vqncj'
         
         url = f'https://{CONSOLE_URL}/api/v1/consortia/{CONSORTIA}/contracts/{contract_id}/compiled_contracts'
         headers = {
@@ -367,9 +367,9 @@ class PromoteContractView(APIView):
     permission_classes = [AllowAny]
     def post(self, request):
         # value a 'contract_id' promote contract
-        contract_id = 'u0pnnf9mph'
+        contract_id = 'u0ajnikjus'
         # value a 'compile_contract_id' promote contract
-        compile_contract_id = 'u0a4d84naq'
+        compile_contract_id = 'u0sjibif5j'
         
         url = f'https://{CONSOLE_URL}/api/v1/consortia/{CONSORTIA}/contracts/{contract_id}/compiled_contracts/{compile_contract_id}/promote'
         
@@ -681,7 +681,7 @@ class Mint721View(APIView):
 class SafeTransfer721IndexToIndexView(APIView):
     permission_classes = [AllowAny]
     def post(self, request):
-        from_address = 'hd-u0bjjeaxpr-hcvh45kk-1'
+        from_address = 'hd-u0bjjeaxpr-hcvh45kk-27'
         instance_id = '0x04a7e2459822edbd4b1aa09ebf1e19b713b009d9'
         
         # 1. Primero verificar propiedad del token
@@ -857,6 +857,45 @@ class ReceipStoreView(APIView):
             status=status.HTTP_404_NOT_FOUND
         )
 
+class OwnerOfView(APIView):
+    """
+    Call the balanceOf endpoint (acting as ownerOf) in Kaleido.
+
+    data:
+    - tokenId: token id
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        instance_id = "0x5ca2454f756be6cebb1a741e80341aa612962c45"
+        
+        url = (
+            f"https://{SERVICE_HOST}/instances/{instance_id}/ownerOf"
+        )
+        headers = {
+            "accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": f"Basic {BEARER}",
+            "x-kaleido-from": USER_ACCOUNTS
+        }
+        data = request.data
+
+        try:
+            response = requests.post(url, headers=headers, json=data, auth=HTTPBasicAuth(USERNAME, PASSWORD))
+            response_data = response.json()
+            if response.status_code in [200, 201, 202]:
+                return Response(response_data, status=response.status_code)
+            else:
+                return Response(
+                    {"error": "Invalid response", "details": response_data},
+                    status=response.status_code
+                )
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": "Request failed", "message": str(e)},
+                status=500
+            )
+
 """ Funds """    
 class FundPriceViewSet(viewsets.ViewSet):
     def list(self, request, fund_id, interval):
@@ -899,4 +938,34 @@ class FundViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         # Asigna el usuario autenticado al fondo
+        serializer.save(user=self.request.user)
+
+class FundInvestmentViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows FundInvestment to be viewed or edited.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = FundInvestmentSerializer
+
+    def get_queryset(self):
+        # Listamos las inversiones del usuario autenticado
+        return FundInvestment.objects.filter(investor=self.request.user)
+
+    def perform_create(self, serializer):
+        # Asigna el usuario autenticado a la inversión
+        serializer.save(investor=self.request.user)
+
+class TransferReceiptViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows TransferReceipt to be viewed or edited.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = TransferReceiptSerializer
+
+    def get_queryset(self):
+        # Listamos los recibos de transferencia del usuario autenticado
+        return TransferReceipt.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        # Asigna el usuario autenticado al recibo de transferencia
         serializer.save(user=self.request.user)
