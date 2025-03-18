@@ -9,7 +9,7 @@ class FundAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at',)
 
 class FundInvestmentAdmin(admin.ModelAdmin):
-    list_display = ('fund', 'investor', 'invested_amount', 'joined_at')
+    list_display = ('id', 'fund', 'investor', 'invested_amount', 'joined_at')
     search_fields = ('fund__name', 'investor__username')
     list_filter = ('joined_at',)
     ordering = ('-joined_at',)

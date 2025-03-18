@@ -54,6 +54,3 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         usuario.last_frontend_access=timezone.now()
         usuario.save()
         return data
-
-
-

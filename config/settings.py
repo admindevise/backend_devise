@@ -71,7 +71,7 @@ INSTALLED_APPS = [
     
     #new integrations
     'apps.fund.apps.FundConfig',
-    
+    'apps.audit.apps.AuditConfig',
 
 ]
 

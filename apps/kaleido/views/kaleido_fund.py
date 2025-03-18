@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -5,31 +6,42 @@ from rest_framework.decorators import api_view
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import permission_classes, authentication_classes
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from django.contrib.auth import get_user
-from django.core.cache import cache
 
 from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, BEARER, SERVICE_HOST, NODE_ID, CONSOLE_URL, SERVICE_WALLET, MEMBERSHIP_ID, ZONE_DOMAIN, USER_ACCOUNTS, SERVICE
 
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
 from apps.fund.models import FundInvestment, TransferReceipt, Fund
+from apps.audit.audit_service import AuditService
 
 import requests
 from requests.auth import HTTPBasicAuth
 import json
 
 def is_investor_valid(user, fund_id):
+    """
+    Verifica si un usuario es inversor de un fondo específico.
+    
+    Args:
+        user: El usuario a verificar
+        fund_id: El ID del fondo
+    
+    Returns:
+        Tupla (investment, error_message) donde investment es el objeto FundInvestment si existe,
+        o None si no existe. Si hay error, error_message contiene el mensaje de error.
+    """
+    
     try:
         # Buscar una inversión para este usuario en el fondo especificado
-        investment = FundInvestment.objects.filter(investor=user, fund__id=fund_id).first()
+        investment = FundInvestment.objects.filter(investor=user, fund_id=fund_id).first()
         
         if investment:
-            print(f'Inversor válido: {user.email} en fondo {fund_id}')
+            # Inversor válido
             return investment, None
         else:
-            return None, "The user is not associated with the specified fund"
+            return None, f"User {user.username} is not an investor in fund {fund_id}"
             
     except Exception as e:
-        return None, f"Error verifying investment:{str(e)}"
+        return None, f"Error verifying investment: {str(e)}"
 
 def get_owner_of(token_id, fund_id):
     """
@@ -120,35 +132,139 @@ def burn_721_token(request):
     if not token_id:
         return Response({'error': 'tokenId is required'}, status=400)
     
-    owner_data, error = get_owner_of(token_id, fund_id)
-    if error is not None:
-        return Response(
-            {"error": "Failed to verify token ownership", "details": error},
-                status=400
-            )
-    
-    if owner_data.get('output', '').lower() != USER_ACCOUNTS.lower():
-            return Response(
-                {
-                    "message": "Token is not owned by the sender",
-                    "owner": owner_data.get('output'),
-                },
-                status=400
-            )
-    
+    # Verificar si el fondo existe
     try:
         fund = Fund.objects.get(id=fund_id)
     except Fund.DoesNotExist:
         return Response({'error': 'Fund not found'}, status=404)
     
+    # Verificar propiedad del token
+    owner_data, error = get_owner_of(token_id, fund_id)
+    if error is not None:
+        # Auditar error - No se pudo verificar la propiedad
+        AuditService.log_action(
+            request=request,
+            action_code="TOKEN_BURN",
+            obj=fund,
+            details={
+                'token_id': token_id,
+                'error': f"Failed to verify token ownership: {error}",
+                'operation': 'burn'
+            },
+            status='ERROR'
+        )
+        return Response(
+            {"error": "Failed to verify token ownership", "details": error},
+                status=400
+            )
+    
+    # Verificar que el token pertenece al remitente
+    if owner_data.get('output', '').lower() != USER_ACCOUNTS.lower():
+        # Auditar error - Token no pertenece al remitente
+        AuditService.log_action(
+            request=request,
+            action_code="TOKEN_BURN",
+            obj=fund,
+            details={
+                'token_id': token_id,
+                'owner': owner_data.get('output'),
+                'expected_owner': USER_ACCOUNTS,
+                'error': "Token is not owned by the sender",
+                'operation': 'burn'
+            },
+            status='ERROR'
+        )
+        return Response(
+            {
+                "message": "Token is not owned by the sender",
+                "owner": owner_data.get('output'),
+            },
+            status=400
+        )
+    
+    # Auditar inicio del proceso de burn
+    initial_audit = AuditService.log_action(
+        request=request,
+        action_code="TOKEN_BURN",
+        obj=fund,
+        details={
+            'token_id': token_id,
+            'operation': 'burn'
+        },
+        status='PENDING'
+    )
+    
     try:       
         response_data, error = get_burn_from_kaleido(fund.contract_address, token_id)
         if error:
+            # Actualizar estado de auditoría a ERROR
+            if initial_audit:
+                AuditService.update_transaction_status(
+                    initial_audit.transaction_id, 
+                    'ERROR'
+                )
+            
+            # Auditar error - Fallo en la operación de burn
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_BURN",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'error': error,
+                    'operation': 'burn'
+                },
+                status='ERROR'
+            )
             return Response({'error': error}, status=400)
+        
+        # Actualizar estado de auditoría a SUCCESS
+        transaction_id = response_data.get('id')
+        if initial_audit:
+            AuditService.update_transaction_status(
+                initial_audit.transaction_id, 
+                'SUCCESS',
+                transaction_id
+            )
+        
+        # Auditar éxito - Token quemado correctamente
+        AuditService.log_action(
+            request=request,
+            action_code="TOKEN_BURN",
+            obj=fund,
+            transaction_id=transaction_id,
+            details={
+                'token_id': token_id,
+                'result': response_data,
+                'operation': 'burn'
+            },
+            status='SUCCESS'
+        )
+        
         return Response(response_data, status=200)
     except Exception as e:
+        # Actualizar estado de auditoría a ERROR
+        if initial_audit:
+            AuditService.update_transaction_status(
+                initial_audit.transaction_id, 
+                'ERROR'
+            )
+        
+        # Auditar error - Excepción durante el proceso
+        AuditService.log_action(
+            request=request,
+            action_code="TOKEN_BURN",
+            obj=fund,
+            details={
+                'token_id': token_id,
+                'error': str(e),
+                'operation': 'burn'
+            },
+            status='ERROR'
+        )
+        
         return Response({'error': str(e)}, status=500)
-
+    
 def get_burn_from_kaleido(contract_address, token_id):
     url = f'https://{SERVICE_HOST}/instances/{contract_address}/burn'
     headers = {
@@ -304,7 +420,7 @@ class Mint721View(APIView):
     - to: address of the recipient without (0x)
     - tokenId: token id
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     def post(self, request):
         token_id = request.data.get('tokenId')
         fund_id = request.data.get('fund_id')
@@ -319,12 +435,37 @@ class Mint721View(APIView):
             fund = Fund.objects.get(id=fund_id)
             instance_id = fund.contract_address
             if not instance_id:
+                # Auditar error - fondo sin dirección de contrato
+                AuditService.log_action(
+                    request=request,
+                    action_code="TOKEN_CREATE",
+                    obj=fund,
+                    details={
+                        'token_id': token_id,
+                        'error': "Fund doesn't have a contract address",
+                        'operation': 'mint'
+                    },
+                    status='ERROR'
+                )
                 return Response({"error": "Fund doesn't have a contract address"}, status=400)
             
             # Verificar si el token ya existe
             owner_data, owner_error = get_owner_of(token_id, fund_id)
             if owner_error is None:
                 # Si la respuesta es exitosa, el token ya existe
+                # Auditar error - token ya existe
+                AuditService.log_action(
+                    request=request,
+                    action_code="TOKEN_CREATE",
+                    obj=fund,
+                    details={
+                        'token_id': token_id,
+                        'error': "Token already exists",
+                        'owner': owner_data.get('output', None),
+                        'operation': 'mint'
+                    },
+                    status='ERROR'
+                )
                 return Response({"message": "Token already exists", "owner": owner_data.get('output', None)}, status=400)
         
             url = f'https://{SERVICE_HOST}/instances/{instance_id}/mint'
@@ -336,6 +477,20 @@ class Mint721View(APIView):
             
             data = request.data.copy()
             data['to'] = USER_ACCOUNTS
+            to_address = USER_ACCOUNTS
+            
+            # Auditar inicio del proceso de mint
+            initial_audit = AuditService.log_action(
+                request=request,
+                action_code="TOKEN_CREATE",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'to': to_address,
+                    'operation': 'mint'
+                },
+                status='PENDING'
+            )
             
             try:
                 response = requests.post(
@@ -343,22 +498,93 @@ class Mint721View(APIView):
                     headers=headers,
                     json=data,
                     auth=HTTPBasicAuth(USERNAME, PASSWORD),
-                    )
+                )
                 if response.status_code in [200, 201, 202]:
                     response_data = response.json()
+                    transaction_id = response_data.get('id')
+                    
+                    # Actualizar estado de auditoría a SUCCESS
+                    if initial_audit:
+                        AuditService.update_transaction_status(
+                            initial_audit.transaction_id, 
+                            'SUCCESS',
+                            transaction_id
+                        )
+                    
+                    # Crear nuevo registro de auditoría con el resultado
+                    AuditService.log_action(
+                        request=request,
+                        action_code="TOKEN_CREATE",
+                        obj=fund,
+                        transaction_id=transaction_id,
+                        details={
+                            'token_id': token_id,
+                            'to': to_address,
+                            'result': response_data,
+                            'operation': 'mint'
+                        },
+                        status='SUCCESS'
+                    )
+                    
                     return Response(response_data, status=response.status_code)
                 else:
+                    # Actualizar estado de auditoría a ERROR
+                    if initial_audit:
+                        AuditService.update_transaction_status(
+                            initial_audit.transaction_id, 
+                            'ERROR'
+                        )
+                    
+                    # Crear nuevo registro de auditoría con el error
+                    AuditService.log_action(
+                        request=request,
+                        action_code="TOKEN_CREATE",
+                        obj=fund,
+                        details={
+                            'token_id': token_id,
+                            'to': to_address,
+                            'error': response.text,
+                            'operation': 'mint'
+                        },
+                        status='ERROR'
+                    )
+                    
                     return Response(
                         {'error': 'Invalid response', 'content': response.text},
                         status=response.status_code
-                        )
+                    )
             except requests.exceptions.RequestException as e:
+                # Actualizar estado de auditoría a ERROR
+                if initial_audit:
+                    AuditService.update_transaction_status(
+                        initial_audit.transaction_id, 
+                        'ERROR'
+                    )
+                
+                # Crear nuevo registro de auditoría con el error
+                AuditService.log_action(
+                    request=request,
+                    action_code="TOKEN_CREATE",
+                    obj=fund,
+                    details={
+                        'token_id': token_id,
+                        'to': to_address,
+                        'error': str(e),
+                        'operation': 'mint'
+                    },
+                    status='ERROR'
+                )
+                
                 return Response(
                     {'error': 'Request failed', 'message': str(e)},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                )
         except Fund.DoesNotExist:
-            return Response({"error": "Fund not found"}, status=404)
+            # Auditar error - fondo no encontrado
+            # Necesitaría un objeto para auditar, pero no tenemos el fondo
+            # En este caso, podríamos usar un objeto genérico o simplemente no auditar
+            # Si se tiene un objeto User, podría usarse ese como objeto para la auditoría
+            return Response({"error": "Fund not found"}, status=404) 
             
 class SafeTransfer721View(APIView):
     """
@@ -379,24 +605,78 @@ class SafeTransfer721View(APIView):
         if not fund_id:
             return Response({"error": "fund_id is required"}, status=400)
         
+        # Verificar si el fondo existe
+        try:
+            fund = Fund.objects.get(id=fund_id)
+        except Fund.DoesNotExist:
+            return Response({"error": f"Fund with ID {fund_id} not found"}, status=404)
+        
         # 2. Verificar que el usuario esté asociado al fondo (inversor)
         investment, error = is_investor_valid(request.user, fund_id)
         if not investment:
+            # Auditar intento fallido - usuario no asociado
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'error': error,
+                    'operation': 'safeTransferFrom'
+                },
+                status='ERROR'
+            )
             return Response({"error": error}, status=400)
         
         # 3. Obtener el Fondo y validar que tenga una wallet y contract_address asociada
         fund = investment.fund
         if not fund.hd_wallet:
+            # Auditar intento fallido - no hay wallet asociada
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'error': "The selected fund does not have an associated wallet",
+                    'operation': 'safeTransferFrom'
+                },
+                status='ERROR'
+            )
             return Response({"error": "The selected fund does not have an associated wallet"}, status=400)
         wallet = fund.hd_wallet
         
         if not fund.contract_address:
+            # Auditar intento fallido - no hay contract_address
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'error': "The selected fund does not have a contract address",
+                    'operation': 'safeTransferFrom'
+                },
+                status='ERROR'
+            )
             return Response({"error": "The selected fund does not have a contract address"}, status=400)
         instance_id = fund.contract_address
         
         # 4. Obtener el token y verificar que pertenezca al usuario
         owner_data, owner_error = get_owner_of(token_id, fund_id)
         if owner_error is not None:
+            # Auditar intento fallido - error al verificar propiedad
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'error': f"Failed to verify token ownership: {owner_error}",
+                    'operation': 'safeTransferFrom'
+                },
+                status='ERROR'
+            )
             return Response(
                 {"error": "Failed to verify token ownership", "details": owner_error},
                 status=400
@@ -404,6 +684,20 @@ class SafeTransfer721View(APIView):
         
         # 5. Verificar que el token pertenece al usuario
         if owner_data.get('output', '').lower() != USER_ACCOUNTS.lower():
+            # Auditar intento fallido - token no pertenece al remitente
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'owner': owner_data.get('output'),
+                    'expected_owner': USER_ACCOUNTS,
+                    'error': "Token is not owned by the sender",
+                    'operation': 'safeTransferFrom'
+                },
+                status='ERROR'
+            )
             return Response(
                 {
                     "message": "Token is not owned by the sender",
@@ -422,6 +716,21 @@ class SafeTransfer721View(APIView):
         
         data = request.data
         data['from'] = USER_ACCOUNTS
+        to_address = data.get('to')
+        
+        # Auditar inicio de transferencia
+        initial_audit = AuditService.log_action(
+            request=request,
+            action_code="TOKEN_TRANSFER",
+            obj=fund,
+            details={
+                'token_id': token_id,
+                'from': USER_ACCOUNTS,
+                'to': to_address,
+                'operation': 'safeTransferFrom'
+            },
+            status='PENDING'
+        )
         
         try:
             response = requests.post(
@@ -429,20 +738,99 @@ class SafeTransfer721View(APIView):
                 headers=headers,
                 json=data,
                 auth=HTTPBasicAuth(USERNAME, PASSWORD),
-                )
+            )
+            
             if response.status_code in [200, 201, 202]:
                 response_data = response.json()
+                transaction_id = response_data.get('id')
+                
+                # Crear recibo de transferencia
+                receipt = TransferReceipt.objects.create(
+                    user=request.user,
+                    transfer_id=transaction_id,
+                    fund=fund
+                )
+                
+                # Actualizar estado de auditoría a SUCCESS
+                if initial_audit:
+                    AuditService.update_transaction_status(
+                        initial_audit.transaction_id, 
+                        'SUCCESS',
+                        transaction_id
+                    )
+                
+                # O crear nuevo registro de auditoría con el resultado
+                AuditService.log_action(
+                    request=request,
+                    action_code="TOKEN_TRANSFER",
+                    obj=fund,
+                    transaction_id=transaction_id,
+                    details={
+                        'token_id': token_id,
+                        'from': USER_ACCOUNTS,
+                        'to': to_address,
+                        'result': response_data,
+                        'receipt_id': receipt.id,
+                        'operation': 'safeTransferFrom'
+                    },
+                    status='SUCCESS'
+                )
+                
                 return Response(response_data, status=response.status_code)
             else:
+                # Actualizar estado de auditoría a ERROR
+                if initial_audit:
+                    AuditService.update_transaction_status(
+                        initial_audit.transaction_id, 
+                        'ERROR'
+                    )
+                
+                # O crear nuevo registro de auditoría con el error
+                AuditService.log_action(
+                    request=request,
+                    action_code="TOKEN_TRANSFER",
+                    obj=fund,
+                    details={
+                        'token_id': token_id,
+                        'from': USER_ACCOUNTS,
+                        'to': to_address,
+                        'error': response.text,
+                        'operation': 'safeTransferFrom'
+                    },
+                    status='ERROR'
+                )
+                
                 return Response(
                     {'error': 'Invalid response', 'content': response.text},
                     status=response.status_code
-                    )
+                )
         except requests.exceptions.RequestException as e:
+            # Actualizar estado de auditoría a ERROR
+            if initial_audit:
+                AuditService.update_transaction_status(
+                    initial_audit.transaction_id, 
+                    'ERROR'
+                )
+            
+            # O crear nuevo registro de auditoría con el error
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'from': USER_ACCOUNTS,
+                    'to': to_address,
+                    'error': str(e),
+                    'operation': 'safeTransferFrom'
+                },
+                status='ERROR'
+            )
+            
             return Response(
                 {'error': 'Request failed', 'message': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )             
+            )          
 
 class SafeTransfer721IndexToIndexView(APIView):
     permission_classes = [IsAuthenticated]
@@ -457,34 +845,128 @@ class SafeTransfer721IndexToIndexView(APIView):
         if not fund_id:
             return Response({"error": "fund_id is required"}, status=400)
 
+        # Verificar si el fondo existe
+        try:
+            fund = Fund.objects.get(id=fund_id)
+        except Fund.DoesNotExist:
+            return Response({"error": f"Fund with ID {fund_id} not found"}, status=404)
+
         # 2. Verificar que el usuario esté asociado al fondo (inversor)
         investment, error = is_investor_valid(request.user, fund_id)
         if not investment:
+            # Auditar intento fallido - usuario no asociado
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'error': error,
+                    'operation': 'safeTransferIndexToIndex'
+                },
+                status='ERROR'
+            )
             return Response({"error": error}, status=400)
         
         # 3. Obtener el Fondo y validar que tenga una wallet asociada
         fund = investment.fund
         if not fund.hd_wallet:
+            # Auditar error - no hay wallet asociada
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'error': "The selected fund does not have an associated hd_wallet",
+                    'operation': 'safeTransferIndexToIndex'
+                },
+                status='ERROR'
+            )
             return Response({"error": "The selected fund does not have an associated hd_wallet"}, status=400)
         wallet = fund.hd_wallet
         
         if not fund.contract_address:
+            # Auditar error - no hay contract_address
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'error': "The selected fund does not have a contract address",
+                    'operation': 'safeTransferIndexToIndex'
+                },
+                status='ERROR'
+            )
             return Response({"error": "The selected fund does not have a contract address"}, status=400)
         instance_id = fund.contract_address
 
         # 4. Obtener la wallet index (wallet general de Kaleido) para validar token ownership
         wallet_index_data, error = get_wallet_index(request.user, fund_id)
         if error:
+            # Auditar error - no se encontró wallet index
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'error': error,
+                    'operation': 'safeTransferIndexToIndex'
+                },
+                status='ERROR'
+            )
             return Response({"error": error}, status=400)
+        
         general_wallet_address = wallet_index_data.get("address")
         if not general_wallet_address:
+            # Auditar error - dirección no encontrada en wallet index
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'error': "No address found in wallet index data",
+                    'operation': 'safeTransferIndexToIndex'
+                },
+                status='ERROR'
+            )
             return Response({"error": "No address found in wallet index data"}, status=400)
 
         # 5. Verificar que el token pertenece a la wallet general
         owner_data, owner_error = get_owner_of(token_id, fund_id)
         if owner_error is not None:
+            # Auditar error - no se pudo verificar propiedad
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'error': f"Failed to verify token ownership: {owner_error}",
+                    'operation': 'safeTransferIndexToIndex'
+                },
+                status='ERROR'
+            )
             return Response({"error": "Failed to verify token ownership", "details": owner_error}, status=400)
+        
         if owner_data.get('output', '').lower() != general_wallet_address.lower():
+            # Auditar error - token no pertenece a wallet general
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'owner': owner_data.get('output'),
+                    'expected_owner': general_wallet_address,
+                    'error': "Token does not belong to the wallet",
+                    'operation': 'safeTransferIndexToIndex'
+                },
+                status='ERROR'
+            )
             return Response({
                     "error": "Token does not belong to the wallet",
                     "owner": owner_data.get("output"),
@@ -494,6 +976,21 @@ class SafeTransfer721IndexToIndexView(APIView):
         # 6. Preparar el payload y realizar la transferencia
         payload = request.data.copy()
         payload['from'] = general_wallet_address
+        to_address = payload.get('to')
+
+        # Auditar inicio de transferencia
+        initial_audit = AuditService.log_action(
+            request=request,
+            action_code="TOKEN_TRANSFER",
+            obj=fund,
+            details={
+                'token_id': token_id,
+                'from': general_wallet_address,
+                'to': to_address,
+                'operation': 'safeTransferIndexToIndex'
+            },
+            status='PENDING'
+        )
 
         from_address = f'hd-{SERVICE}-{wallet.id_wallet}-{request.user.id}'
         url = f'https://{SERVICE_HOST}/instances/{instance_id}/safeTransferFrom'
@@ -508,32 +1005,91 @@ class SafeTransfer721IndexToIndexView(APIView):
                 json=payload,
                 auth=HTTPBasicAuth(USERNAME, PASSWORD)
             )
+            
             if response.status_code in [200, 201, 202]:
                 response_data = response.json()
-               
-                fund_instance = None
-                if fund_id:
-                    try:
-                        fund_instance = Fund.objects.get(id=fund_id)
-                    except Fund.DoesNotExist:
-                        pass
-                TransferReceipt.objects.create(
+                transaction_id = response_data.get('id')
+                
+                # Crear recibo de transferencia
+                receipt = TransferReceipt.objects.create(
                     user=request.user,
-                    transfer_id=response_data.get('id'),
-                    fund=fund_instance
+                    transfer_id=transaction_id,
+                    fund=fund
                 )
-                print(general_wallet_address, request.user.email, wallet.id_wallet)
+                
+                # Crear registro de auditoría con el resultado
+                AuditService.log_action(
+                    request=request,
+                    action_code="TOKEN_TRANSFER",
+                    obj=fund,
+                    transaction_id=transaction_id,
+                    details={
+                        'token_id': token_id,
+                        'from': general_wallet_address,
+                        'to': to_address,
+                        'result': response_data,
+                        'receipt_id': receipt.id,
+                        'operation': 'safeTransferIndexToIndex'
+                    },
+                    status='SUCCESS'
+                )
+                
                 return Response(response_data, status=response.status_code)
-            return Response(
-                {'error': 'Transfer failed', 'details': response.json()},
-                status=response.status_code
-            )
+            else:
+                # Actualizar estado de auditoría a ERROR
+                if initial_audit:
+                    AuditService.update_transaction_status(
+                        initial_audit.id,
+                        'ERROR'
+                    )
+                
+                # Auditar error - respuesta inválida
+                AuditService.log_action(
+                    request=request,
+                    action_code="TOKEN_TRANSFER",
+                    obj=fund,
+                    details={
+                        'token_id': token_id,
+                        'from': general_wallet_address,
+                        'to': to_address,
+                        'error': response.text,
+                        'operation': 'safeTransferIndexToIndex'
+                    },
+                    status='ERROR'
+                )
+                
+                return Response(
+                    {'error': 'Transfer failed', 'details': response.json()},
+                    status=response.status_code
+                )
         except requests.exceptions.RequestException as e:
+            # Actualizar estado de auditoría a ERROR
+            if initial_audit:
+                AuditService.update_transaction_status(
+                    initial_audit.id,
+                    'ERROR'
+                )
+            
+            # Auditar error - excepción en la solicitud
+            AuditService.log_action(
+                request=request,
+                action_code="TOKEN_TRANSFER",
+                obj=fund,
+                details={
+                    'token_id': token_id,
+                    'from': general_wallet_address,
+                    'to': to_address,
+                    'error': str(e),
+                    'operation': 'safeTransferIndexToIndex'
+                },
+                status='ERROR'
+            )
+            
             return Response(
                 {'error': 'Request failed', 'message': str(e)},
                 status=500
             )
-
+            
 class ReceipStoreView(APIView):
     """
     Store a receipt
@@ -591,29 +1147,119 @@ class ReceipStoreView(APIView):
             status=status.HTTP_404_NOT_FOUND
         )
 
-class Test(APIView):
+class TokenOwnershipView(APIView):
     """
-    Returns the wallet address for the authenticated user
-    associated with a given Fund (fund_id). Normal users do not have
-    their own wallet instance; they simply consult the address using their user id.
+    Verifica el propietario de un token específico en un fondo de inversión.
     """
     permission_classes = [IsAuthenticated]
-
+    
     def post(self, request):
+        # 1. Validar datos de entrada
+        fund_id = request.data.get('fund_id')
+        token_id = request.data.get('tokenId')
+        
+        if not fund_id:
+            return Response({'error': 'fund_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not token_id:
+            return Response({'error': 'tokenId is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            # 2. Verificar si el usuario es inversor del fondo
+            investment, error = is_investor_valid(request.user, fund_id)
+            if not investment:
+                return Response({"error": error}, status=status.HTTP_403_FORBIDDEN)
+            
+            # 3. Verificar dirección del contrato
+            fund = investment.fund
+            if not fund.contract_address:
+                return Response({"error": "Fund contract address not found"}, status=status.HTTP_400_BAD_REQUEST)
+                
+            # 4. Preparar y hacer la solicitud
+            url = f'https://{SERVICE_HOST}/instances/{fund.contract_address}/ownerOf'
+            headers = {
+                'accept': 'application/json',
+                'Content-Type': 'application/json',
+                'x-kaleido-from': USER_ACCOUNTS
+            }
+            payload = {'tokenId': token_id}
+            
+            response = requests.post(
+                url,
+                headers=headers,
+                json=payload,
+                auth=HTTPBasicAuth(USERNAME, PASSWORD)
+            )
+            
+            # 5. Procesar y devolver la respuesta
+            try:
+                response_data = response.json()
+                if response.status_code in [200, 201, 202]:
+                    return Response({
+                        'owner': response_data['output']
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response(
+                        {"error": response_data.get('error', 'Unknown error'), 'details': response_data},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except ValueError:
+                return Response({"error": "Invalid response format"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+        except Fund.DoesNotExist:
+            return Response({"error": "Fund not found"}, status=status.HTTP_404_NOT_FOUND)
+        except requests.exceptions.RequestException as e:
+            return Response({"error": "Connection error", "details": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+class Test(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        
         fund_id = request.data.get('fund_id')
         if not fund_id:
-            return Response({'error': 'fund_id is required'}, status=400)
+            return Response({'error': 'Fund ID is required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Check that the user is associated to the specified fund
+        # Verificar si el fondo existe
         try:
-            investment = FundInvestment.objects.get(investor=request.user, fund__id=fund_id)
-        except FundInvestment.DoesNotExist:
-            return Response({'error': 'User is not associated with the specified fund'}, status=404)
+            fund = Fund.objects.get(id=fund_id)
+            
+            # Verificar si el usuario es inversor
+            investment, error = is_investor_valid(request.user, fund_id)
+            if not investment:
+                return Response({"error": error}, status=403)
+            
+            # obtener el fondo y capturar la dirección del contrato
+            fund = investment.fund
+            if not fund.contract_address:
+                return Response({"error": "Fund contract address not found"}, status=400)
+            contract_address = fund.contract_address
+            
+            url = (
+                f'https://{SERVICE_HOST}/instances/{contract_address}/ownerOf'
+            )
+            
+            headers = {
+                'accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': f'Basic {BEARER}',
+                'x-kaleido-from': USER_ACCOUNTS
+                }
+            
+            payload = request.data.copy()
+            payload['fund_id'] = fund_id
+            
+            try:
+                response = requests.post(url, headers=headers, json=payload, auth=HTTPBasicAuth(USERNAME, PASSWORD))
+                response_data = response.json()
+                
+                if response.status_code in [200, 201]:
+                    return Response(response_data, status=200)
+                else:
+                    return Response(response_data, status=response.status_code)
+            except requests.exceptions.RequestException as e:
+                return Response({"error": str(e)}, status=500)
+        except Fund.DoesNotExist:
+            return Response({"error": "Fund not found"}, status=404)
         
-        # For a normal user, simply retrieve the address based on the user id.
-        wallet_data, error = get_wallet_index(request.user, fund_id)
-        if error or not wallet_data:
-            return Response({'error': error or "No wallet index found"}, status=400)
         
-        address = wallet_data.get('address')
-        return Response({'address': address}, status=200)
+            

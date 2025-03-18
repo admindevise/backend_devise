@@ -21,11 +21,9 @@ from apps.academia import urls as academia_urls
 
 from apps.kaleido import urls as kaleido_urls
 from apps.fund import urls as fund_urls
-
+from apps.audit import urls as audit_urls
 
 from rest_framework_simplejwt.views import ( TokenObtainPairView, TokenRefreshView )
-
-
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -73,6 +71,9 @@ urlpatterns = [
     
     #Fund Urls
     path('fund/', include(fund_urls)),
+    
+    #Audit Urls
+    path('audit/', include(audit_urls)),
 
     # #wee trust
     # path('weetrust/', include(weetrust_urls)),
