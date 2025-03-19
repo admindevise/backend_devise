@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
-from django.urls import include, path
+from django.urls import include, path, re_path
 
 from django.contrib.staticfiles.urls import static, staticfiles_urlpatterns
 from .import settings
@@ -24,6 +24,24 @@ from apps.fund import urls as fund_urls
 from apps.audit import urls as audit_urls
 
 from rest_framework_simplejwt.views import ( TokenObtainPairView, TokenRefreshView )
+
+from rest_framework import permissions
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="Devise API",
+        default_version='v1',
+        description="API para la plataforma Devise de gestión de activos y tokens",
+        terms_of_service="",
+        contact=openapi.Contact(email="contact@snippets.local"),
+        license=openapi.License(name="BSD License"),
+    ),
+    public=True,
+    permission_classes=(permissions.AllowAny,),
+    validators=['ssv']
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -81,6 +99,10 @@ urlpatterns = [
     #Generic auth Views
     path('auth/login/',  auth_views.LoginView.as_view( template_name='adminlte/base/login.html' ), name='login'),
     path('auth/logout/', auth_views.logout_then_login, name='logout'),
+    
+    #Swagger Docs
+    path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 
 ]
 

@@ -11,7 +11,7 @@ from django.views.generic import View, ListView, CreateView, DetailView, UpdateV
 from django.urls import reverse_lazy
 from django.utils.translation import ugettext as _
 
-from rest_framework import generics
+from rest_framework import generics, viewsets
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 
@@ -20,14 +20,18 @@ from apps.academia.serializers.serializer_categoria import CategoriaSerializer
 # =============================================================================
 #                           APIREST ActorType RESOURCE
 # =============================================================================
-@permission_classes([IsAuthenticated])
-class CategoriaApiListView(generics.ListAPIView):
-    serializer_class = CategoriaSerializer
-    pagination_class = None  # Desactiva la paginación
 
+class CategoriaViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para Categoria que provee automáticamente las acciones:
+    `list`, `create`, `retrieve`, `update`, `partial_update` y `destroy`
+    """
+    queryset = Categoria.objects.all().order_by('nombre')
+    serializer_class = CategoriaSerializer
+    permission_classes = [IsAuthenticated]
+    
     def get_queryset(self):
-        queryset = Categoria.objects.all().order_by('nombre')
-        return queryset
+        return Categoria.objects.all().order_by('nombre')
     
 
 # =============================================================================

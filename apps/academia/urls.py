@@ -1,11 +1,16 @@
 
-from django.urls import  path
+from django.urls import  path, include
+from rest_framework.routers import DefaultRouter
 
-from apps.academia.views.categoria_views import CategoriaApiListView, CategoriaDeactivateView, CategoriaCreateView, CategoriaDeleteView, CategoriaDetailView, CategoriaListView, CategoriaUpdateView
-from apps.academia.views.articulo_views import ArticuloApiListView, ArticuloDeactivateView, ArticuloCreateView, ArticuloDeleteView, ArticuloDetailView, ArticuloListView, ArticuloUpdateView
+from apps.academia.views.categoria_views import CategoriaViewSet, CategoriaDeactivateView, CategoriaCreateView, CategoriaDeleteView, CategoriaDetailView, CategoriaListView, CategoriaUpdateView
+from apps.academia.views.articulo_views import ArticuloViewSet, ArticuloDeactivateView, ArticuloCreateView, ArticuloDeleteView, ArticuloDetailView, ArticuloListView, ArticuloUpdateView
 
+router = DefaultRouter()
+router.register(r'categoria/api', CategoriaViewSet, basename='categoria')
+router.register(r'articulo/api', ArticuloViewSet, basename='articulo')
 
 urlpatterns = [
+    path('', include(router.urls)),
    
     #============================= Backoffice Views Categoria =================================
     path('categoria/create/', CategoriaCreateView.as_view(), name=CategoriaCreateView.url_name),
@@ -14,9 +19,6 @@ urlpatterns = [
     path('categoria/<int:pk>/detail/', CategoriaDetailView.as_view(), name=CategoriaDetailView.url_name),
     path('categoria/delete/', CategoriaDeleteView.as_view(), name=CategoriaDeleteView.url_name),
     path('categoria/deactivate/', CategoriaDeactivateView.as_view(), name='academia-categoria-deactivate'),
-    
-    #============================= APIREST Views Categoria =================================
-    path('categoria/api/list/', CategoriaApiListView.as_view()),
 
     #============================= Backoffice Views Articulo =================================
     path('articulo/create/', ArticuloCreateView.as_view(), name=ArticuloCreateView.url_name),
@@ -25,7 +27,4 @@ urlpatterns = [
     path('articulo/<int:pk>/detail/', ArticuloDetailView.as_view(), name=ArticuloDetailView.url_name),
     path('articulo/delete/', ArticuloDeleteView.as_view(), name=ArticuloDeleteView.url_name),
     path('articulo/deactivate/', ArticuloDeactivateView.as_view(), name='academia-articulo-deactivate'),
-
-    #============================= APIREST Views Articulo =================================
-    path('articulo/api/list/', ArticuloApiListView.as_view()),
 ]

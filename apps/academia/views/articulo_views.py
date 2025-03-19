@@ -11,12 +11,14 @@ from django.views.generic import View, ListView, CreateView, DetailView, UpdateV
 from django.urls import reverse_lazy
 from django.utils.translation import ugettext as _
 
-from rest_framework import generics
+from rest_framework import generics, viewsets
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from apps.academia.serializers.serializer_articulo import ArticuloSerializer
 from django.core.paginator import Paginator
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django_filters.rest_framework import DjangoFilterBackend
 # =============================================================================
 #                           APIREST ActorType RESOURCE
 # =============================================================================
@@ -31,28 +33,24 @@ class CustomPageNumberPagination(PageNumberPagination):
         # Personaliza el rango de páginas disponibles, por ejemplo, limitándolo de 1 a 10
         return range(max(start, 1), min(end, 11))
 
-@permission_classes([IsAuthenticated])
-class ArticuloApiListView(generics.ListAPIView):
-    serializer_class = ArticuloSerializer
-    pagination_class = CustomPageNumberPagination
-    def get_queryset(self):
-        
-
-        queryset = Articulo.objects.all().order_by('titulo')
-        categoria = self.request.GET.get('categoria')
-        buscar = self.request.GET.get('buscar')
-        pagina = self.request.GET.get('page', 1) 
-
-       
-        if categoria:
-            queryset = queryset.filter(categoria__id = categoria)
-        if buscar:
-            queryset = queryset.filter(Q(titulo__icontains=buscar) | Q(contenido__icontains=buscar))
-        
-       
-        return queryset
+class ArticuloViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para Articulo que provee automáticamente las acciones CRUD:
+    `list`, `create`, `retrieve`, `update`, `partial_update` y `destroy`
     
-
+    Incluye capacidades de filtrado, búsqueda y ordenamiento.
+    """
+    queryset = Articulo.objects.all()
+    serializer_class = ArticuloSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = CustomPageNumberPagination
+    
+    # Configuración de filtrado y búsqueda
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['categoria', 'status']  # Campos para filtrado exacto
+    search_fields = ['titulo', 'contenido']     # Campos para búsqueda de texto
+    ordering_fields = ['titulo', 'fecha']       # Campos para ordenamiento
+    ordering = ['titulo']                       # Ordenamiento predeterminado
     
 
 

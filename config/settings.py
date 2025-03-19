@@ -38,6 +38,7 @@ INSTALLED_APPS = [
 
     #Complements:
     'cities_light',
+    'drf_yasg',
     # 'django_filters',
     'django_js_reverse',
     'import_export',
@@ -81,7 +82,6 @@ CACHES = {
         'TIMEOUT': 300,
     }
 }
-
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
