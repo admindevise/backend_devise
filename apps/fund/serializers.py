@@ -18,7 +18,7 @@ class FundSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Fund
-        fields = ['id', 'user', 'hd_wallet', 'name', 'description', 'amount', 'token_contract_721', 'secret', 'promote_contract_id', 'created_at']
+        fields = ['id', 'user', 'hd_wallet', 'name', 'description', 'amount', 'token_contract_721', 'secret', 'status', 'promote_contract_id', 'created_at']
         read_only_fields = ['hd_wallet', 'token_contract_721', 'created_at', 'user']
 
     def create(self, validated_data):
@@ -87,7 +87,7 @@ class TransferReceiptSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = TransferReceipt
-        fields = ['user', 'transfer_id', 'fund', 'created_at']
+        fields = ['id','user', 'transfer_id', 'fund', 'created_at']
         read_only_fields = ['created_at']
 
 class FundPriceSerializer(serializers.ModelSerializer):

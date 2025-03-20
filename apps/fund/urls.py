@@ -1,10 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import FundViewSet, FundPriceViewSet, FundInvestmentViewSet
+from .views import FundViewSet, FundPriceViewSet, FundInvestmentViewSet, TransferReceiptViewSet
 
 router = DefaultRouter()
 router.register(r'main', FundViewSet, basename='fund'),
 router.register(r'fund_investment', FundInvestmentViewSet, basename='fund-investment'),
+router.register(r'transfer_receipt', TransferReceiptViewSet, basename='transfer-receipt'),
 
 fund_price_list = FundPriceViewSet.as_view({
     'get': 'list'

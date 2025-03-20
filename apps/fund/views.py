@@ -1,25 +1,28 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, filters, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import permission_classes, authentication_classes
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import get_user
+from django_filters.rest_framework import DjangoFilterBackend
+from django.contrib.contenttypes.models import ContentType
 
 import time
 
 from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, timedelta
+import pytz
 
 from apps.audit.audit_service import AuditService
 from apps.fund.models import Fund, FundPrice, FundInvestment, TransferReceipt
 from apps.kaleido.models import Wallet
 from apps.fund.serializers import FundPriceSerializer, FundSerializer, FundInvestmentSerializer, TransferReceiptSerializer
+from apps.utils.views.Mixins import DateFilterMixin
 
 import requests
 from requests.auth import HTTPBasicAuth
 import json
-from rest_framework.views import APIView
-from rest_framework import status
 
 """ Funds """    
 class FundPriceViewSet(viewsets.ViewSet):
@@ -48,7 +51,7 @@ class FundPriceViewSet(viewsets.ViewSet):
         serializer = FundPriceSerializer(prices, many=True)
         return Response(serializer.data)
 
-class FundViewSet(viewsets.ModelViewSet):
+class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
     """
     API endpoint that allows Fund to be viewed or edited.
     
@@ -60,6 +63,11 @@ class FundViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = FundSerializer
     authentication_classes = [JWTAuthentication]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['user', 'status']
+    search_fields = ['name', 'description']
+    ordering_fields = ['created_at', 'name']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         """
@@ -67,9 +75,13 @@ class FundViewSet(viewsets.ModelViewSet):
         a menos que el usuario sea admin (en cuyo caso muestra todos).
         """
         user = self.request.user
-        if user.is_staff:
-            return Fund.objects.all()
-        return Fund.objects.filter(user=user)
+        queryset = Fund.objects.all()
+        
+        if not user.is_staff:
+            queryset = queryset.filter(user=user)
+            
+        queryset = self.apply_date_filters(queryset)
+        return queryset
 
     def perform_create(self, serializer):
         """
@@ -212,15 +224,29 @@ class FundViewSet(viewsets.ModelViewSet):
             
             raise  # Re-lanzar la excepción para que DRF la maneje
         
-class FundInvestmentViewSet(viewsets.ModelViewSet):
+class FundInvestmentViewSet(DateFilterMixin, viewsets.ModelViewSet):
     """
     API endpoint para gestionar inversiones en fondos.
     """
     permission_classes = [IsAuthenticated]
     serializer_class = FundInvestmentSerializer
+    authentication_classes = [JWTAuthentication]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['fund', 'investor']
+    search_fields = ['fund__name']
+    ordering_fields = ['joined_at', 'invested_amount']
+    ordering = ['-joined_at']
+    date_field = 'joined_at'
 
     def get_queryset(self):
-        return FundInvestment.objects.filter(investor=self.request.user)
+        user = self.request.user
+        queryset = FundInvestment.objects.all()
+        
+        if not user.is_superuser:
+            queryset = queryset.filter(investor=user)
+            
+        queryset = self.apply_date_filters(queryset)
+        return queryset
 
     def perform_create(self, serializer):
         """
@@ -377,17 +403,37 @@ class FundInvestmentViewSet(viewsets.ModelViewSet):
             
             raise
 
-class TransferReceiptViewSet(viewsets.ModelViewSet):
+class TransferReceiptViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     """
-    API endpoint that allows TransferReceipt to be viewed or edited.
+    API endpoint que permite ver recibos de transferencia.
+    Solo permite operaciones de lectura (list, retrieve).
+    
+    Filtros disponibles:
+    - user: ID del usuario
+    - fund: ID del fondo
+    - created_at: Fecha de creación del recibo
+    
+    Búsqueda:
+    - transfer_id: ID de la transferencia
+    
+    Ordenamiento:
+    - created_at: Fecha de creación
     """
     permission_classes = [IsAuthenticated]
     serializer_class = TransferReceiptSerializer
+    authentication_classes = [JWTAuthentication]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['user', 'fund']
+    search_fields = ['transfer_id']
+    ordering_fields = ['created_at']
+    ordering = ['-created_at']
 
     def get_queryset(self):
-        # Listamos los recibos de transferencia del usuario autenticado
-        return TransferReceipt.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        # Asigna el usuario autenticado al recibo de transferencia
-        serializer.save(user=self.request.user)
+        user = self.request.user
+        queryset = TransferReceipt.objects.all()
+        
+        if not user.is_superuser:
+            queryset = queryset.filter(user=user)
+        
+        queryset = self.apply_date_filters(queryset)
+        return queryset
