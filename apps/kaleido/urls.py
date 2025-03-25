@@ -25,13 +25,13 @@ urlpatterns = [
     
     path('api/address/', get_wallet_address, name='address'),
     path('api/balance/', get_token_balance, name='balance'),
+    path('api/ownership/', TokenOwnershipView.as_view(), name='ownership'),
     path('api/burn/', burn_721_token, name='burn'),
-    
     path('api/mint_721/', Mint721View.as_view(), name='mint-721-token'),
+    
     path('api/safe_transfer/', SafeTransfer721View.as_view(), name='safe-transfer-from'),
     path('api/safe_transfer_index_to_index/', SafeTransfer721IndexToIndexView.as_view(), name='safe-transfer-index-to-index'),
     path('api/receipt_store/', ReceipStoreView.as_view(), name='receipt-store'),
-    path('api/ownership/', TokenOwnershipView.as_view(), name='ownership'),
     
     path('api/test_fund/', Test.as_view(), name='test'),
 ]

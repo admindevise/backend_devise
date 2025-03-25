@@ -8,4 +8,3 @@ class SecurityConfiguration(models.Model):
     login_lockout_duration = models.DurationField(default=timedelta(minutes=30))
     password_expiry_days = models.PositiveIntegerField(default=90)
     password_max_delta_change = models.DurationField(default=timedelta(minutes=30))
-

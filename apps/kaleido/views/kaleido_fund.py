@@ -176,7 +176,7 @@ def burn_721_token(request):
         )
         return Response(
             {
-                "message": "Token is not owned by the sender",
+                "message": "You do not have permission to perform this action",
                 "owner": owner_data.get('output'),
             },
             status=400
@@ -800,10 +800,14 @@ class SafeTransfer721View(APIView):
                     status='ERROR'
                 )
                 
-                return Response(
-                    {'error': 'Invalid response', 'content': response.text},
-                    status=response.status_code
-                )
+            try:
+                error_content = response.json()
+            except json.JSONDecodeError:
+                error_content = response.text
+            
+            return Response(
+                {'error': 'Invalid response', 'content': error_content}, status=response.status_code
+            )
         except requests.exceptions.RequestException as e:
             # Actualizar estado de auditoría a ERROR
             if initial_audit:
