@@ -25,6 +25,7 @@ from apps.user.views.backoffice_config_views import IdTypeCreateView, IdTypeDele
 from apps.user.views.backoffice_config_views import AccountTypeCreateView, AccountTypeDeleteView, AccountTypeDetailView, AccountTypeListView, AccountTypeUpdateView, AccountTypeDeactivateView
 from apps.user.views.backoffice_config_views import AccountSubtypeCreateView, AccountSubtypeDeleteView, AccountSubtypeDetailView, AccountSubtypeListView, AccountSubtypeUpdateView, AccountSubtypeDeactivateView
 from apps.user.views.backoffice_config_views import BankCreateView, BankDeleteView, BankDetailView, BankListView, BankUpdateView, BankDeactivateView
+from apps.user.views.import_users import ImportUsersAPIView
 
 
 router = routers.SimpleRouter()
@@ -123,6 +124,8 @@ urlpatterns = [
     path('bank/delete/', BankDeleteView.as_view(), name='bank-delete'),
     path('bank/deactivate/', BankDeactivateView.as_view(), name='bank-deactivate'),
     
+    #=================== Import Users ===========================
+    path('api/import/', ImportUsersAPIView.as_view(), name='import-users'),
 
 ]
 
