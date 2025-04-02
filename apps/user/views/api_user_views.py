@@ -54,11 +54,3 @@ class UpdateReadUserBasicInfo(generics.RetrieveUpdateAPIView):
             print("Sin cambio en la imagen")
 
         serializer.save()
-        
-
-
-
-    #     
-
-
-   

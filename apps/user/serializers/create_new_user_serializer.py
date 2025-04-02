@@ -219,8 +219,9 @@ class CreateUserFormSerializer(serializers.ModelSerializer):
             validated_data['indicative'] = indicativo
             validated_data['phone'] = numero_telefono
         user = super(CreateUserFormSerializer, self).create(validated_data)
-        # user.is_active = False  OJO POR AHORA TODOS VAN ACTIVOS
+        user.is_active = False  #OJO POR AHORA TODOS VAN ACTIVOS
         user.verify_email()
+        print('se envio el correo con status is_active', {user.is_active})
         return self._save_user_password(user, password)
 
     

@@ -1,23 +1,13 @@
 from django.urls import  path
 from rest_framework import routers
-from .views.login_user_views import ( UserViewSet, MeApiView, UserDetailApiView,
-                                    UserUpdateApiView, ActiveEmailView,
-                                    PasswordResetView, PasswordResetDoneView, IdtypesListView,CheckSlugView,
-                                    
-                            )
-from .views.backoffice_user_views import (  UserListView,  UserCreateView, UserDetailView, 
-                                            UserDeactivateView, UserDeleteView,
-                                            UserBasicInfoUpdateView, UserDocumentUpdateView,
-                                            UserResidentialCreateView, UserResidentialUpdateView, UserSocieconomicUpdateView, UserSocioeconomicCreateView,
-                                            UserWorkplaceUpdateView, UserWorkplaceCreateView,
-                                            UserFinancialCreateView, UserFinancialUpdateView,
-                                            UserListExportView
-                                            )
-from .views.roles_views import (RoleApiListView, RoleListView, RoleAddView, RoleDetailView, 
-                                RoleUpdateView, RoleDeleteView)
 
-from .views.subrole_views import (SubRoleApiListView, SubroleListView, SubroleCreateView, 
-                                  SubroleDetailView, SubroleUpdateView)
+from .views.login_user_views import ( UserViewSet, MeApiView, UserDetailApiView, UserUpdateApiView, ActiveEmailView, PasswordResetView, PasswordResetDoneView, IdtypesListView,CheckSlugView, )
+
+from .views.backoffice_user_views import (  UserListView,  UserCreateView, UserDetailView, UserDeactivateView, UserDeleteView, UserBasicInfoUpdateView,  UserDocumentUpdateView, UserSocioeconomicCreateView, UserWorkplaceCreateView, UserFinancialUpdateView, UserListExportView, UserBasicInfoUpdateView, UserResidentialUpdateView, UserResidentialCreateView, UserWorkplaceUpdateView, UserFinancialCreateView, UserSocieconomicUpdateView)
+
+from .views.roles_views import (RoleApiListView, RoleListView, RoleAddView, RoleDetailView, RoleUpdateView, RoleDeleteView)
+
+from .views.subrole_views import (SubRoleApiListView, SubroleListView, SubroleCreateView, SubroleDetailView, SubroleUpdateView)
 
 from .views.api_user_views import ( VerifyReferredCode, UpdateReadUserBasicInfo)
 
@@ -26,6 +16,8 @@ from apps.user.views.backoffice_config_views import AccountTypeCreateView, Accou
 from apps.user.views.backoffice_config_views import AccountSubtypeCreateView, AccountSubtypeDeleteView, AccountSubtypeDetailView, AccountSubtypeListView, AccountSubtypeUpdateView, AccountSubtypeDeactivateView
 from apps.user.views.backoffice_config_views import BankCreateView, BankDeleteView, BankDetailView, BankListView, BankUpdateView, BankDeactivateView
 from apps.user.views.import_users import ImportUsersAPIView
+
+from apps.user.views.users_api import ListUsersAPIView
 
 
 router = routers.SimpleRouter()
@@ -124,8 +116,11 @@ urlpatterns = [
     path('bank/delete/', BankDeleteView.as_view(), name='bank-delete'),
     path('bank/deactivate/', BankDeactivateView.as_view(), name='bank-deactivate'),
     
-    #=================== Import Users ===========================
+    ## =================== Import Users 
     path('api/import/', ImportUsersAPIView.as_view(), name='import-users'),
+    
+    ## =================== API User
+    path('api/list/', ListUsersAPIView.as_view(), name='user-apilist'),
 
 ]
 

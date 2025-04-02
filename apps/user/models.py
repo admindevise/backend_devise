@@ -254,13 +254,14 @@ class User(AbstractUser,):
 
     def verify_email(self):
         print('token', self.slug)
+        print('se envio el email', self.email)
         email_info = {
             'subject': 'Devise - Confirmación de cuenta.',
             'template': 'initial_verify_email',
             'to': [self.email],
             'context': {
                 'user': f'{self.first_name} {self.last_name}' if self.first_name else self.email,
-                'token': f'https://devise.com/home-public/?verify_email={self.slug}'
+                'token': f'http://127.0.0.1:8000/?verify_email={self.slug}' # CAMBIAR POR URL DE PRODUCCION
             },
         }
 

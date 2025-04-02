@@ -4,11 +4,9 @@ from django.contrib.auth.password_validation import validate_password
 
 from apps.user.models import User, IdType, Role, PasswordReset
 from apps.utils.permissions import CustomDjangoModelPermission
-from ..serializers.create_new_user_serializer import (CreateUserFormSerializer,
-                                        UserBasicInfoSerializer, UserSponsorInfoSerializer,
-                                        PasswordResetSerializer, PasswordResetFormSerializer,
-                                        IdtypesListSerializer,
-                                        )
+from ..serializers.create_new_user_serializer import (
+    CreateUserFormSerializer, UserBasicInfoSerializer, UserSponsorInfoSerializer, PasswordResetSerializer, PasswordResetFormSerializer, IdtypesListSerializer
+    )
 
 from rest_framework import generics
 from rest_framework import status
@@ -16,7 +14,7 @@ from rest_framework import status
 from rest_framework.generics import RetrieveAPIView, ListAPIView
 from rest_framework.decorators import permission_classes
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -83,7 +81,7 @@ class UserViewSet(
 
         created_user = super().create(request, *args, **kwargs)
         #******************WALLET********************#
-        print("*************************>CREATE USER<*************************")
+        """print("*************************>CREATE USER<*************************")
         success = False
         if created_user.status_code == 201:
             id_user = created_user.data.get('id')
@@ -103,7 +101,7 @@ class UserViewSet(
                             }
                         ]
                     }, status.HTTP_400_BAD_REQUEST
-                )
+                ) """
          #******************WALLET********************#
         
         return created_user
@@ -191,9 +189,8 @@ class UserUpdateApiView(generics.UpdateAPIView):
     def perform_update(self, serializer):
         user_pk = self.kwargs.get('pk')  # Obtiene el valor de la clave primaria (PK) de la URL
         user = self.request.user  # Obtiene el usuario actual autenticado
-
-        if user.pk != user_pk:
-            print("pasando por aca")
+        
+        if not user.is_superuser and user.pk != user_pk:
             raise ValidationError(
                 detail = {'detail': 'No puedes editar los datos de otro usuario'},
                 code = status.HTTP_403_FORBIDDEN

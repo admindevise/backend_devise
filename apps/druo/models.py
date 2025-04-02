@@ -33,7 +33,9 @@ class AccountType(base_model.BaseModel):
     description = models.CharField(max_length=128)
 
     def __str__(self):
-        return str(self.value)
+        if hasattr(self, 'value') and self.value:
+            return str(self.value)
+        return "Sin definir"
     
 class AccountSubtype(base_model.BaseModel):
     value = models.CharField(max_length=128)
@@ -41,7 +43,9 @@ class AccountSubtype(base_model.BaseModel):
     description = models.CharField(max_length=128)
 
     def __str__(self):
-        return str(self.value)
+        if hasattr(self, 'value') and self.value:
+            return str(self.value)
+        return "Sin definir"
     
 class ConnectAccount(base_model.BaseModel):
     institution_uuid = models.CharField(max_length=128)
