@@ -295,30 +295,33 @@ CITIES_LIGHT_INCLUDE_CITY_TYPES = ['PPL', 'PPLA', 'PPLA2', 'PPLA3', 'PPLA4', 'PP
 #EMAIL_FROM_DIR = 'notification@devise.com'
 #DEFAULT_FROM_EMAIL = 'notification@devise.com'
 
-""" EMAIL_HOST = 'smtp-mail.outlook.com'
-#EMAIL_HOST_USER = '82b0ebc691c382'
-EMAIL_HOST_PASSWORD = 'TemporalDevise2024*'
-EMAIL_PORT = '578'
-EMAIL_FROM_DIR = 'notificaciones@godevise.com'
-DEFAULT_FROM_EMAIL = 'notificaciones@godevise.com' """
+EMAIL_HOST = 'live.smtp.mailtrap.io'
+EMAIL_HOST_USER = 'api'
+EMAIL_HOST_PASSWORD = '757a6bbb029fc4d4fc3095c05e277c4a'
+EMAIL_PORT = '587'
+EMAIL_USE_TLS = True
+EMAIL_FROM_DIR = 'notification@godevise.com'
+DEFAULT_FROM_EMAIL = 'notification@godevise.com'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+""" EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_FROM_DIR = 'neiderzamora09@gmail.com'
 EMAIL_HOST_USER = 'neiderzamora09@gmail.com' 
-EMAIL_HOST_PASSWORD = 'bkkp hmcn gdxe kdwn' 
+EMAIL_HOST_PASSWORD = 'bkkp hmcn gdxe kdwn' """ 
 
 TEST = True
 if DEBUG:
     #For Local test
-    URL_PASSWORD_RESET = 'http://localhost:3000/new-password/'
     URL_PASSWORD_RESET_DONE = 'http://localhost:3000/new-password-success/'
+    URL_PASSWORD_RESET = 'http://localhost:3000/new-password/'
+    #URL_PASSWORD_RESET = 'http://127.0.0.1:8000/user/password/reset/done/'
+    #URL_PASSWORD_RESET_DONE = 'http://127.0.0.1:8000/admin/'
 else:
     #On server Test
     URL_PASSWORD_RESET = 'https://godevise.co/new-password/'
-    URL_PASSWORD_RESET_DONE = 'https://godevise.co//new-password-success/'
+    URL_PASSWORD_RESET_DONE = 'https://godevise.co/new-password-success/'
 
 #Default path for django_js_reverse
 JS_REVERSE_OUTPUT_PATH = 'static/django_js_reverse/js/'

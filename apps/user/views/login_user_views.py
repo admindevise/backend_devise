@@ -242,6 +242,37 @@ class PasswordResetDoneView(APIView):
 
     def post(self, request, *args, **kwargs):
         ''' EJECUTA EL CAMBIO DE CLAVE '''
+        password = request.data.get('password')
+        password_confirmation = request.data.get('password_confirmation')
+        
+        if not password:
+            return Response(
+                {
+                    "type": "validation_error",
+                    "errors": [
+                        {
+                            "code": "not_exists",
+                            "detail": "password is required",
+                            "attr": "Password"
+                        }
+                    ]
+                }, 401
+            )
+        
+        if not password_confirmation:
+            return Response(
+                {
+                    "type": "validation_error",
+                    "errors": [
+                        {
+                            "code": "not_exists",
+                            "detail": "password_confirmation is required",
+                            "attr": "Password Confirmation"
+                        }
+                    ]
+                }, 401
+            )
+        
         if request.data.get('password') != request.data.get('password_confirmation'):
             return Response(
                         {
@@ -256,7 +287,6 @@ class PasswordResetDoneView(APIView):
         password_reset = PasswordReset.objects.filter(slug=kwargs.get('slug')).first()
 
         # Validar la contraseña utilizando validate_password
-        password = request.data.get('password')
         try:
             validate_password(password, password_reset.user)
         except Exception as e:

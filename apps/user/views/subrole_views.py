@@ -4,10 +4,12 @@ from apps.notaria.models import Notaria
 from apps.sponsor_company.models import SponsorCompany
 from apps.user.models import Role
 from apps.menu.models import  MenuPermissions
+from apps.utils.permissions import CustomDjangoModelPermission
 
 from django.contrib.auth.models import Group, Permission
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.messages.views import SuccessMessageMixin
+from django.db import models 
 
 from django.contrib.contenttypes.models import ContentType
 
@@ -23,12 +25,206 @@ from apps.user.models import User
 from rest_framework.decorators import permission_classes
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status, viewsets, filters
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django_filters.rest_framework import DjangoFilterBackend
 from ..serializers.subrole_serializer import SubroleSerializer, SubroleSerializerBackoffice
 
 
 # =============================================================================
 #                               API VIEWS
 # =============================================================================
+
+class SubroleViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint para gestionar Suboles (Grupos).
+    """
+    queryset = Group.objects.all()
+    serializer_class = SubroleSerializer
+    permission_classes = [IsAuthenticated, CustomDjangoModelPermission]
+    pagination_class = None
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['name']
+    search_fields = ['name']
+    ordering_fields = ['name', 'id']
+    ordering = ['name']
+
+    # Listas de exclusión definidas una sola vez como atributos de clase
+    _excluded_apps = [
+        'admin', 
+        'auth', 
+        'contenttypes', 
+        'sessions', 
+        'messages',
+        'staticfiles',
+        'sites',
+        'flatpages',
+        'cities_light',
+        'druo',
+        'asset',
+        'menu',
+        'weetrust',
+        'authtoken',
+    ]
+    
+    _excluded_models = [
+        'logentry',
+        'permission',
+        'contenttype',
+        'session',
+        'appcontract',
+        'compilecontract',
+        'promotecontract',
+        'wallet',
+        'passwordreset',
+        'walletsmartcontract',
+    ]
+
+    def get_queryset(self):
+        """
+        Permite filtrar subroles por rol si se especifica role_id en los parámetros
+        """
+        queryset = Group.objects.all()
+        
+        # Filtrar por rol si se proporciona role_id
+        role_id = self.request.query_params.get('role_id')
+        if role_id:
+            try:
+                role = Role.objects.get(pk=role_id)
+                queryset = role.groups.all()
+            except Role.DoesNotExist:
+                queryset = Group.objects.none()
+                
+        return queryset
+
+    def _get_filtered_permissions_queryset(self, request):
+        """
+        Método privado para obtener un queryset de permisos filtrado según los parámetros
+        y excluyendo apps y modelos específicos.
+        """
+        # Iniciar con todos los permisos
+        queryset = Permission.objects.all()
+        
+        # Aplicar exclusiones
+        queryset = queryset.exclude(content_type__app_label__in=self._excluded_apps)
+        queryset = queryset.exclude(content_type__model__in=self._excluded_models)
+        
+        # Filtrar por app_label si se proporciona
+        app_label = request.query_params.get('app_label')
+        if app_label:
+            queryset = queryset.filter(content_type__app_label=app_label)
+        
+        # Filtrar por modelo si se proporciona
+        model = request.query_params.get('model')
+        if model:
+            queryset = queryset.filter(content_type__model=model)
+        
+        # Filtrar por codename si se proporciona
+        codename_contains = request.query_params.get('codename__contains')
+        if codename_contains:
+            queryset = queryset.filter(codename__contains=codename_contains)
+        
+        # Ordenar el resultado
+        return queryset.order_by('content_type__app_label', 'content_type__model', 'codename')
+
+    def _check_excluded_permissions(self, permission_ids):
+        """
+        Método privado para verificar si alguno de los permisos está en las listas de exclusión.
+        Retorna una lista de IDs excluidos si existen, o una lista vacía si todos son válidos.
+        """
+        excluded_permissions = Permission.objects.filter(
+            models.Q(content_type__app_label__in=self._excluded_apps) | 
+            models.Q(content_type__model__in=self._excluded_models),
+            id__in=permission_ids
+        )
+        
+        return list(excluded_permissions.values_list('id', flat=True))
+
+    @action(detail=False, methods=['get'])
+    def available_permissions(self, request):
+        """
+        Obtiene los permisos disponibles en el sistema, excluyendo permisos por defecto de Django
+        """
+        queryset = self._get_filtered_permissions_queryset(request)
+        
+        # Formatear la respuesta para que sea más útil
+        formatted_permissions = []
+        for permission in queryset:
+            formatted_permissions.append({
+                'id': permission.id,
+                'name': permission.name,
+                'codename': permission.codename,
+                'content_type': {
+                    'id': permission.content_type.id,
+                    'app_label': permission.content_type.app_label,
+                    'model': permission.content_type.model
+                }
+            })
+        
+        return Response(formatted_permissions)
+
+    @action(detail=True, methods=['post'])
+    def assign_permissions(self, request, pk=None):
+        """
+        Asigna permisos a un subrol específico
+        """
+        subrole = self.get_object()
+        permission_ids = request.data.get('permission_ids')
+        
+        # Validar que permission_ids existe y no está vacío
+        if not permission_ids:
+            return Response({
+                'status': 'error',
+                'message': 'El campo permission_ids es obligatorio y no puede estar vacío'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validar que permission_ids es una lista
+        if not isinstance(permission_ids, list):
+            return Response({
+                'status': 'error',
+                'message': 'El campo permission_ids debe ser una lista de IDs'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Verificar si algún ID pertenece a permisos excluidos
+            excluded_ids = self._check_excluded_permissions(permission_ids)
+            
+            if excluded_ids:
+                return Response({
+                    'status': 'error',
+                    'message': f'No se pueden asignar los siguientes permisos porque están en listas de exclusión: {excluded_ids}'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Consultar los permisos válidos
+            permissions = Permission.objects.filter(id__in=permission_ids)
+            
+            # Validar que se encontraron todos los permisos
+            if len(permissions) != len(permission_ids):
+                found_ids = [p.id for p in permissions]
+                missing_ids = [pid for pid in permission_ids if pid not in found_ids]
+                
+                return Response({
+                    'status': 'error',
+                    'message': f'No se encontraron los siguientes permisos: {missing_ids}'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Asignar los permisos al subrol
+            subrole.permissions.set(permissions)
+            
+            return Response({
+                'status': 'success',
+                'message': f'Permisos asignados correctamente al subrol {subrole.name}',
+                'permissions_count': len(permissions)
+            })
+            
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
 @permission_classes([])
 class SubRoleApiListView(ListAPIView):
     serializer_class = SubroleSerializerBackoffice

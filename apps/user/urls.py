@@ -1,13 +1,13 @@
-from django.urls import  path
+from django.urls import  path, include
 from rest_framework import routers
 
 from .views.login_user_views import ( UserViewSet, MeApiView, UserDetailApiView, UserUpdateApiView, ActiveEmailView, PasswordResetView, PasswordResetDoneView, IdtypesListView,CheckSlugView, )
 
 from .views.backoffice_user_views import (  UserListView,  UserCreateView, UserDetailView, UserDeactivateView, UserDeleteView, UserBasicInfoUpdateView,  UserDocumentUpdateView, UserSocioeconomicCreateView, UserWorkplaceCreateView, UserFinancialUpdateView, UserListExportView, UserBasicInfoUpdateView, UserResidentialUpdateView, UserResidentialCreateView, UserWorkplaceUpdateView, UserFinancialCreateView, UserSocieconomicUpdateView)
 
-from .views.roles_views import (RoleApiListView, RoleListView, RoleAddView, RoleDetailView, RoleUpdateView, RoleDeleteView)
+from .views.roles_views import (RoleApiListView, RoleViewSet, RoleListView, RoleAddView, RoleDetailView, RoleUpdateView, RoleDeleteView)
 
-from .views.subrole_views import (SubRoleApiListView, SubroleListView, SubroleCreateView, SubroleDetailView, SubroleUpdateView)
+from .views.subrole_views import (SubRoleApiListView, SubroleViewSet, SubroleListView, SubroleCreateView, SubroleDetailView, SubroleUpdateView)
 
 from .views.api_user_views import ( VerifyReferredCode, UpdateReadUserBasicInfo)
 
@@ -20,10 +20,11 @@ from apps.user.views.import_users import ImportUsersAPIView
 from apps.user.views.users_api import ListUsersAPIView
 
 
-router = routers.SimpleRouter()
+router = routers.DefaultRouter()
 
 router.register('', UserViewSet, basename='urls_user')
-
+router.register('api/role', RoleViewSet, basename='urls_role')
+router.register('api/subrole', SubroleViewSet, basename='urls_subrole')
 
 urlpatterns = [
 

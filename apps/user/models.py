@@ -261,7 +261,7 @@ class User(AbstractUser,):
             'to': [self.email],
             'context': {
                 'user': f'{self.first_name} {self.last_name}' if self.first_name else self.email,
-                'token': f'http://127.0.0.1:8000/?verify_email={self.slug}' # CAMBIAR POR URL DE PRODUCCION
+                'token': f'http://127.0.0.1:8000/user/active/?verify_email={self.slug}' # CAMBIAR POR URL DE PRODUCCION
             },
         }
 
