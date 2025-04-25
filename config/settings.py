@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     #Complements:
     'cities_light',
     'drf_yasg',
-    # 'django_filters',
+    'django_filters',
     'django_js_reverse',
     'import_export',
     'widget_tweaks',
@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     #new integrations
     'apps.fund.apps.FundConfig',
     'apps.audit.apps.AuditConfig',
+    'apps.trading.apps.TradingConfig',
 
 ]
 

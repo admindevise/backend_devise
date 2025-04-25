@@ -22,6 +22,7 @@ from apps.academia import urls as academia_urls
 from apps.kaleido import urls as kaleido_urls
 from apps.fund import urls as fund_urls
 from apps.audit import urls as audit_urls
+from apps.trading import urls as trading_urls
 
 from rest_framework_simplejwt.views import ( TokenObtainPairView, TokenRefreshView )
 
@@ -83,7 +84,6 @@ urlpatterns = [
     #Academia Urls:
     path('academia/', include(academia_urls)),
 
-
     #Kaleido Urls:
     path('kaleido/', include(kaleido_urls)),
     
@@ -92,6 +92,9 @@ urlpatterns = [
     
     #Audit Urls
     path('audit/', include(audit_urls)),
+    
+    #Trading Urls
+    path('trading/', include(trading_urls)),
 
     # #wee trust
     # path('weetrust/', include(weetrust_urls)),

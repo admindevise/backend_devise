@@ -18,7 +18,30 @@ class FundSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Fund
-        fields = ['id', 'user', 'hd_wallet', 'name', 'description', 'amount', 'token_contract_721', 'secret', 'status', 'promote_contract_id', 'created_at']
+        fields = [
+            # Campos comunes
+            'id', 'user', 'hd_wallet', 'name', 'description', 'amount', 
+            'token_contract_721', 'secret', 'price_per_unit', 'status', 
+            'promote_contract_id', 'created_at',
+            
+            # Información Regulatoria
+            'superintendency_registry', 'tax_id', 'fund_type', 'management_company',
+            
+            # Parámetros Financieros
+            'annual_return', 'initial_unit_value', 'total_assets',
+            'management_fee', 'success_fee', 'risk_rating',
+            
+            # Políticas de Inversión
+            'risk_profile', 'investment_horizon', 'asset_composition',
+            'dividend_distribution',
+            
+            # Operaciones
+            'minimum_investment', 'permanence_period', 'early_withdrawal_penalty',
+            'trading_hours', 'operations_closing_date',
+            
+            # Otros Campos Relevantes
+            'main_manager', 'operations_start_date', 'number_of_investors'
+        ]
         read_only_fields = ['hd_wallet', 'token_contract_721', 'created_at', 'user']
 
     def create(self, validated_data):
