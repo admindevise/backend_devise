@@ -23,6 +23,19 @@ class AppContractView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
     
+    def get(self, request, pk=None):
+        if pk is not None:
+            try:
+                instance = AppContract.objects.get(pk=pk)
+                serializer = self.serializer_class(instance)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except AppContract.DoesNotExist:
+                return Response({'error': 'AppContract not found'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            instances = AppContract.objects.all()
+            serializer = self.serializer_class(instances, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)   
+    
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -148,11 +161,24 @@ class AppContractView(APIView):
                 {'error': 'Request failed', 'message': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
+    
 class CompileContractView(APIView):
     serializer_class = CompileContractSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
+    
+    def get(self, request, pk=None):
+        if pk is not None:
+            try:
+                instance = CompileContract.objects.get(pk=pk)
+                serializer = self.serializer_class(instance)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except CompileContract.DoesNotExist:
+                return Response({'error': 'CompileContract not found'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            instances = CompileContract.objects.all()
+            serializer = self.serializer_class(instances, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
     
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
@@ -250,6 +276,19 @@ class PromoteContractView(APIView):
     serializer_class = PromoteContractSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
+    
+    def get(self, request, pk=None):
+        if pk is not None:
+            try:
+                instance = PromoteContract.objects.get(pk=pk)
+                serializer = self.serializer_class(instance)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except PromoteContract.DoesNotExist:
+                return Response({'error': 'PromoteContract not found'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            instances = PromoteContract.objects.all()
+            serializer = self.serializer_class(instances, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
     
     def post(self, request):
         serializer = self.serializer_class(data=request.data)

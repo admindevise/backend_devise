@@ -1,7 +1,7 @@
 from rest_framework import viewsets, filters, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.decorators import permission_classes, authentication_classes
+from rest_framework.decorators import permission_classes, authentication_classes, api_view
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import get_user
@@ -15,41 +15,27 @@ from datetime import datetime, timedelta
 import pytz
 
 from apps.audit.audit_service import AuditService
-from apps.fund.models import Fund, FundPrice, FundInvestment, TransferReceipt
+from apps.fund.models import Fund, FundInvestment, TransferReceipt
 from apps.kaleido.models import Wallet
-from apps.fund.serializers import FundPriceSerializer, FundSerializer, FundInvestmentSerializer, TransferReceiptSerializer
+from apps.fund.serializers import FundSerializer, FundInvestmentSerializer, TransferReceiptSerializer
 from apps.utils.views.Mixins import DateFilterMixin
 
 import requests
 from requests.auth import HTTPBasicAuth
 import json
 
-""" Funds """    
-class FundPriceViewSet(viewsets.ViewSet):
-    def list(self, request, fund_id, interval):
-        now = timezone.now()
-        if interval == 'hourly':
-            start_time = now - timedelta(hours=1)
-        elif interval == 'weekly':
-            start_time = now - timedelta(weeks=1)
-        elif interval == 'monthly':
-            start_time = now - timedelta(days=30)
-        elif interval == 'quarterly':
-            start_time = now - timedelta(days=90)
-        elif interval == 'semiannually':
-            start_time = now - timedelta(days=180)
-        elif interval == 'annually':
-            start_time = now - timedelta(days=365)
-        elif interval == '5years':
-            start_time = now - timedelta(days=5*365)
-        elif interval == '10years':
-            start_time = now - timedelta(days=10*365)
-        else:
-            return Response({'error': 'Invalid interval'}, status=400)
 
-        prices = FundPrice.objects.filter(fund_id=fund_id, timestamp__gte=start_time).order_by('timestamp')
-        serializer = FundPriceSerializer(prices, many=True)
-        return Response(serializer.data)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def test(request):
+    # obtener el valor del atributo del valor de notes en el modelo FundPriceHistory del campo notes
+    # y devolverlo como respuesta
+    """ try:
+        fund_price_history = FundPriceHistory.objects.first()
+        notes = fund_price_history.notes if fund_price_history else "No hay notas disponibles"
+        return Response({"notes": notes}, status=status.HTTP_200_OK)
+    except FundPriceHistory.DoesNotExist:
+        return Response({"error": "No se encontró el historial de precios"}, status=status.HTTP_404_NOT_FOUND) """
 
 class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
     """

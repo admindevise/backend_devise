@@ -1,5 +1,5 @@
 from django.contrib import admin
-from apps.fund.models import Fund, FundPrice, FundInvestment, TransferReceipt
+from apps.fund.models import Fund, FundInvestment, TransferReceipt
 
 class FundAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'amount', 'created_at')

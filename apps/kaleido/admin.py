@@ -2,17 +2,17 @@ from django.contrib import admin
 from apps.kaleido.models import Wallet, WalletSmartContract, InstanceOfTokenContract721, AppContract, CompileContract, PromoteContract
 
 class AppContractAdmin(admin.ModelAdmin):
-    list_display = ('id', 'app_contract_id', 'user', 'name')
+    list_display = ('id', 'app_contract_id', 'user', 'name', 'created_at')
     search_fields = ('name', 'app_contract_id')
     list_display_links = ('id', 'app_contract_id')
 
 class CompileContractAdmin(admin.ModelAdmin):
-    list_display = ('id', 'compiled_contract_id', 'app_contract', 'user')
+    list_display = ('id', 'compiled_contract_id', 'app_contract', 'user', 'created_at')
     search_fields = ('description', 'compiled_contract_id')
     list_display_links = ('id', 'compiled_contract_id')
 
 class PromoteContractAdmin(admin.ModelAdmin):
-    list_display = ('id', 'endpoint', 'app_contract', 'user')
+    list_display = ('id', 'endpoint', 'app_contract', 'user', 'compiled_contract', 'created_at')
     search_fields = ('endpoint', 'endpoint')
     list_display_links = ('id', 'endpoint')
 

@@ -16,9 +16,12 @@ urlpatterns = [
     
     #============================= APIREST views Kaleido Core =================================
     
-    path('api/app_contract/', AppContractView.as_view(), name='app-contract'),
-    path('api/compile_contract/', CompileContractView.as_view(), name='compile-contract'),
+    path('api/app_contract/', AppContractView.as_view(), name='app-contract-list'),
+    path('api/app_contract/<int:pk>/', AppContractView.as_view(), name='app-contract'),
+    path('api/compile_contract/', CompileContractView.as_view(), name='compile-contract-list'),
+    path('api/compile_contract/<int:pk>/', CompileContractView.as_view(), name='compile-contract'),
     path('api/promote_contract/', PromoteContractView.as_view(), name='promote-contract'),
+    path('api/promote_contract/<int:pk>/', PromoteContractView.as_view(), name='promote-contract-detail'),
     
     #============================= APIREST Views Model =================================
     path('api/my_wallets/', ListUserWalletsView.as_view(), name='wallet-list'),

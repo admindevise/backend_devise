@@ -3,7 +3,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 from rest_framework.exceptions import ValidationError
 
-from apps.fund.models import FundPrice, Fund, FundInvestment, TransferReceipt
+from apps.fund.models import Fund, FundInvestment, TransferReceipt
 from apps.kaleido.models import InstanceOfTokenContract721, PromoteContract
 from apps.kaleido.serializers.serializer_token_instance import InstanceOfTokenContract721Serializer
 from apps.kaleido.serializers.serializer_wallet import WalletFundSerializer
@@ -112,8 +112,3 @@ class TransferReceiptSerializer(serializers.ModelSerializer):
         model = TransferReceipt
         fields = ['id','user', 'transfer_id', 'fund', 'created_at']
         read_only_fields = ['created_at']
-
-class FundPriceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = FundPrice
-        fields = ['timestamp', 'unitPrice']

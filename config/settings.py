@@ -289,13 +289,6 @@ CITIES_LIGHT_TRANSLATION_LANGUAGES = ['en']
 CITIES_LIGHT_INCLUDE_CITY_TYPES = ['PPL', 'PPLA', 'PPLA2', 'PPLA3', 'PPLA4', 'PPLC', 'PPLF', 'PPLG', 'PPLL', 'PPLR', 'PPLS', 'STLMT',]
 
 #=====    Config send email PROVIDER = mailtrap  =====
-#EMAIL_HOST = 'sandbox.smtp.mailtrap.io'
-#EMAIL_HOST_USER = '82b0ebc691c382'
-#EMAIL_HOST_PASSWORD = 'd071f7d210ab5c'
-#EMAIL_PORT = '2525'
-#EMAIL_FROM_DIR = 'notification@devise.com'
-#DEFAULT_FROM_EMAIL = 'notification@devise.com'
-
 EMAIL_HOST = 'live.smtp.mailtrap.io'
 EMAIL_HOST_USER = 'api'
 EMAIL_HOST_PASSWORD = '757a6bbb029fc4d4fc3095c05e277c4a'
@@ -303,14 +296,6 @@ EMAIL_PORT = '587'
 EMAIL_USE_TLS = True
 EMAIL_FROM_DIR = 'notification@godevise.com'
 DEFAULT_FROM_EMAIL = 'notification@godevise.com'
-
-""" EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_FROM_DIR = 'neiderzamora09@gmail.com'
-EMAIL_HOST_USER = 'neiderzamora09@gmail.com' 
-EMAIL_HOST_PASSWORD = 'bkkp hmcn gdxe kdwn' """ 
 
 TEST = True
 if DEBUG:
@@ -332,7 +317,6 @@ CORS_ALLOW_METHODS = [
     'POST',
     'PUT',
     'PATCH',
-    'DELETE',
 ]
 
 
