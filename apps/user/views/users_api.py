@@ -56,10 +56,13 @@ class ListUsersAPIView(generics.ListAPIView):
     
     def get_queryset(self):
         """Obtiene el queryset basado en los permisos del usuario"""
-        queryset = User.objects.all()
+        queryset = User.objects.filter(is_staff=False)
         
         # Aplica filtros adicionales si es necesario
         if self.request.query_params.get('active_only') == 'true':
             queryset = queryset.filter(is_active=True)
+        
+        if self.request.query_params.get('include_staff') == 'true':
+            queryset = User.objects.all()
             
         return queryset
