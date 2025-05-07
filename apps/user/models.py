@@ -221,13 +221,14 @@ class User(AbstractUser,):
         null = True,
         blank = True,
     )
+    entity_nit = models.CharField(max_length=128, unique=True,  blank=True, null=True) #NIT en caso de que sea una empresa
+    
     last_password_change = models.DateField(blank=True, null=True)
     last_failed_access = models.DateTimeField(blank=True, null=True)
     last_frontend_access = models.DateTimeField(auto_now_add=True)
 
     failed_attempts = models.IntegerField(default=0)
     objects = UserManager()
-
     
 
     class Meta:

@@ -5,7 +5,7 @@ class UserBasicInfoSerializer(serializers.ModelSerializer):
     
     class Meta:
         fields = [
-                'username',
+                'id', 'username', 'email', 'first_name', 'last_name', 'role', 'is_staff', 'is_superuser',
                 'is_natural_person', 'first_name', 'last_name', 'phone',
                 'birth_date','birth_country','birth_region','birth_city',
                 'local_id_type',

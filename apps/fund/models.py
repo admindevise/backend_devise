@@ -7,6 +7,7 @@ from apps.kaleido.models import Wallet, InstanceOfTokenContract721
 from apps.user.models import User
 from apps.kaleido.utils import create_wallet_for_user, create_instance_token_contract_721
 from apps.utils.models import base_model
+from django.db import transaction
 
 class Fund(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
@@ -17,6 +18,7 @@ class Fund(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     secret = models.CharField(max_length=255, null=True, blank=True)
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    image = models.ImageField(upload_to='funds/images/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     STATUS_CHOICES = (
@@ -138,6 +140,14 @@ class Fund(models.Model):
             
         return queryset
 
+    @property
+    def total_investors(self):
+        """
+        Retorna el número total de inversores únicos en este fondo.
+        Calcula este valor en tiempo real consultando las inversiones relacionadas.
+        """
+        return self.investments.values('investor').distinct().count()
+
 class FundInvestment(models.Model):
     fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name="investments")
     investor = models.ForeignKey(User, on_delete=models.CASCADE, related_name="fund_investments")
@@ -147,8 +157,55 @@ class FundInvestment(models.Model):
     def __str__(self):
         return f"{self.investor.username} in {self.fund.name}"
     
+    """ @classmethod
+    def create_investment(cls, fund, investor, amount):
+        
+        Método de clase que gestiona todo el proceso de crear una inversión:
+        1. Verifica disponibilidad de unidades
+        2. Resta las unidades del fondo
+        3. Crea el registro de inversión
+        4. Todo en una sola transacción atómica
+        
+        Args:
+            fund (Fund): El fondo donde se invertirá
+            investor (User): El usuario que realiza la inversión
+            amount (Decimal): La cantidad a invertir
+            
+        Returns:
+            FundInvestment: La inversión creada
+            
+        Raises:
+            ValueError: Si no hay suficientes unidades disponibles
+        
+        
+        with transaction.atomic():
+            # Bloquear el fondo para evitar condiciones de carrera
+            fund_for_update = Fund.objects.select_for_update().get(pk=fund.pk)
+            
+            # Verificar disponibilidad
+            if fund_for_update.amount < amount:
+                raise ValueError(f"No hay suficientes unidades disponibles. Disponible: {fund_for_update.amount}")
+            
+            # Restar las unidades del fondo
+            fund_for_update.amount -= amount
+            fund_for_update.save(update_fields=['amount'])
+            
+            # Crear o actualizar la inversión
+            investment, created = cls.objects.get_or_create(
+                fund=fund_for_update,
+                investor=investor,
+                defaults={'invested_amount': 0}
+            )
+            
+            # Actualizar monto invertido (acumulativo)
+            investment.invested_amount += amount
+            investment.save(update_fields=['invested_amount'])
+            
+            return investment """    
+    
     class Meta:
         unique_together = ('fund', 'investor')
+    
 
 class TransferReceipt(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="transfer_receipts")

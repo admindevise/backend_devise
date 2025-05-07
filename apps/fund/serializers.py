@@ -22,7 +22,7 @@ class FundSerializer(serializers.ModelSerializer):
             # Campos comunes
             'id', 'user', 'hd_wallet', 'name', 'description', 'amount', 
             'token_contract_721', 'secret', 'price_per_unit', 'status', 
-            'promote_contract_id', 'created_at',
+            'promote_contract_id', 'image', 'created_at',
             
             # Información Regulatoria
             'superintendency_registry', 'tax_id', 'fund_type', 'management_company',
@@ -40,7 +40,10 @@ class FundSerializer(serializers.ModelSerializer):
             'trading_hours', 'operations_closing_date',
             
             # Otros Campos Relevantes
-            'main_manager', 'operations_start_date', 'number_of_investors'
+            'main_manager', 'operations_start_date', 'number_of_investors',
+            
+            # Funciones
+            'amount_total', 'current_price', 'total_investors'
         ]
         read_only_fields = ['hd_wallet', 'token_contract_721', 'created_at', 'user']
 

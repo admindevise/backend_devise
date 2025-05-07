@@ -1,6 +1,6 @@
 from django.utils import timezone
 # from apps.security.models import SecurityConfiguration
-from apps.user.models import User, IdType
+from apps.user.models import User, IdType, Role
 from apps.info_residential.models import Residentialplace
 from apps.info_workplace.models import Workplace
 from apps.info_financial.models import Financial
@@ -182,6 +182,15 @@ class UserSponsorInfoSerializer(serializers.ModelSerializer):
         PASSWORD_EXPIRY_DAYS
         return f'{diferencia} días'
     
+
+class UserAdminInfoSerializer(serializers.ModelSerializer):
+    role = RoleSerializerDetail(read_only=True)
+    
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'entity_nit', 'is_active', 'is_staff', 'is_superuser', 'role', 'date_joined')
+        read_only_fields = ('id', 'is_active', 'is_staff', 'is_superuser', 'date_joined')
+        
     
 class PasswordResetSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -224,7 +233,48 @@ class CreateUserFormSerializer(serializers.ModelSerializer):
         print('se envio el correo con status is_active', {user.is_active})
         return self._save_user_password(user, password)
 
+class CreateUserAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'phone', 'password', 'role', 'entity_nit', 'groups']
+        read_only_fields = ['id', 'groups']
+        extra_kwargs = {
+            'password': {
+                'write_only': True,
+            },
+            'slug': {
+                'read_only': True
+                },
+            'entity_nit': {
+                'required': True
+                }
+            }
+        
+    def _save_user_password(self, user, password):
+        user.set_password(password)
+        user.save()
+        return user        
     
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        phone = validated_data.pop('phone', None)
+        
+        # Obtener el rol ADMINISTRADOR antes de crear el usuario
+        admin_role = Role.objects.get(name='ADMINISTRADOR')
+        validated_data['role'] = admin_role 
+        
+        if phone:
+            indicativo, numero_telefono = phone.split('*')
+            validated_data['indicative'] = indicativo
+            validated_data['phone'] = numero_telefono
+            
+        user = super(CreateUserAdminSerializer, self).create(validated_data)
+        user.is_active = False
+        user.save()
+        user.verify_email()
+        print('se envio el correo para user admin con status is_active', {user.is_active})
+        return self._save_user_password(user, password)
+
 
     # def create(self, validated_data):
     #     
