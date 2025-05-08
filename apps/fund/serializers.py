@@ -93,13 +93,17 @@ class FundSerializer(serializers.ModelSerializer):
             return fund
 
 class FundInvestmentSerializer(serializers.ModelSerializer):
-    investor = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    investor = serializers.PrimaryKeyRelatedField(
+        read_only=True, 
+        default=serializers.CurrentUserDefault()
+    )
+    
     joined_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     
     class Meta:
         model = FundInvestment
         fields = ['fund', 'investor', 'invested_amount', 'joined_at']
-        read_only_fields = ['joined_at']
+        read_only_fields = ['joined_at', 'investor']
         validators = [
             UniqueTogetherValidator(
                 queryset=FundInvestment.objects.all(),
@@ -107,6 +111,11 @@ class FundInvestmentSerializer(serializers.ModelSerializer):
                 message="You have already invested in this fund."
             )
         ]
+        
+    def create(self, validated_data):
+        # Asignar el usuario actual como inversor
+        validated_data['investor'] = self.context['request'].user
+        return super().create(validated_data)
 
 class TransferReceiptSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)

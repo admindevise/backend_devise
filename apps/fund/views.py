@@ -228,7 +228,7 @@ class FundInvestmentViewSet(DateFilterMixin, viewsets.ModelViewSet):
         user = self.request.user
         queryset = FundInvestment.objects.all()
         
-        if not user.is_superuser:
+        if not user.is_staff:
             queryset = queryset.filter(investor=user)
             
         queryset = self.apply_date_filters(queryset)
