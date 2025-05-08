@@ -1,11 +1,12 @@
 from datetime import datetime
 from django.contrib.auth.models import Permission
 from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
 
 from apps.user.models import User, IdType, Role, PasswordReset
 from apps.utils.permissions import CustomDjangoModelPermission
 from ..serializers.create_new_user_serializer import (
-    CreateUserFormSerializer, UserBasicInfoSerializer, UserSponsorInfoSerializer, PasswordResetSerializer, PasswordResetFormSerializer, IdtypesListSerializer
+    CreateUserFormSerializer, CreateUserAdminSerializer, UserBasicInfoSerializer, UserSponsorInfoSerializer, PasswordResetSerializer, PasswordResetFormSerializer, IdtypesListSerializer
     )
 
 from rest_framework import generics
@@ -38,48 +39,29 @@ class UserViewSet(
         Create and update user
     """
     http_method_names = ['post', 'get', 'patch']
-    serializer_class = CreateUserFormSerializer
     queryset = User.objects
     # lookup_field = 'slug'
+    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            user_type = self.request.query_params.get('user_type')
+            if user_type == 'admin':
+                return CreateUserAdminSerializer
+        
+        return CreateUserFormSerializer
 
     def create(self, request, *args, **kwargs):
-        # Validar la contraseña utilizando validate_password
-        password = request.data.get('password')
-        try:
-            validate_password(password)
-        except Exception as e:
-            return Response(
-                {
-                    "type": "validation_error",
-                    "errors": [
-                        {
-                            "code": "password_validation_error",
-                            "detail": str(e),
-                            "attr": "Password"
-                        }
-                    ]
-                }, status.HTTP_400_BAD_REQUEST
-            )
-        #Verificar teléfono
-        phone_number = request.data.get('phone')
-        phone = phone_number.split('*')
-        phone_exists = User.objects.filter(phone=phone[1],indicative=phone[0]).exists()
-
-        if phone_exists:
-            return Response(
-                    {
-                        "type": "validation_error",
-                        "errors": [
-                            {
-                                "code": "phone_validation_error",
-                                "detail": "¡El numero de teléfono ya se encuentra registrado!",
-                                "attr": "Phone"
-                            }
-                        ]
-                    }, status.HTTP_400_BAD_REQUEST
-                )
-
-        created_user = super().create(request, *args, **kwargs)
+        # 1. Validar la contraseña
+        self._validate_password(request.data.get('password'))
+        
+        # 2. Validar teléfono (con manejo de errores mejorado)
+        self._validate_phone(request.data.get('phone'))
+        
+        # 3. Crear el usuario dentro de una transacción
+        with transaction.atomic():
+            created_user = super().create(request, *args, **kwargs)
+            # Aquí podrías realizar acciones adicionales post-creación
+    
         #******************WALLET********************#
         """print("*************************>CREATE USER<*************************")
         success = False
@@ -105,6 +87,37 @@ class UserViewSet(
          #******************WALLET********************#
         
         return created_user
+    
+    def _validate_password(self, password):
+        """Valida la contraseña con manejo de errores mejorado"""
+        if not password:
+            raise ValidationError({"password": "La contraseña es obligatoria"})
+            
+        try:
+            validate_password(password)
+        except Exception as e:
+            raise ValidationError({
+                "password": str(e)
+            })
+
+    def _validate_phone(self, phone_number):
+        """Valida el formato y disponibilidad del teléfono"""
+        if not phone_number:
+            raise ValidationError({"phone": "El número de teléfono es obligatorio"})
+            
+        try:
+            indicative, phone = phone_number.split('*')
+            
+            # Verificar si el teléfono ya existe
+            if User.objects.filter(phone=phone, indicative=indicative).exists():
+                raise ValidationError({
+                    "phone": "El número de teléfono ya se encuentra registrado"
+                })
+                
+        except ValueError:
+            raise ValidationError({
+                "phone": "Formato de teléfono inválido. Use 'indicativo*número'"
+            })
     
     def get_permissions(self):
         """

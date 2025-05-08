@@ -201,11 +201,13 @@ class PasswordResetFormSerializer(serializers.Serializer):
     password = serializers.CharField()
 
 class CreateUserFormSerializer(serializers.ModelSerializer):
-
+    first_name = serializers.CharField(required=True)
+    last_name = serializers.CharField(required=True)
+    phone = serializers.CharField(required=True)
+    
     class Meta:
-        
         model = User
-        fields = ['id', 'email', 'referred_by_code', 'phone', 'password', 'role', 'groups']
+        fields = ['id', 'email', 'first_name', 'last_name', 'referred_by_code', 'phone', 'password', 'role', 'groups']
         extra_kwargs = {
             'password': {
                 'write_only': True
@@ -234,9 +236,13 @@ class CreateUserFormSerializer(serializers.ModelSerializer):
         return self._save_user_password(user, password)
 
 class CreateUserAdminSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(required=True)
+    last_name = serializers.CharField(required=True)
+    phone = serializers.CharField(required=True)
+    
     class Meta:
         model = User
-        fields = ['id', 'email', 'phone', 'password', 'role', 'entity_nit', 'groups']
+        fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'password', 'role', 'entity_nit', 'groups']
         read_only_fields = ['id', 'groups']
         extra_kwargs = {
             'password': {
@@ -274,14 +280,6 @@ class CreateUserAdminSerializer(serializers.ModelSerializer):
         user.verify_email()
         print('se envio el correo para user admin con status is_active', {user.is_active})
         return self._save_user_password(user, password)
-
-
-    # def create(self, validated_data):
-    #     
-    #     user = super(CreateUserFormSerializer, self).create(validated_data)
-    #     user.is_active = False
-    #     user.verify_email()
-    #     return 
     
 class IdtypesListSerializer(serializers.ModelSerializer):
 
