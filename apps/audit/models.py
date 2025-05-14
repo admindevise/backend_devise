@@ -50,7 +50,7 @@ class AuditLog(base_model.BaseModel):
     
     # Datos adicionales
     transaction_id = models.CharField(max_length=255, null=True, blank=True)
-    blockchain_tx_hash = models.CharField(max_length=255, null=True, blank=True)
+    #blockchain_tx_hash = models.CharField(max_length=255, null=True, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.TextField(null=True, blank=True)
     details = models.JSONField(default=dict)

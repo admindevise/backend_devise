@@ -15,9 +15,9 @@ from datetime import datetime, timedelta
 import pytz
 
 from apps.audit.audit_service import AuditService
-from apps.fund.models import Fund, FundInvestment, TransferReceipt
+from apps.fund.models import Fund, FundInvestment, TransferReceipt, FundToken
 from apps.kaleido.models import Wallet
-from apps.fund.serializers import FundSerializer, FundInvestmentSerializer, TransferReceiptSerializer
+from apps.fund.serializers import FundSerializer, FundInvestmentSerializer, TransferReceiptSerializer, TokenMintSerializer, FundTokenSerializer
 from apps.utils.views.Mixins import DateFilterMixin
 
 import requests
@@ -36,6 +36,46 @@ def test(request):
         return Response({"notes": notes}, status=status.HTTP_200_OK)
     except FundPriceHistory.DoesNotExist:
         return Response({"error": "No se encontró el historial de precios"}, status=status.HTTP_404_NOT_FOUND) """
+
+class TokenMintView(APIView):
+    """
+    Endpoint API para crear (mint) tokens para un fondo.
+    Solo accesible por administradores.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        serializer = TokenMintSerializer(data=request.data, context={'request': request})
+        
+        if serializer.is_valid():
+            result = serializer.save()  # Esto llama a create() que ejecuta mint_tokens_for_amount
+            
+            if result['success'] is True:
+                return Response({
+                    "status": "success",
+                    "message": f"Se han creado {result['minted']} tokens exitosamente",
+                    "tokens_minted": result['minted'],
+                    "tokens_failed": result['failures'],
+                    "details": result['details']
+                }, status=status.HTTP_200_OK)
+            elif result['success'] == 'partial':
+                return Response({
+                    "status": "partial",
+                    "message": f"Se han creado {result['minted']} tokens con {result['failures']} errores",
+                    "tokens_minted": result['minted'],
+                    "tokens_failed": result['failures'],
+                    "details": result['details']
+                }, status=status.HTTP_207_MULTI_STATUS)
+            else:
+                return Response({
+                    "status": "error",
+                    "message": result.get('error', f"Error al crear tokens: {result['failures']} fallidos"),
+                    "tokens_minted": result['minted'],
+                    "tokens_failed": result['failures'],
+                    "details": result['details']
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
     """
@@ -422,4 +462,28 @@ class TransferReceiptViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(user=user)
         
         queryset = self.apply_date_filters(queryset)
+        return queryset
+
+class FundTokenViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint para gestionar tokens de fondos.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = FundTokenSerializer
+    authentication_classes = [JWTAuthentication]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['fund']
+    search_fields = ['token_id']
+    ordering_fields = ['created_at', 'token_id']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = FundToken.objects.all()
+        
+        if not user.is_staff:
+            queryset = queryset.filter(created_by=user)
+            
+        queryset = self.apply_date_filters(queryset)
+        
         return queryset

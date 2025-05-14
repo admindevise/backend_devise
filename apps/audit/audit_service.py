@@ -12,7 +12,7 @@ def get_client_ip(request):
 
 class AuditService:
     @staticmethod
-    def log_action(request, action_code, obj, transaction_id=None, blockchain_tx_hash=None, details=None, status='SUCCESS'):
+    def log_action(request, action_code, obj, transaction_id=None, details=None, status='SUCCESS'):
         """
         Registra una acción auditable en el sistema.
         
@@ -21,7 +21,6 @@ class AuditService:
             action_code: Código de la acción (ej: "TRANSFER_TOKEN")
             obj: Objeto al que se refiere la acción (Fund, Token, etc.)
             transaction_id: ID de transacción (opcional)
-            blockchain_tx_hash: Hash de transacción blockchain (opcional)
             details: Diccionario con detalles adicionales (opcional)
             status: Estado de la acción ('SUCCESS', 'ERROR', 'PENDING')
         
@@ -42,7 +41,6 @@ class AuditService:
                 content_type=ContentType.objects.get_for_model(obj),
                 object_id=str(obj.id),
                 transaction_id=transaction_id,
-                blockchain_tx_hash=blockchain_tx_hash,
                 ip_address=ip_address,
                 user_agent=user_agent,
                 details=details or {},
@@ -56,14 +54,12 @@ class AuditService:
             return None
 
     @staticmethod
-    def update_transaction_status(audit_log_id, status, blockchain_tx_hash=None):
+    def update_transaction_status(audit_log_id, status):
         """
         Actualiza el estado de una transacción solo si está en estado PENDING
         """
         try:
             update_fields = {'status': status}
-            if blockchain_tx_hash:
-                update_fields['blockchain_tx_hash'] = blockchain_tx_hash
             
             # Solo actualizar los registros que estén en estado PENDING
             affected_rows = AuditLog.objects.filter(

@@ -16,7 +16,7 @@ class AuditActionSerializer(serializers.ModelSerializer):
 
 class AuditLogSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
-    user = UserBasicInfoSerializer()
+    #user = UserBasicInfoSerializer()
     action = AuditActionSerializer()
     content_type_name = serializers.SerializerMethodField()
     
@@ -24,7 +24,7 @@ class AuditLogSerializer(serializers.ModelSerializer):
         model = AuditLog
         fields = [
             'id', 'user', 'action', 'content_type_name', 'object_id',
-            'transaction_id', 'blockchain_tx_hash', 'ip_address',
+            'transaction_id', 'ip_address',
             'details', 'status', 'created_at'
         ]
     

@@ -2,7 +2,7 @@ from django.contrib import admin
 from apps.fund.models import Fund, FundInvestment, TransferReceipt
 
 class FundAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'amount', 'created_at')
+    list_display = ('id', 'name', 'amount_units', 'amount_tokens', 'created_at')
     search_fields = ('name', 'description')
     list_filter = ('created_at',)
     ordering = ('-created_at',)

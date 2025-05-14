@@ -15,7 +15,8 @@ class Fund(models.Model):
     token_contract_721 = models.OneToOneField(InstanceOfTokenContract721, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=100)
     description = models.TextField()
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount_units = models.PositiveIntegerField(default=0, help_text="Cantidad de unidades del fondo")
+    amount_tokens = models.PositiveIntegerField(default=0, help_text="Cantidad de tokens del fondo")
     secret = models.CharField(max_length=255, null=True, blank=True)
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     image = models.ImageField(upload_to='funds/images/', null=True, blank=True)
@@ -93,7 +94,7 @@ class Fund(models.Model):
     @property
     def amount_total(self):
         """Retorna el monto total del fondo (cantidad * precio por unidad)"""
-        return self.amount * self.price_per_unit if self.price_per_unit else 0
+        return self.amount_units * self.price_per_unit if self.price_per_unit else 0
     
     @property
     def current_price(self):
@@ -233,3 +234,20 @@ class FundPriceHistory(base_model.BaseModel):
         
     def __str__(self):
         return f"{self.fund.name}: {self.price_per_unit} ({self.effective_date.strftime('%Y-%m-%d %H:%M')})"
+
+class FundToken(base_model.BaseModel):
+    """
+    Modelo para almacenar los tokens asociados a un fondo.
+    """
+    fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name='tokens')
+    token_id = models.CharField(max_length=255)
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT, null=True)
+    
+    class Meta:
+        verbose_name = "Token de Fondo"
+        verbose_name_plural = "Tokens de Fondos"
+        unique_together = ('fund', 'token_id')
+        ordering = ['-created_at']
+        
+    def __str__(self):
+        return f"Token {self.token_id} del fondo {self.fund.name}"

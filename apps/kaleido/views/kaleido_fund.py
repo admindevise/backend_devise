@@ -31,6 +31,10 @@ def is_investor_valid(user, fund_id):
     """
     
     try:
+        if user.is_staff:
+        # Si el usuario es staff, no se requiere verificar la inversión
+            return True, None
+        
         # Buscar una inversión para este usuario en el fondo especificado
         investment = FundInvestment.objects.filter(investor=user, fund_id=fund_id).first()
         
@@ -383,22 +387,29 @@ def get_token_balance_from_kaleido(contract_address, owner_address):
     return response.json()
 
 """ Tokens """
-def mint_721_token(wallet, token_id, token_uri, fund_id):
+def mint_721_token(token_id, fund_id):
     try:
         fund = Fund.objects.get(id=fund_id)
         instance_id = fund.contract_address
         if not instance_id:
             return None, "Fund doesn't have a contract address"
+        
+        # Verificar primero si el token ya existe
+        owner_data, owner_error = get_owner_of(token_id, fund_id)
+        if owner_error is None and owner_data.get('output'):
+            # Token ya existe
+            return None, f"Token {token_id} already minted. Owner: {owner_data.get('output')}"
             
         url = f'https://{SERVICE_HOST}/instances/{instance_id}/mint'
         headers = {
             'accept': 'application/json',
             'Content-Type': 'application/json',
             'x-kaleido-from': USER_ACCOUNTS,
+            'x-kaleido-sync': 'false',
         }
         data = {
             'to': USER_ACCOUNTS,
-            'tokenId': token_uri
+            'tokenId': token_id
         }
         try:
             response = requests.post(url, headers=headers, json=data, auth=HTTPBasicAuth(USERNAME, PASSWORD))
@@ -406,7 +417,7 @@ def mint_721_token(wallet, token_id, token_uri, fund_id):
         except Exception as e:
             return None, str(e)
 
-        if response.status_code in [200, 201]:
+        if response.status_code in [200, 201, 202]:
             return response_data, None
         else:
             return None, f"Error from external service: {response_data}"
@@ -430,8 +441,8 @@ class Mint721View(APIView):
         if not fund_id:
             return Response({"error": "fund_id is required"}, status=400)
         
-        # Verificar antes si el token y fondo ya existe
         try:
+            #! 1. Verificar antes si el fondo ya existe
             fund = Fund.objects.get(id=fund_id)
             instance_id = fund.contract_address
             if not instance_id:
@@ -449,7 +460,7 @@ class Mint721View(APIView):
                 )
                 return Response({"error": "Fund doesn't have a contract address"}, status=400)
             
-            # Verificar si el token ya existe
+            #! 2. Verificar si el token ya existe
             owner_data, owner_error = get_owner_of(token_id, fund_id)
             if owner_error is None:
                 # Si la respuesta es exitosa, el token ya existe
@@ -1168,13 +1179,15 @@ class TokenOwnershipView(APIView):
             return Response({'error': 'tokenId is required'}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
+            fund = Fund.objects.get(id=fund_id)
+            
             # 2. Verificar si el usuario es inversor del fondo
             investment, error = is_investor_valid(request.user, fund_id)
             if not investment:
                 return Response({"error": error}, status=status.HTTP_403_FORBIDDEN)
             
             # 3. Verificar dirección del contrato
-            fund = investment.fund
+            #fund = investment.fund
             if not fund.contract_address:
                 return Response({"error": "Fund contract address not found"}, status=status.HTTP_400_BAD_REQUEST)
                 

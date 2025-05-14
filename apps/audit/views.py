@@ -12,8 +12,8 @@ class AuditLogViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = AuditLogSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['action__code', 'user__id', 'status', 'content_type__model', 'transaction_id', 'blockchain_tx_hash']
-    search_fields = ['transaction_id', 'blockchain_tx_hash', 'object_id', 'user__email', 'action__name']
+    filterset_fields = ['action__code', 'user__id', 'status', 'content_type__model', 'transaction_id']
+    search_fields = ['transaction_id', 'object_id', 'user__email', 'action__name']
     ordering_fields = ['created_at', 'action__name']
     ordering = ['-created_at']
     

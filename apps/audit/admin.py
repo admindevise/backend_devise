@@ -13,8 +13,8 @@ class AuditActionAdmin(admin.ModelAdmin):
     list_filter = ['category', 'name', 'code', 'severity']
 
 class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'action', 'content_type', 'object_id', 'transaction_id', 'blockchain_tx_hash', 'ip_address', 'display_status', 'created_at']
-    search_fields = ['user__username', 'action__name', 'content_type__model', 'object_id', 'transaction_id', 'blockchain_tx_hash', 'ip_address', 'status']
+    list_display = ['id', 'user', 'action', 'content_type', 'object_id', 'transaction_id', 'ip_address', 'display_status', 'created_at']
+    search_fields = ['user__username', 'action__name', 'content_type__model', 'object_id', 'transaction_id', 'ip_address', 'status']
     list_filter = ['user', 'action', 'content_type', 'status']
     date_hierarchy = 'created_at'
     readonly_fields = ['created_at']
