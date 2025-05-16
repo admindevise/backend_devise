@@ -1,13 +1,9 @@
-from django.db import models
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from django.utils import timezone
-
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
-from apps.user.models import User
-from apps.kaleido.utils import create_wallet_for_user, create_instance_token_contract_721
 from apps.utils.models import base_model
-from django.db import transaction
+from apps.user.models import User
+
+from django.db import models
+from django.utils import timezone
 
 class Fund(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
@@ -208,11 +204,11 @@ class FundInvestment(models.Model):
         unique_together = ('fund', 'investor')
     
 
-class TransferReceipt(models.Model):
+class TransferReceipt(base_model.BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="transfer_receipts")
     transfer_id = models.CharField(max_length=255)
     fund = models.ForeignKey('Fund', on_delete=models.CASCADE, related_name="transfer_receipts", null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    description = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.transfer_id}"

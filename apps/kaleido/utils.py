@@ -5,6 +5,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, BEARER, SERVICE_WALLET, SERVICE_HOST, ZONE_DOMAIN, USER_ACCOUNTS
 
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
+from apps.fund.models import Fund, FundInvestment
 
 from requests.auth import HTTPBasicAuth
 from django.db import transaction
@@ -12,10 +13,9 @@ import requests
 import time
 import json
 
-
 @permission_classes([IsAuthenticated])
 @authentication_classes([JWTAuthentication])
-def create_wallet_for_user(user, secret):
+def create_wallet_for_fund(user, secret):
     url = f"https://{SERVICE_WALLET}/api/v1/wallets"
     headers = {
         'accept': 'application/json',
@@ -168,3 +168,185 @@ def create_instance_token_contract_721(user, name, symbol, promote_contract=None
     else:
         return None, f"Error from external service: {response_data}"
     
+
+#! ================ Funciones de verificación ================ #
+def is_investor_valid(user, fund_id):
+    """
+    Verifica si un usuario es inversor de un fondo específico.
+    
+    Args:
+        user: El usuario a verificar
+        fund_id: El ID del fondo
+    
+    Returns:
+        Tupla (investment, error_message) donde investment es el objeto FundInvestment si existe,
+        o None si no existe. Si hay error, error_message contiene el mensaje de error.
+    """
+    
+    try:
+        if user.is_staff:
+        # Si el usuario es staff, no se requiere verificar la inversión
+            return True, None
+        
+        # Buscar una inversión para este usuario en el fondo especificado
+        investment = FundInvestment.objects.filter(investor=user, fund_id=fund_id).first()
+        
+        if investment:
+            # Inversor válido
+            return investment, None
+        else:
+            return None, f"User {user.username} is not an investor in fund {fund_id}"
+            
+    except Exception as e:
+        return None, f"Error verifying investment: {str(e)}"
+
+def get_owner_of(token_id, fund_id):
+    """
+    Calls the ownerOf endpoint to get the owner of a token.
+    Input:
+      - token_id: ID of the token to check ownership for.
+    Returns:
+      - A tuple (response_data, error), where response_data is the JSON response on success,
+        or error contains an error message on failure.
+    """
+    
+    try:
+        fund = Fund.objects.get(id=fund_id)
+        instance_id = fund.contract_address
+        if not instance_id:
+            return None, "No instance_id found for the specified fund"
+        
+        url = f"https://{SERVICE_HOST}/instances/{instance_id}/ownerOf"
+        headers = {
+            'accept': 'application/json',
+            'Content-Type': 'application/json',
+            'x-kaleido-from': USER_ACCOUNTS,
+        }
+        data = {"tokenId": token_id}
+        try:
+            response = requests.post(url, headers=headers, json=data, auth=HTTPBasicAuth(USERNAME, PASSWORD))
+            response_data = response.json()
+        except Exception as e:
+            return None, str(e)
+        if response.status_code == 200:
+            return response_data, None
+        else:
+            return None, f"Error {response.status_code}: {response_data}"
+    except Fund.DoesNotExist:
+        return None, "Fund not found"
+
+def get_wallet_index(user, fund_id):
+    """
+    Retrieves the wallet index for the given user, specific to a Fund.
+
+    Returns:
+      A tuple (data, error) where data is the JSON response from the external service
+      if successful, or error is a string with the error message.
+    """
+    try:
+        # Try to get a FundInvestment for the user and use its associated Fund's hd_wallet if available
+        investment = FundInvestment.objects.filter(investor=user, fund_id=fund_id).first()
+        if not investment:
+            return None, "No investment found for this user in the specified fund"
+
+        if investment.fund.hd_wallet:
+            wallet_id_value = investment.fund.hd_wallet.id_wallet
+            print(f"Found hd_wallet for user {user.email} in fund {fund_id}: {wallet_id_value}")
+        else:
+            return None, "No hd_wallet found for the specified fund"
+
+    except FundInvestment.DoesNotExist:
+        return None, "No investment found for this user in the specified fund"
+    except Wallet.DoesNotExist:
+        return None, "No wallet found for this user"
+
+    url = f"https://{SERVICE_WALLET}/api/v1/wallets/{wallet_id_value}/accounts/{user.id}"
+    headers = {
+        'accept': 'application/json',
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        response = requests.get(url, headers=headers, auth=HTTPBasicAuth(USERNAME, PASSWORD))
+        if response.status_code == 200:
+            return response.json(), None
+        else:
+            return None, f"Error from service: {response.json()}"
+    except requests.exceptions.RequestException as e:
+        return None, f"Request failed: {str(e)}"
+
+
+#! ================ Funciones de utilidad ================ #
+def mint_721_token(token_id, fund_id, contract_address_id):
+    # Verificar primero si el token ya existe
+    owner_data, owner_error = get_owner_of(token_id, fund_id)
+    if owner_error is None and owner_data.get('output'):
+        # Token ya existe
+        return None, f"Token {token_id} already minted. Owner: {owner_data.get('output')}"
+        
+    url = f'https://{SERVICE_HOST}/instances/{contract_address_id}/mint'
+    headers = {
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+        'x-kaleido-from': USER_ACCOUNTS,
+        'x-kaleido-sync': 'false',
+    }
+    data = {
+        'to': USER_ACCOUNTS,
+        'tokenId': token_id
+    }
+    try:
+        response = requests.post(url, headers=headers, json=data, auth=HTTPBasicAuth(USERNAME, PASSWORD))
+        try:
+            response_data = response.json()
+        except json.JSONDecodeError:
+            return None, f'Invalid JSON response: {response.text}'
+    except Exception as e:
+        return None, str(e)
+    
+    if response.status_code in [200, 201, 202]:
+        return response_data, None
+    else:
+        return None, f"Error from external service: {response_data}"
+
+def burn_721_token(token_id, fund_id, contract_address_id):
+    # Verificar la propiedad del token
+    owner_data, owner_error = get_owner_of(token_id, fund_id)
+    if owner_error is not None:
+        if owner_error is not None:
+            error_obj = {
+                "message": "No se pudo verificar la propiedad del token en el fondo",  
+                "details": {
+                    "owner_error": str(owner_error),
+                    "token_id": token_id,
+                    "fund_id": fund_id
+                }
+            }
+            return None, error_obj
+
+    if owner_data.get('output', '').lower() != USER_ACCOUNTS.lower():
+        return None, f"Token {token_id} is not owned by the sender. Owner: {owner_data.get('output')}"
+
+    
+    url = f'https://{SERVICE_HOST}/instances/{contract_address_id}/burn'
+    headers = {
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+        'x-kaleido-from': USER_ACCOUNTS,
+    }
+    data = {
+        'tokenId': token_id
+        }
+    try:
+        response = requests.post(url, headers=headers, json=data, auth=HTTPBasicAuth(USERNAME, PASSWORD))
+        try:
+            response_data = response.json()
+        except json.JSONDecodeError:
+            return None, f'Invalid JSON response: {response.text}'
+    except Exception as e:
+        return None, str(e)
+    
+    if response.status_code in [200, 201, 202]:
+        return response_data, None
+    else:
+        return None, f"Error from external service: {response_data}"

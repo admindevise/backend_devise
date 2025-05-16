@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import FundViewSet, FundInvestmentViewSet, TransferReceiptViewSet, TokenMintView, FundTokenViewSet
+from .views import FundViewSet, FundInvestmentViewSet, TransferReceiptViewSet, FundTokenViewSet
 
 router = DefaultRouter()
 router.register(r'main', FundViewSet, basename='fund'),
@@ -10,6 +10,5 @@ router.register(r'token', FundTokenViewSet, basename='fund-token')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('mint-tokens/', TokenMintView.as_view(), name='mint-tokens'),
     #path('timezone/', get_timezone, name='get-timezone'),
 ]

@@ -10,117 +10,14 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, BEARER, SERVICE_HOST, NODE_ID, CONSOLE_URL, SERVICE_WALLET, MEMBERSHIP_ID, ZONE_DOMAIN, USER_ACCOUNTS, SERVICE
 
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
+from apps.kaleido.utils import is_investor_valid, get_owner_of, get_wallet_index
 from apps.fund.models import FundInvestment, TransferReceipt, Fund
+from apps.kaleido.serializers.serializer_token_operation import TokenMintSerializer, TokenBurnSerializer
 from apps.audit.audit_service import AuditService
 
 import requests
 from requests.auth import HTTPBasicAuth
 import json
-
-def is_investor_valid(user, fund_id):
-    """
-    Verifica si un usuario es inversor de un fondo específico.
-    
-    Args:
-        user: El usuario a verificar
-        fund_id: El ID del fondo
-    
-    Returns:
-        Tupla (investment, error_message) donde investment es el objeto FundInvestment si existe,
-        o None si no existe. Si hay error, error_message contiene el mensaje de error.
-    """
-    
-    try:
-        if user.is_staff:
-        # Si el usuario es staff, no se requiere verificar la inversión
-            return True, None
-        
-        # Buscar una inversión para este usuario en el fondo especificado
-        investment = FundInvestment.objects.filter(investor=user, fund_id=fund_id).first()
-        
-        if investment:
-            # Inversor válido
-            return investment, None
-        else:
-            return None, f"User {user.username} is not an investor in fund {fund_id}"
-            
-    except Exception as e:
-        return None, f"Error verifying investment: {str(e)}"
-
-def get_owner_of(token_id, fund_id):
-    """
-    Calls the ownerOf endpoint to get the owner of a token.
-    Input:
-      - token_id: ID of the token to check ownership for.
-    Returns:
-      - A tuple (response_data, error), where response_data is the JSON response on success,
-        or error contains an error message on failure.
-    """
-    
-    try:
-        fund = Fund.objects.get(id=fund_id)
-        instance_id = fund.contract_address
-        if not instance_id:
-            return None, "No instance_id found for the specified fund"
-        
-        url = f"https://{SERVICE_HOST}/instances/{instance_id}/ownerOf"
-        headers = {
-            'accept': 'application/json',
-            'Content-Type': 'application/json',
-            'x-kaleido-from': USER_ACCOUNTS,
-        }
-        data = {"tokenId": token_id}
-        try:
-            response = requests.post(url, headers=headers, json=data, auth=HTTPBasicAuth(USERNAME, PASSWORD))
-            response_data = response.json()
-        except Exception as e:
-            return None, str(e)
-        if response.status_code == 200:
-            return response_data, None
-        else:
-            return None, f"Error {response.status_code}: {response_data}"
-    except Fund.DoesNotExist:
-        return None, "Fund not found"
-
-def get_wallet_index(user, fund_id):
-    """
-    Retrieves the wallet index for the given user, specific to a Fund.
-
-    Returns:
-      A tuple (data, error) where data is the JSON response from the external service
-      if successful, or error is a string with the error message.
-    """
-    try:
-        # Try to get a FundInvestment for the user and use its associated Fund's hd_wallet if available
-        investment = FundInvestment.objects.filter(investor=user, fund_id=fund_id).first()
-        if not investment:
-            return None, "No investment found for this user in the specified fund"
-
-        if investment.fund.hd_wallet:
-            wallet_id_value = investment.fund.hd_wallet.id_wallet
-            print(f"Found hd_wallet for user {user.email} in fund {fund_id}: {wallet_id_value}")
-        else:
-            return None, "No hd_wallet found for the specified fund"
-
-    except FundInvestment.DoesNotExist:
-        return None, "No investment found for this user in the specified fund"
-    except Wallet.DoesNotExist:
-        return None, "No wallet found for this user"
-
-    url = f"https://{SERVICE_WALLET}/api/v1/wallets/{wallet_id_value}/accounts/{user.id}"
-    headers = {
-        'accept': 'application/json',
-        'Content-Type': 'application/json'
-    }
-
-    try:
-        response = requests.get(url, headers=headers, auth=HTTPBasicAuth(USERNAME, PASSWORD))
-        if response.status_code == 200:
-            return response.json(), None
-        else:
-            return None, f"Error from service: {response.json()}"
-    except requests.exceptions.RequestException as e:
-        return None, f"Request failed: {str(e)}"
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -268,7 +165,7 @@ def burn_721_token(request):
         )
         
         return Response({'error': str(e)}, status=500)
-    
+     
 def get_burn_from_kaleido(contract_address, token_id):
     url = f'https://{SERVICE_HOST}/instances/{contract_address}/burn'
     headers = {
@@ -386,44 +283,6 @@ def get_token_balance_from_kaleido(contract_address, owner_address):
     
     return response.json()
 
-""" Tokens """
-def mint_721_token(token_id, fund_id):
-    try:
-        fund = Fund.objects.get(id=fund_id)
-        instance_id = fund.contract_address
-        if not instance_id:
-            return None, "Fund doesn't have a contract address"
-        
-        # Verificar primero si el token ya existe
-        owner_data, owner_error = get_owner_of(token_id, fund_id)
-        if owner_error is None and owner_data.get('output'):
-            # Token ya existe
-            return None, f"Token {token_id} already minted. Owner: {owner_data.get('output')}"
-            
-        url = f'https://{SERVICE_HOST}/instances/{instance_id}/mint'
-        headers = {
-            'accept': 'application/json',
-            'Content-Type': 'application/json',
-            'x-kaleido-from': USER_ACCOUNTS,
-            'x-kaleido-sync': 'false',
-        }
-        data = {
-            'to': USER_ACCOUNTS,
-            'tokenId': token_id
-        }
-        try:
-            response = requests.post(url, headers=headers, json=data, auth=HTTPBasicAuth(USERNAME, PASSWORD))
-            response_data = response.json()
-        except Exception as e:
-            return None, str(e)
-
-        if response.status_code in [200, 201, 202]:
-            return response_data, None
-        else:
-            return None, f"Error from external service: {response_data}"
-    except Fund.DoesNotExist:
-        return None, "Fund not found"
-    
 class Mint721View(APIView):
     """
     Mint 721 token
@@ -1226,6 +1085,99 @@ class TokenOwnershipView(APIView):
             return Response({"error": "Fund not found"}, status=status.HTTP_404_NOT_FOUND)
         except requests.exceptions.RequestException as e:
             return Response({"error": "Connection error", "details": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+class TokenMintView(APIView):
+    """
+    Endpoint API para crear (mint) tokens para un fondo.
+    Solo accesible por administradores.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        serializer = TokenMintSerializer(data=request.data, context={'request': request})
+        
+        if serializer.is_valid():
+            result = serializer.save()  # Esto llama a create() que ejecuta mint_tokens_for_amount
+            
+            if result['success'] is True:
+                return Response({
+                    "status": "success",
+                    "message": f"Se han creado {result['minted']} tokens exitosamente",
+                    "tokens_minted": result['minted'],
+                    "tokens_failed": result['failures'],
+                    "details": result['details']
+                }, status=status.HTTP_200_OK)
+            elif result['success'] == 'partial':
+                return Response({
+                    "status": "partial",
+                    "message": f"Se han creado {result['minted']} tokens con {result['failures']} errores",
+                    "tokens_minted": result['minted'],
+                    "tokens_failed": result['failures'],
+                    "details": result['details']
+                }, status=status.HTTP_207_MULTI_STATUS)
+            else:
+                return Response({
+                    "status": "error",
+                    "message": result.get('error', f"Error al crear tokens: {result['failures']} fallidos"),
+                    "tokens_minted": result['minted'],
+                    "tokens_failed": result['failures'],
+                    "details": result['details']
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class TokenBurnView(APIView):
+    """
+    Endpoint API para quemar tokens para un fondo.
+    Solo accesible por administradores.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        serializer = TokenBurnSerializer(data=request.data, context={'request': request})
+        
+        if not serializer.is_valid():
+            return Response(
+                {"status": "error", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Ejecutar la operación de quemar tokens
+        result = serializer.save()
+        
+        # Determinar estado y mensaje según el resultado
+        if result.get('success') is True:
+            # Crear el diccionario con status y message PRIMERO
+            response_data = {
+                "status": "success",
+                "message": f"Se han quemado {result['burned']} tokens exitosamente",
+                "tokens_burned": result.get('burned', 0),
+                "tokens_failed": result.get('failures', 0),
+                "details": result.get('details', [])
+            }
+            response_status = status.HTTP_200_OK
+            
+        elif result.get('success') == 'partial':
+            response_data = {
+                "status": "partial",
+                "message": f"Se han quemado {result['burned']} tokens con {result['failures']} errores",
+                "tokens_burned": result.get('burned', 0),
+                "tokens_failed": result.get('failures', 0),
+                "details": result.get('details', [])
+            }
+            response_status = status.HTTP_207_MULTI_STATUS
+            
+        else:
+            response_data = {
+                "status": "error",
+                "message": result.get('error', f"Error al quemar tokens: {result['failures']} fallidos"),
+                "tokens_burned": result.get('burned', 0),
+                "tokens_failed": result.get('failures', 0), 
+                "details": result.get('details', [])
+            }
+            response_status = status.HTTP_400_BAD_REQUEST
+            
+        return Response(response_data, status=response_status)
 
 class Test(APIView):
     permission_classes = [IsAuthenticated]

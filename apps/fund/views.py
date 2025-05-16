@@ -17,8 +17,9 @@ import pytz
 from apps.audit.audit_service import AuditService
 from apps.fund.models import Fund, FundInvestment, TransferReceipt, FundToken
 from apps.kaleido.models import Wallet
-from apps.fund.serializers import FundSerializer, FundInvestmentSerializer, TransferReceiptSerializer, TokenMintSerializer, FundTokenSerializer
+from apps.fund.serializers import FundSerializer, FundInvestmentSerializer, TransferReceiptSerializer, FundTokenSerializer
 from apps.utils.views.Mixins import DateFilterMixin
+from apps.kaleido.serializers.serializer_token_operation import TokenMintSerializer
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -36,46 +37,6 @@ def test(request):
         return Response({"notes": notes}, status=status.HTTP_200_OK)
     except FundPriceHistory.DoesNotExist:
         return Response({"error": "No se encontró el historial de precios"}, status=status.HTTP_404_NOT_FOUND) """
-
-class TokenMintView(APIView):
-    """
-    Endpoint API para crear (mint) tokens para un fondo.
-    Solo accesible por administradores.
-    """
-    permission_classes = [IsAuthenticated]
-    
-    def post(self, request, *args, **kwargs):
-        serializer = TokenMintSerializer(data=request.data, context={'request': request})
-        
-        if serializer.is_valid():
-            result = serializer.save()  # Esto llama a create() que ejecuta mint_tokens_for_amount
-            
-            if result['success'] is True:
-                return Response({
-                    "status": "success",
-                    "message": f"Se han creado {result['minted']} tokens exitosamente",
-                    "tokens_minted": result['minted'],
-                    "tokens_failed": result['failures'],
-                    "details": result['details']
-                }, status=status.HTTP_200_OK)
-            elif result['success'] == 'partial':
-                return Response({
-                    "status": "partial",
-                    "message": f"Se han creado {result['minted']} tokens con {result['failures']} errores",
-                    "tokens_minted": result['minted'],
-                    "tokens_failed": result['failures'],
-                    "details": result['details']
-                }, status=status.HTTP_207_MULTI_STATUS)
-            else:
-                return Response({
-                    "status": "error",
-                    "message": result.get('error', f"Error al crear tokens: {result['failures']} fallidos"),
-                    "tokens_minted": result['minted'],
-                    "tokens_failed": result['failures'],
-                    "details": result['details']
-                }, status=status.HTTP_400_BAD_REQUEST)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
     """
