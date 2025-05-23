@@ -411,7 +411,7 @@ class TransferReceiptViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     authentication_classes = [JWTAuthentication]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['user', 'fund']
-    search_fields = ['transfer_id']
+    search_fields = ['transaction_id']
     ordering_fields = ['created_at']
     ordering = ['-created_at']
 

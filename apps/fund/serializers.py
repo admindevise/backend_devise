@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 from rest_framework.exceptions import ValidationError
+from django.core.validators import RegexValidator
 
 from apps.fund.models import Fund, FundInvestment, TransferReceipt, FundToken
 from apps.kaleido.models import InstanceOfTokenContract721, PromoteContract
@@ -17,16 +18,19 @@ class FundSerializer(serializers.ModelSerializer):
     token_contract_721 = InstanceOfTokenContract721Serializer(read_only=True)
     promote_contract_id = serializers.IntegerField(write_only=True)
     
-    #amount_total = serializers.SerializerMethodField()
-    #current_price = serializers.SerializerMethodField()
-    #total_investors = serializers.SerializerMethodField()
+    # Validacion para nickname solo numeros y letas
+    nickname_tokens = RegexValidator(r'^[a-zA-Z0-9_]+$', 'El nickname solo puede contener letras, números y guiones bajos')
+    
+    amount_total = serializers.SerializerMethodField()
+    current_price = serializers.SerializerMethodField()
+    total_investors = serializers.SerializerMethodField()
     
     class Meta:
         model = Fund
         fields = [
             # Campos comunes
             'id', 'user', 'hd_wallet', 'name', 'description',
-            'amount_units', 'amount_tokens',
+            'amount_units', 'amount_tokens', 'nickname_tokens',
             'token_contract_721', 'secret', 'price_per_unit', 'status', 
             'promote_contract_id', 'image', 'created_at',
             
@@ -46,21 +50,21 @@ class FundSerializer(serializers.ModelSerializer):
             'trading_hours', 'operations_closing_date',
             
             # Otros Campos Relevantes
-            'main_manager', 'operations_start_date', 'number_of_investors',
+            'main_manager', 'operations_start_date',
             
             # Funciones
-            #'amount_total', 'current_price', 'total_investors'
+            'amount_total', 'current_price', 'total_investors'
         ]
         read_only_fields = ['hd_wallet', 'token_contract_721', 'created_at', 'user']
         
-    #def get_amount_total(self, obj):
-        #return obj.amount_total
+    def get_amount_total(self, obj):
+        return obj.amount_total
     
-    #def get_current_price(self, obj):
-        #return obj.current_price
+    def get_current_price(self, obj):
+        return obj.current_price
     
-    #def get_total_investors(self, obj):
-        #return obj.total_investors
+    def get_total_investors(self, obj):
+        return obj.total_investors
 
     def create(self, validated_data):
         user = self.context['request'].user
@@ -137,7 +141,7 @@ class TransferReceiptSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = TransferReceipt
-        fields = ['id','user', 'transfer_id', 'fund', 'created_at']
+        fields = ['id','user', 'transaction_id', 'fund', 'description', 'created_at']
         read_only_fields = ['created_at']
 
 class FundTokenSerializer(serializers.ModelSerializer):
@@ -145,5 +149,5 @@ class FundTokenSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = FundToken
-        fields = ['id', 'fund', 'token_id', 'created_by', 'created_at']
+        fields = ['id', 'fund', 'token_id', 'created_by', 'owner_user', 'created_at']
         read_only_fields = ['created_at']

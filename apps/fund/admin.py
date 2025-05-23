@@ -16,8 +16,8 @@ class FundInvestmentAdmin(admin.ModelAdmin):
     readonly_fields = ('joined_at',)
 
 class TransferReceiptAdmin(admin.ModelAdmin):
-    list_display = ('fund', 'transfer_id', 'created_at')
-    search_fields = ('user__username', 'transfer_id')
+    list_display = ('fund', 'transaction_id', 'created_at')
+    search_fields = ('user__username', 'transaction_id')
     
 class FundTokenAdmin(admin.ModelAdmin):
     list_display = ('fund', 'token_id', 'created_at')

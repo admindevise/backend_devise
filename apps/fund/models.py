@@ -9,10 +9,13 @@ class Fund(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     hd_wallet = models.OneToOneField(Wallet, on_delete=models.CASCADE, null=True, blank=True)
     token_contract_721 = models.OneToOneField(InstanceOfTokenContract721, on_delete=models.CASCADE, null=True, blank=True)
+    
+    # Basic Information
     name = models.CharField(max_length=100)
     description = models.TextField()
     amount_units = models.PositiveIntegerField(default=0, help_text="Cantidad de unidades del fondo")
     amount_tokens = models.PositiveIntegerField(default=0, help_text="Cantidad de tokens del fondo")
+    nickname_tokens = models.CharField(max_length=255, blank=True, null=True)
     secret = models.CharField(max_length=255, null=True, blank=True)
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     image = models.ImageField(upload_to='funds/images/', null=True, blank=True)
@@ -73,7 +76,6 @@ class Fund(models.Model):
     # Other Relevant Fields
     main_manager = models.CharField(max_length=100, blank=True, null=True)
     operations_start_date = models.DateField(blank=True, null=True)
-    number_of_investors = models.PositiveIntegerField(blank=True, null=True)
 
 
     def __str__(self):
@@ -206,12 +208,12 @@ class FundInvestment(models.Model):
 
 class TransferReceipt(base_model.BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="transfer_receipts")
-    transfer_id = models.CharField(max_length=255)
+    transaction_id = models.CharField(max_length=255)
     fund = models.ForeignKey('Fund', on_delete=models.CASCADE, related_name="transfer_receipts", null=True, blank=True)
     description = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.transfer_id}"
+        return f"{self.user.username} - {self.transaction_id} - {self.fund.name if self.fund else 'N/A'}"
     
 class FundPriceHistory(base_model.BaseModel):
     """
@@ -238,6 +240,8 @@ class FundToken(base_model.BaseModel):
     fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name='tokens')
     token_id = models.CharField(max_length=255)
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, null=True)
+    nickname = models.CharField(max_length=255, blank=True, null=True)
+    owner_user = models.ForeignKey(User, on_delete=models.PROTECT, null=True, related_name="owned_tokens")
     
     class Meta:
         verbose_name = "Token de Fondo"

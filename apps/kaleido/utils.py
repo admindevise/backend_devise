@@ -2,7 +2,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes, authentication_classes
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, BEARER, SERVICE_WALLET, SERVICE_HOST, ZONE_DOMAIN, USER_ACCOUNTS
+from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, BEARER, SERVICE_WALLET, SERVICE_HOST, ZONE_DOMAIN, USER_ACCOUNTS, SERVICE
 
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
 from apps.fund.models import Fund, FundInvestment
@@ -179,26 +179,35 @@ def is_investor_valid(user, fund_id):
         fund_id: El ID del fondo
     
     Returns:
-        Tupla (investment, error_message) donde investment es el objeto FundInvestment si existe,
+        Tupla (investment, error_message) donde investment es el objeto FundInvestment o True (para staff),
         o None si no existe. Si hay error, error_message contiene el mensaje de error.
+        
+    Examples:
+        >>> investment, error = is_investor_valid(request.user, fund_id)
+        >>> if investment:
+        >>>     # Usuario es inversor o staff
+        >>> else:
+        >>>     # Mostrar mensaje de error
     """
+    # Si el usuario es staff, devolver inmediatamente
+    if user.is_staff:
+        return True, None
     
     try:
-        if user.is_staff:
-        # Si el usuario es staff, no se requiere verificar la inversión
-            return True, None
+        # Usar get para consultas por clave primaria o índice único
+        investment = FundInvestment.objects.get(investor=user, fund_id=fund_id)
+        return investment, None
+    
+    except FundInvestment.DoesNotExist:
+        return None, f"El usuario {user.email} no es inversionista del fondo con ID {fund_id}"
         
-        # Buscar una inversión para este usuario en el fondo especificado
+    except FundInvestment.MultipleObjectsReturned:
+        # Caso improbable pero posible si hay duplicados
         investment = FundInvestment.objects.filter(investor=user, fund_id=fund_id).first()
+        return investment, "Advertencia: Se encontraron múltiples registros para este inversionista"
         
-        if investment:
-            # Inversor válido
-            return investment, None
-        else:
-            return None, f"User {user.username} is not an investor in fund {fund_id}"
-            
     except Exception as e:
-        return None, f"Error verifying investment: {str(e)}"
+        return None, f"Error al verificar la inversión: {str(e)}"
 
 def get_owner_of(token_id, fund_id):
     """
@@ -237,11 +246,22 @@ def get_owner_of(token_id, fund_id):
 
 def get_wallet_index(user, fund_id):
     """
-    Retrieves the wallet index for the given user, specific to a Fund.
-
-    Returns:
-      A tuple (data, error) where data is the JSON response from the external service
-      if successful, or error is a string with the error message.
+    This function queries the FundInvestment model to verify the user's investment
+    in the specified fund, then makes an API call to an external wallet service
+    to retrieve the wallet index information.
+    
+    Parameters:
+        user: User object
+            The user whose wallet index is being retrieved
+        fund_id: int or str
+            The ID of the fund to check for user's investment
+            
+        tuple: A tuple containing two elements:
+            - data (dict or None): The JSON response from the external service if successful
+            - error (str or None): An error message if the operation failed
+            
+    Raises:
+        No explicit exceptions are raised as they are caught internally
     """
     try:
         # Try to get a FundInvestment for the user and use its associated Fund's hd_wallet if available
@@ -313,16 +333,15 @@ def burn_721_token(token_id, fund_id, contract_address_id):
     # Verificar la propiedad del token
     owner_data, owner_error = get_owner_of(token_id, fund_id)
     if owner_error is not None:
-        if owner_error is not None:
-            error_obj = {
-                "message": "No se pudo verificar la propiedad del token en el fondo",  
-                "details": {
-                    "owner_error": str(owner_error),
-                    "token_id": token_id,
-                    "fund_id": fund_id
-                }
+        error_obj = {
+            "message": "No se pudo verificar la propiedad del token en el fondo",  
+            "details": {
+                "owner_error": str(owner_error),
+                "token_id": token_id,
+                "fund_id": fund_id
             }
-            return None, error_obj
+        }
+        return None, error_obj
 
     if owner_data.get('output', '').lower() != USER_ACCOUNTS.lower():
         return None, f"Token {token_id} is not owned by the sender. Owner: {owner_data.get('output')}"
@@ -339,6 +358,141 @@ def burn_721_token(token_id, fund_id, contract_address_id):
         }
     try:
         response = requests.post(url, headers=headers, json=data, auth=HTTPBasicAuth(USERNAME, PASSWORD))
+        try:
+            response_data = response.json()
+        except json.JSONDecodeError:
+            return None, f'Invalid JSON response: {response.text}'
+    except Exception as e:
+        return None, str(e)
+    
+    if response.status_code in [200, 201, 202]:
+        return response_data, None
+    else:
+        return None, f"Error from external service: {response_data}"
+
+#* Simula la compra de un token / inversion en un fondo
+def safe_transfer_721(token_id, fund_id, contract_address_id, user_investor):
+    # 1. Verificar que el usuario este asociado al fondo
+    investment, error = is_investor_valid(user_investor, fund_id)
+    if error is not None:
+        return None, error
+    
+    # 2. Verificar la propiedad del token
+    owner_data, owner_error = get_owner_of(token_id, fund_id)
+    if owner_error is not None:
+        error_obj = {
+            "message": "No se pudo verificar la propiedad del token en el fondo",
+            "details": {
+                "owner_error": str(owner_error),
+                "token_id": token_id,
+                "fund_id": fund_id
+                }
+        }
+        return None, error_obj
+    
+    if owner_data.get('output', '').lower() != USER_ACCOUNTS.lower():
+        error_obj = {
+            "message": "Token no pertenece al remitente",
+            "details": {
+                "token_id": token_id,
+                "fund_id": fund_id,
+                "owner": owner_data.get('output'),
+                "sender": USER_ACCOUNTS
+            }
+        }
+        return None, error_obj
+    
+    # 3. Obtener la dirección de la wallet del usuario inversor
+    address_wallet, error = get_wallet_index(user_investor, fund_id)
+    if error is not None:
+        return None, error
+    
+    url = f'https://{SERVICE_HOST}/instances/{contract_address_id}/safeTransferFrom'
+    headers = {
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+        'x-kaleido-from': USER_ACCOUNTS,
+    }
+    data = {
+        "from": USER_ACCOUNTS,
+        "to": address_wallet['address'],
+        "tokenId": token_id,
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=data, auth=HTTPBasicAuth(USERNAME, PASSWORD))
+        try:
+            response_data = response.json()
+        except json.JSONDecodeError:
+            return None, f'Invalid JSON response: {response.text}'
+    except Exception as e:
+        return None, str(e)
+    
+    if response.status_code in [200, 201, 202]:
+        return response_data, None
+    else:
+        return None, f"Error from external service: {response_data}"
+    
+#* Simula la compra de un token en el mercado secundario
+def safe_transfer_721_index_to_index(token_id, fund_id, contract_address_id, user_investor, address_wallet_sender, wallet_id):
+    # 1. Verificar que el usuario este asociado al fondo
+    investment, error = is_investor_valid(user_investor, fund_id)
+    if error is not None:
+        return None, error
+    
+    # 2. Obtener la dirección de la wallet del usuario inversor
+    address_wallet, error = get_wallet_index(user_investor, fund_id)
+    if error is not None:
+        return None, error
+    
+    address_wallet_user = address_wallet['address']
+    
+    # 3. Verificar la propiedad del token en el fondo
+    owner_data, owner_error = get_owner_of(token_id, fund_id)
+    if owner_error is not None:
+        error_obj = {
+            "message": "No se pudo verificar la propiedad del token en el fondo",
+            "details": {
+                "owner_error": str(owner_error),
+                "token_id": token_id,
+                "fund_id": fund_id
+                }
+        }
+        return None, error_obj
+    
+    # 4. Verificar que el token pertenece al remitente
+    if owner_data.get('output', '').lower() != address_wallet_user.lower():
+        error_obj = {
+            "message": "Token no pertenece al remitente",
+            "details": {
+                "token_id": token_id,
+                "fund_id": fund_id,
+                "owner": owner_data.get('output'),
+                "sender": address_wallet_user
+            }
+        }    
+        return None, error_obj
+
+    print('address_wallet_user', address_wallet_user)
+    # 5. Preparar el payload y realizar la transferencia
+    payload = {
+        "from": address_wallet_user,
+        "to": address_wallet_sender,
+        "tokenId": token_id,
+    }
+    
+    # 6. Realizar la transferencia
+    from_address = f'hd-{SERVICE}-{wallet_id}-{user_investor.id}'
+    url = f'https://{SERVICE_HOST}/instances/{contract_address_id}/safeTransferFrom'
+    
+    headers = {
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+        'x-kaleido-from': from_address,
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload, auth=HTTPBasicAuth(USERNAME, PASSWORD))
         try:
             response_data = response.json()
         except json.JSONDecodeError:

@@ -8,7 +8,6 @@ from apps.kaleido.views.kaleido_views_model import ListUserWalletsView
 from apps.kaleido.views.kaleido_fund import (
     Mint721View, SafeTransfer721View, SafeTransfer721IndexToIndexView, ReceipStoreView, TokenOwnershipView, 
     get_wallet_address, get_token_balance, burn_721_token, 
-    TokenMintView, TokenBurnView,
     Test)
 
 urlpatterns = [
@@ -41,10 +40,6 @@ urlpatterns = [
     path('api/safe_transfer/', SafeTransfer721View.as_view(), name='safe-transfer-from'),
     path('api/safe_transfer_index_to_index/', SafeTransfer721IndexToIndexView.as_view(), name='safe-transfer-index-to-index'),
     path('api/receipt_store/', ReceipStoreView.as_view(), name='receipt-store'),
-    
-    #=========== APIREST Views FundToken ===========#
-    path('api/mint_token/', TokenMintView.as_view(), name='mint-token'),
-    path('api/burn_token/', TokenBurnView.as_view(), name='burn-token'),
     
     path('api/test_fund/', Test.as_view(), name='test'),
 ]

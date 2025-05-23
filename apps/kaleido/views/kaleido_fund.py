@@ -12,7 +12,7 @@ from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, 
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
 from apps.kaleido.utils import is_investor_valid, get_owner_of, get_wallet_index
 from apps.fund.models import FundInvestment, TransferReceipt, Fund
-from apps.kaleido.serializers.serializer_token_operation import TokenMintSerializer, TokenBurnSerializer
+from apps.kaleido.serializers.serializer_token_operation import (TokenMintSerializer, TokenBurnSerializer, PurchaseTokenSerializer, PurchaseTokenIndexToIndexSerializer as PTIS)
 from apps.audit.audit_service import AuditService
 
 import requests
@@ -1178,6 +1178,106 @@ class TokenBurnView(APIView):
             response_status = status.HTTP_400_BAD_REQUEST
             
         return Response(response_data, status=response_status)
+
+class PurchaseTokenView(APIView):
+    """
+    Vista para realizar una compra de tokens.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        serializer = PurchaseTokenSerializer(data=request.data, context={'request': request})
+        
+        if not serializer.is_valid():
+            return Response(
+                {"status": "error", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Ejecutar la operación de compra de tokens
+        result = serializer.save()
+        
+        # Determinar estado y mensaje según el resultado
+        if result.get('success') is True:
+            response_data = {
+                "status": "success",
+                "message": "Compra exitosa",
+                "tokens_bought": result.get('bought', 0),
+                "tokens_failed": result.get('failures', 0),
+                "details": result.get('details', [])
+                }
+            response_status = status.HTTP_200_OK
+        
+        elif result.get('success') == 'partial':
+            response_data = {
+                "status": "partial",
+                "message": "Compra parcialmente exitosa",
+                "tokens_bought": result.get('bought', 0),
+                "tokens_failed": result.get('failures', 0),
+                "details": result.get('details', [])
+                }
+            response_status = status.HTTP_207_MULTI_STATUS
+        
+        else:
+            response_data = {
+                "status": "error",
+                "message": result.get('error', "Error al comprar tokens"),
+                "tokens_bought": result.get('bought', 0),
+                "tokens_failed": result.get('failures', 0),
+                "details": result.get('details', [])
+                }
+            response_status = status.HTTP_400_BAD_REQUEST
+        
+        return Response(response_data, status=response_status)
+    
+class PurchaseTokenIndexToIndexView(APIView):
+    """
+    Vista para realizar una compra de tokens desde el mercado secundario
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        serializer = PTIS(data=request.data, context={'request': request})
+        
+        if not serializer.is_valid():
+            return Response(
+                {"status": "error", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        result = serializer.save()
+        
+        if result.get('success') is True:
+            response_data = {
+                "status": "success",
+                "message": "Transferencia exitosa",
+                "tokens_bought": result.get('bought', 0),
+                "tokens_failed": result.get('failures', 0),
+                "details": result.get('details', [])
+            }
+            response_status = status.HTTP_200_OK
+            
+        elif result.get('success') == 'partial':
+            response_data = {
+                "status": "partial",
+                "message": "Transferencia parcialmente exitosa",
+                "tokens_bought": result.get('bought', 0),
+                "tokens_failed": result.get('failures', 0),
+                "details": result.get('details', [])
+            }
+            response_status = status.HTTP_207_MULTI_STATUS
+        
+        else:
+            response_data = {
+                "status": "error",
+                "message": result.get('error', "Error al comprar tokens"),
+                "tokens_bought": result.get('bought', 0),
+                "tokens_failed": result.get('failures', 0),
+                "details": result.get('details', [])
+                }
+            response_status = status.HTTP_400_BAD_REQUEST
+        return Response(response_data, status=response_status)
+
 
 class Test(APIView):
     permission_classes = [IsAuthenticated]
