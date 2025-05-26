@@ -122,25 +122,40 @@ class TokenMintSerializer(BaseTokenOperationSerializer):
         """Genera un apodo único para el nuevo token"""
         fund = self._get_fund(self.validated_data.get('fund_id'))
         
-        # Actualizar nickname_tokens del fondo si no existe o es diferente
-        if not fund.nickname_tokens or fund.nickname_tokens != nickname:
+        # Verificar si el fondo ya tiene un nickname_tokens asignado
+        if fund.nickname_tokens:
+            if nickname and fund.nickname_tokens != nickname:
+                # Si se proporciona un nickname diferente al existente, advertir
+                # pero mantener el original para consistencia
+                # No lanzamos error, solo ignoramos el nuevo valor
+                pass
+            
+            # Usar el nickname existente del fondo
+            prefix = fund.nickname_tokens
+        else:
+            # Si el fondo no tiene nickname, usar el proporcionado
+            if not nickname:
+                raise serializers.ValidationError("Se requiere un nickname para el token")
+            
+            # Actualizar el fondo con el nuevo nickname
             fund.nickname_tokens = nickname
             fund.save(update_fields=['nickname_tokens'])
+            prefix = nickname
         
-        # Usar siempre nickname_tokens del fondo para consistencia
-        prefix = fund.nickname_tokens
-        
-        if not prefix:
-            raise serializers.ValidationError("Se requiere un nickname para el token")
-        
-        # Generar un nuevo apodo único
+        # Generar un nuevo apodo único con contador incremental
         entry_nickname = f"{prefix}_{fund.amount_tokens}"
         
-        # Verificar si el apodo ya existe
+        # Verificar si el apodo ya existe (caso raro pero posible)
         if FundToken.objects.filter(nickname=entry_nickname).exists():
-            raise serializers.ValidationError("Ya existe un token con este nickname")
+            # Si ya existe, intentar con un número diferente
+            # Encontrar el mayor contador usado para este prefix
+            max_counter = FundToken.objects.filter(
+                nickname__startswith=f"{prefix}_"
+            ).count() + 1
+            
+            entry_nickname = f"{prefix}_{max_counter}"
         
-        return entry_nickname.zfill(5)
+        return entry_nickname
     
     def _handle_mint_error(self, results, initial_audit, token_id, error):
         
