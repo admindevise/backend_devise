@@ -5,7 +5,7 @@ from django.http import JsonResponse
 import requests
 from apps.asset.models import ActivoInversion, EstadoAprobacion
 from config.settings import ENVIRONMENT_ID, NODE_ID, PASSWORD, USERNAME, ZONE_DOMAIN, SC_WALLET_TYPE1,SC_WALLET_TYPE2,SC_WALLET_TYPE2, KLD_SYNC, USER_ACCOUNTS,GATEWAY_API
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext_lazy as _
 from apps.kaleido.views import kaleido_views
 
 import codecs

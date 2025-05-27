@@ -1020,7 +1020,7 @@ def totalSupply(instance,kldFrom):
 
 #---------------CreateSmartContractToken TEST-------------------#
 import codecs
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext_lazy as _
 def CreateSmartContractTokenTest(activo):
     try:
         update_activo = ActivoInversion.objects.get(id=activo)

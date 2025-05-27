@@ -14,7 +14,7 @@ from ..serializers.serializers_activo import (CreateActivoSerializer, TipoProyec
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext_lazy as _
 
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated

@@ -9,7 +9,7 @@ from django.db.models import Q
 from django.views.generic import View, ListView, UpdateView
 from apps.security.models import SecurityConfiguration
 from apps.user.models import User
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext_lazy as _
 
 
 # Create your views here.

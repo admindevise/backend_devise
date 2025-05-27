@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 import datetime as dt
 from pathlib import Path
 import dj_database_url

@@ -9,7 +9,7 @@ from django.http import HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.generic import View, ListView, CreateView, DetailView, UpdateView
 from django.urls import reverse_lazy
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext_lazy as _
 
 from rest_framework import generics, viewsets
 from rest_framework.decorators import permission_classes

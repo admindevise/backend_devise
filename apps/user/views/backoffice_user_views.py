@@ -19,7 +19,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext_lazy as _
 from django.views.generic import View, ListView, CreateView, DetailView, UpdateView
 
 from ..forms.financial_form import FinancialForm, UpdateFinancialForm
