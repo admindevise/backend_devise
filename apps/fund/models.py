@@ -147,64 +147,241 @@ class Fund(models.Model):
         """
         return self.investments.values('investor').distinct().count()
 
-class FundInvestment(models.Model):
-    fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name="investments")
-    investor = models.ForeignKey(User, on_delete=models.CASCADE, related_name="fund_investments")
-    invested_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    joined_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.investor.username} in {self.fund.name}"
+class FundApplication(models.Model):
+    """
+    Modelo para manejar las solicitudes de ingreso a fondos y el proceso de verificación.
+    Responsabilidad: Gestionar el proceso de aplicación y verificación inicial.
+    """
     
-    """ @classmethod
-    def create_investment(cls, fund, investor, amount):
-        
-        Método de clase que gestiona todo el proceso de crear una inversión:
-        1. Verifica disponibilidad de unidades
-        2. Resta las unidades del fondo
-        3. Crea el registro de inversión
-        4. Todo en una sola transacción atómica
-        
-        Args:
-            fund (Fund): El fondo donde se invertirá
-            investor (User): El usuario que realiza la inversión
-            amount (Decimal): La cantidad a invertir
-            
-        Returns:
-            FundInvestment: La inversión creada
-            
-        Raises:
-            ValueError: Si no hay suficientes unidades disponibles
-        
-        
-        with transaction.atomic():
-            # Bloquear el fondo para evitar condiciones de carrera
-            fund_for_update = Fund.objects.select_for_update().get(pk=fund.pk)
-            
-            # Verificar disponibilidad
-            if fund_for_update.amount < amount:
-                raise ValueError(f"No hay suficientes unidades disponibles. Disponible: {fund_for_update.amount}")
-            
-            # Restar las unidades del fondo
-            fund_for_update.amount -= amount
-            fund_for_update.save(update_fields=['amount'])
-            
-            # Crear o actualizar la inversión
-            investment, created = cls.objects.get_or_create(
-                fund=fund_for_update,
-                investor=investor,
-                defaults={'invested_amount': 0}
-            )
-            
-            # Actualizar monto invertido (acumulativo)
-            investment.invested_amount += amount
-            investment.save(update_fields=['invested_amount'])
-            
-            return investment """    
+    class ApplicationStatus(models.TextChoices):
+        """Enum para estados de la aplicación usando TextChoices (Django 3.0+)"""
+        PENDING = 'pending', 'Solicitud Pendiente'
+        UNDER_REVIEW = 'under_review', 'En Revisión'
+        APPROVED = 'approved', 'Aprobada'
+        REJECTED = 'rejected', 'Rechazada'
+        CANCELLED = 'cancelled', 'Cancelada'
+    
+    # Relaciones
+    fund = models.ForeignKey(
+        Fund, 
+        on_delete=models.CASCADE, 
+        related_name="applications",
+        verbose_name="Fondo"
+    )
+    applicant = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name="fund_applications",
+        verbose_name="Solicitante"
+    )
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="reviewed_applications",
+        verbose_name="Revisado por"
+    )
+    
+    # Información de la aplicación
+    status = models.CharField(
+        max_length=15,
+        choices=ApplicationStatus.choices,
+        default=ApplicationStatus.PENDING,
+        verbose_name="Estado"
+    )
+    requested_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Monto solicitado",
+        help_text="Monto que el solicitante desea invertir"
+    )
+    
+    # Fechas del proceso
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de solicitud")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+    reviewed_at = models.DateTimeField(
+        null=True, 
+        blank=True, 
+        verbose_name="Fecha de revisión"
+    )
+    
+    # Notas y observaciones
+    applicant_notes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Notas del solicitante",
+        help_text="Información adicional proporcionada por el solicitante"
+    )
+    review_notes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Notas de revisión",
+        help_text="Observaciones del proceso de revisión"
+    )
+    rejection_reason = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Motivo de rechazo"
+    )
     
     class Meta:
-        unique_together = ('fund', 'investor')
+        unique_together = ('fund', 'applicant')
+        ordering = ['-created_at']
+        verbose_name = "Solicitud de Fondo"
+        verbose_name_plural = "Solicitudes de Fondos"
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['fund', 'status']),
+        ]
     
+    def __str__(self) -> str:
+        return f"{self.applicant.username} → {self.fund.name} ({self.get_status_display()})"
+    
+    @property
+    def is_approved(self) -> bool:
+        """Verifica si la aplicación está aprobada."""
+        return self.status == self.ApplicationStatus.APPROVED
+    
+    @property
+    def can_proceed_to_investment(self) -> bool:
+        """Verifica si puede proceder al proceso de inversión."""
+        return self.is_approved
+
+class FundInvestment(models.Model):
+    """
+    Modelo para manejar las inversiones activas en fondos.
+    Responsabilidad: Gestionar el proceso de compra de tokens e inversión final.
+    """
+    
+    class InvestmentStatus(models.TextChoices):
+        """Enum para estados de la inversión usando TextChoices (Django 3.0+)"""
+        PENDING_TOKENS = 'pending_tokens', 'Pendiente de Tokens'
+        TOKENS_PURCHASED = 'tokens_purchased', 'Tokens Comprados'
+        INVESTMENT_COMPLETED = 'investment_completed', 'Inversión Completada'
+        INVESTMENT_CANCELLED = 'investment_cancelled', 'Inversión Cancelada'
+    
+    # Relaciones
+    application = models.OneToOneField(
+        FundApplication,
+        on_delete=models.CASCADE,
+        related_name="investment",
+        verbose_name="Solicitud asociada",
+        null=True,
+        blank=True
+    )
+    fund = models.ForeignKey(
+        Fund,
+        on_delete=models.CASCADE,
+        related_name="investments",
+        verbose_name="Fondo"
+    )
+    investor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="fund_investments",
+        verbose_name="Inversor"
+    )
+    
+    # Estado y montos
+    status = models.CharField(
+        max_length=25,
+        choices=InvestmentStatus.choices,
+        default=InvestmentStatus.PENDING_TOKENS,
+        verbose_name="Estado"
+    )
+    invested_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name="Monto invertido",
+        help_text="Monto realmente invertido"
+    )
+    fund_units_purchased = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        default=0,
+        verbose_name="Unidades compradas",
+        help_text="Unidades del fondo adquiridas"
+    )
+    
+    # Información de tokens
+    tokens_purchased = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Tokens comprados",
+        help_text="Cantidad total de tokens comprados"
+    )
+    tokens_used_for_investment = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Tokens utilizados",
+        help_text="Tokens utilizados para esta inversión"
+    )
+    
+    # Fechas del proceso
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación", null=True)
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+    tokens_purchase_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de compra de tokens"
+    )
+    investment_completion_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de finalización"
+    )
+    
+    # Información adicional
+    cancellation_reason = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Motivo de cancelación"
+    )
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Inversión en Fondo"
+        verbose_name_plural = "Inversiones en Fondos"
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['fund', 'investor']),
+            models.Index(fields=['investor', 'status']),
+        ]
+    
+    def __str__(self) -> str:
+        return f"{self.investor.username} → {self.fund.name} ({self.get_status_display()})"
+    
+    @property
+    def remaining_tokens(self) -> int:
+        """Tokens disponibles para usar."""
+        return self.tokens_purchased - self.tokens_used_for_investment
+    
+    @property
+    def current_fund_value(self) -> float:
+        """Valor actual de las unidades del fondo."""
+        if self.fund_units_purchased > 0:
+            return float(self.fund_units_purchased * self.fund.current_price)
+        return 0.0
+    
+    @property
+    def investment_return(self) -> float:
+        """Retorno de la inversión (ganancia/pérdida)."""
+        if self.invested_amount > 0:
+            current_value = self.current_fund_value
+            return current_value - float(self.invested_amount)
+        return 0.0
+    
+    @property
+    def investment_return_percentage(self) -> float:
+        """Porcentaje de retorno de la inversión."""
+        if self.invested_amount > 0:
+            return (self.investment_return / float(self.invested_amount)) * 100
+        return 0.0
+    
+    @property
+    def is_completed(self) -> bool:
+        """Verifica si la inversión está completada."""
+        return self.status == self.InvestmentStatus.INVESTMENT_COMPLETED 
 
 class TransferReceipt(base_model.BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="transfer_receipts")

@@ -15,11 +15,12 @@ from datetime import datetime, timedelta
 import pytz
 
 from apps.audit.audit_service import AuditService
-from apps.fund.models import Fund, FundInvestment, TransferReceipt, FundToken
-from apps.kaleido.models import Wallet
-from apps.fund.serializers import FundSerializer, FundInvestmentSerializer, TransferReceiptSerializer, FundTokenSerializer
+from apps.fund.models import Fund, FundInvestment, TransferReceipt, FundToken, FundApplication
+
+from apps.fund.serializers.serializer_fund_core import FundSerializer, FundInvestmentSerializer, TransferReceiptSerializer, FundTokenSerializer
+from apps.fund.serializers.serializer_fund_investment import FundApplicationSerializer, FundInvestmentSerializer as FIS
+
 from apps.utils.views.Mixins import DateFilterMixin
-from apps.kaleido.serializers.serializer_token_operation import TokenMintSerializer
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -448,3 +449,43 @@ class FundTokenViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
         queryset = self.apply_date_filters(queryset)
         
         return queryset
+    
+class FundApplicationView(APIView):
+    """
+    API endpoint para gestionar aplicaciones a fondos.
+    
+    Permite a los usuarios aplicar a fondos activos y a los administradores revisar y gestionar las aplicaciones.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = FundApplicationSerializer
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request):
+        """
+        Crea una nueva aplicación a un fondo.
+        """
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            application = serializer.save()
+            return Response(self.serializer_class(application).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class FundInvestmentView(APIView):
+    """
+    API endpoint para gestionar inversiones en fondos.
+    
+    Permite a los usuarios invertir en fondos activos.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = FIS
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request):
+        """
+        Crea una nueva inversión en un fondo.
+        """
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            investment = serializer.save()
+            return Response(self.serializer_class(investment).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
