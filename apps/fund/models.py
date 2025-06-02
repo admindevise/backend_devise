@@ -236,7 +236,7 @@ class FundApplication(models.Model):
         ]
     
     def __str__(self) -> str:
-        return f"{self.applicant.username} → {self.fund.name} ({self.get_status_display()})"
+        return f"{self.applicant.email} → {self.fund.name} ({self.get_status_display()})"
     
     @property
     def is_approved(self) -> bool:

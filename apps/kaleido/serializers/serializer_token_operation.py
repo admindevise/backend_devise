@@ -9,6 +9,7 @@ from apps.kaleido.utils import (
     get_owner_of,
     mint_721_token, burn_721_token, safe_transfer_721,
     safe_transfer_721_index_to_index as st721i,
+    is_investor_valid,
     )
 
 from django.db import transaction
@@ -375,7 +376,7 @@ class PurchaseTokenSerializer(BaseTokenOperationSerializer):
             }
             self._update_audit(init_audit, 'SUCCESS', audit_details, 
                               transaction_id=result_data.get('id') if 'id' in result_data else None)
-    
+            
     def _execute_token_operation(self, validated_data):
         """Implementación específica para comprar tokens"""
         fund_id = validated_data.get('fund_id')
@@ -386,6 +387,11 @@ class PurchaseTokenSerializer(BaseTokenOperationSerializer):
         # Datos para auditoría
         request = self.context.get('request')
         user = request.user if request else None
+        
+        if user:
+            application, error = is_investor_valid(user, fund)
+            if not application:
+                raise serializers.ValidationError("El usuario no es un inversionista válido para este fondo")
         
         # Crear auditoría inicial
         init_audit = self._create_initial_audit(request, 'TOKEN_TRANSFER', fund, 'purchase_token')

@@ -5,7 +5,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, BEARER, SERVICE_WALLET, SERVICE_HOST, ZONE_DOMAIN, USER_ACCOUNTS, SERVICE
 
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
-from apps.fund.models import Fund, FundInvestment
+from apps.fund.models import Fund, FundInvestment, FundApplication
 
 from requests.auth import HTTPBasicAuth
 from django.db import transaction
@@ -172,20 +172,20 @@ def create_instance_token_contract_721(user, name, symbol, promote_contract=None
 #! ================ Funciones de verificación ================ #
 def is_investor_valid(user, fund_id):
     """
-    Verifica si un usuario es inversor de un fondo específico.
+    Verifica si un usuario es inversor de un fondo específico basándose en FundApplication.
     
     Args:
         user: El usuario a verificar
         fund_id: El ID del fondo
     
     Returns:
-        Tupla (investment, error_message) donde investment es el objeto FundInvestment o True (para staff),
-        o None si no existe. Si hay error, error_message contiene el mensaje de error.
+        Tupla (application, error_message) donde application es el objeto FundApplication aprobado o True (para staff),
+        o None si no existe o no está aprobado. Si hay error, error_message contiene el mensaje de error.
         
     Examples:
-        >>> investment, error = is_investor_valid(request.user, fund_id)
-        >>> if investment:
-        >>>     # Usuario es inversor o staff
+        >>> application, error = is_investor_valid(request.user, fund_id)
+        >>> if application:
+        >>>     # Usuario tiene aplicación aprobada o es staff
         >>> else:
         >>>     # Mostrar mensaje de error
     """
@@ -194,20 +194,29 @@ def is_investor_valid(user, fund_id):
         return True, None
     
     try:
-        # Usar get para consultas por clave primaria o índice único
-        investment = FundInvestment.objects.get(investor=user, fund_id=fund_id)
-        return investment, None
-    
-    except FundInvestment.DoesNotExist:
-        return None, f"El usuario {user.email} no es inversionista del fondo con ID {fund_id}"
+        # Buscar aplicación del usuario para el fondo específico
+        application = FundApplication.objects.get(applicant=user, fund_id=fund_id)
         
-    except FundInvestment.MultipleObjectsReturned:
+        # Verificar que la aplicación esté aprobada
+        if application.status == FundApplication.ApplicationStatus.APPROVED:
+            return application, None
+        else:
+            status_display = application.get_status_display()
+            return None, f"La aplicación del usuario {user.email} al fondo con ID {fund_id} está en estado: {status_display}. Se requiere estado 'Aprobada' para ser considerado inversor."
+    
+    except FundApplication.DoesNotExist:
+        return None, f"El usuario {user.email} no tiene una aplicación para el fondo con ID {fund_id}"
+        
+    except FundApplication.MultipleObjectsReturned:
         # Caso improbable pero posible si hay duplicados
-        investment = FundInvestment.objects.filter(investor=user, fund_id=fund_id).first()
-        return investment, "Advertencia: Se encontraron múltiples registros para este inversionista"
+        application = FundApplication.objects.filter(applicant=user, fund_id=fund_id, status=FundApplication.ApplicationStatus.APPROVED).first()
+        if application:
+            return application, "Advertencia: Se encontraron múltiples aplicaciones. Se retornó la primera aprobada."
+        else:
+            return None, f"Se encontraron múltiples aplicaciones para el usuario {user.email} en el fondo {fund_id}, pero ninguna está aprobada"
         
     except Exception as e:
-        return None, f"Error al verificar la inversión: {str(e)}"
+        return None, f"Error al verificar la aplicación: {str(e)}"
 
 def get_owner_of(token_id, fund_id):
     """
@@ -265,7 +274,7 @@ def get_wallet_index(user, fund_id):
     """
     try:
         # Try to get a FundInvestment for the user and use its associated Fund's hd_wallet if available
-        investment = FundInvestment.objects.filter(investor=user, fund_id=fund_id).first()
+        investment = FundApplication.objects.filter(applicant=user, fund_id=fund_id).first()
         if not investment:
             return None, "No investment found for this user in the specified fund"
 
@@ -275,7 +284,7 @@ def get_wallet_index(user, fund_id):
         else:
             return None, "No hd_wallet found for the specified fund"
 
-    except FundInvestment.DoesNotExist:
+    except FundApplication.DoesNotExist:
         return None, "No investment found for this user in the specified fund"
     except Wallet.DoesNotExist:
         return None, "No wallet found for this user"
