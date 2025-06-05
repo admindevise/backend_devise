@@ -102,6 +102,30 @@ class Command(BaseCommand):
                 'description': 'Operaciones de inversiones en fondos',
                 'actions': [
                     {
+                        'name': 'Crear Aplicación de Inversión',
+                        'code': 'INVESTMENT_APPLICATION_CREATE',
+                        'severity': 'MEDIUM',
+                        'description': 'Creación de una nueva aplicación de inversión en un fondo'
+                    },
+                    {
+                        'name': 'Aprobar Aplicación de Inversión',
+                        'code': 'INVESTMENT_APPLICATION_APPROVED',
+                        'severity': 'MEDIUM',
+                        'description': 'Aprovación de una aplicacion de inversion en un fondo'
+                    },
+                    {
+                        'name': 'Rechazar Aplicación de Inversión',
+                        'code': 'INVESTMENT_APPLICATION_REJECTED',
+                        'severity': 'MEDIUM',
+                        'description': 'Rechazo de una aplicación de inversión en un fondo'
+                    },
+                    {
+                        'name': 'En revisión Aplicación de Inversión',  
+                        'code': 'INVESTMENT_APPLICATION_UNDER_REVIEW',
+                        'severity': 'MEDIUM',
+                        'description': 'Marcar una aplicación de inversión como en revisión'
+                    },
+                    {
                         'name': 'Crear Inversión', 
                         'code': 'INVESTMENT_CREATE',
                         'severity': 'HIGH',

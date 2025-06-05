@@ -1,24 +1,28 @@
 from rest_framework import viewsets, filters, status
-from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.decorators import permission_classes, authentication_classes, api_view
 from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.generics import ListAPIView
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.decorators import permission_classes, authentication_classes, api_view, action
+
 from django.contrib.auth import get_user
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.contenttypes.models import ContentType
 
-import time
-
 from django.utils import timezone
 from datetime import datetime, timedelta
 import pytz
+import time
 
 from apps.audit.audit_service import AuditService
 from apps.fund.models import Fund, FundInvestment, TransferReceipt, FundToken, FundApplication
 
 from apps.fund.serializers.serializer_fund_core import FundSerializer, FundInvestmentSerializer, TransferReceiptSerializer, FundTokenSerializer
-from apps.fund.serializers.serializer_fund_investment import FundApplicationSerializer, FundInvestmentSerializer as FIS
+from apps.fund.serializers.serializer_fund_investment import            (        FundApplicationSerializer, FundInvestmentSerializer as FIS,         FundApplicationReviewSerializer, FundApplicationRejectionSerializer, FundApplicationStatusSerializer
+                                                                         )
+from apps.fund.services.application_service import FundApplicationService
 
 from apps.utils.views.Mixins import DateFilterMixin
 
@@ -450,25 +454,6 @@ class FundTokenViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
         
         return queryset
     
-class FundApplicationView(APIView):
-    """
-    API endpoint para gestionar aplicaciones a fondos.
-    
-    Permite a los usuarios aplicar a fondos activos y a los administradores revisar y gestionar las aplicaciones.
-    """
-    permission_classes = [IsAuthenticated]
-    serializer_class = FundApplicationSerializer
-    authentication_classes = [JWTAuthentication]
-
-    def post(self, request):
-        """
-        Crea una nueva aplicación a un fondo.
-        """
-        serializer = self.serializer_class(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            application = serializer.save()
-            return Response(self.serializer_class(application).data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class FundInvestmentView(APIView):
     """
