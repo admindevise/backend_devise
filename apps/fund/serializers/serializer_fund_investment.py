@@ -104,19 +104,10 @@ class FundApplicationReviewSerializer(serializers.Serializer):
     No hereda de ModelSerializer porque no crea/actualiza directamente.
     """
     
-    application_id = serializers.IntegerField()
     review_notes = serializers.CharField(max_length=1000, required=False, allow_blank=True)
     
     class Meta:
-        fields = ['application_id', 'review_notes']
-    
-    def validate_application_id(self, value):
-        """Validar que la aplicación existe"""
-        try:
-            FundApplication.objects.get(id=value)
-        except FundApplication.DoesNotExist:
-            raise ValidationError("Application does not exist.")
-        return value
+        fields = ['review_notes']
 
 
 class FundApplicationRejectionSerializer(FundApplicationReviewSerializer):
@@ -204,7 +195,12 @@ class FundInvestmentSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = FundInvestment
-        fields = ['id', 'fund_id', 'investor', 'invested_amount', 'created_at']
+        fields = [
+            'id', 'fund_id', 'application', 'investor', 
+            'status', 'invested_amount',
+            'created_at', 'updated_at',
+            'cancellation_reason'
+            ]
         read_only_fields = ['investor', 'created_at']
     
     def validate_fund_id(self, value):

@@ -1074,8 +1074,9 @@ class TokenOwnershipView(APIView):
                         'owner': response_data['output']
                     }, status=status.HTTP_200_OK)
                 else:
+                    error_message = response_data.get('error', f'HTTP {response.status_code} error')
                     return Response(
-                        {"error": response_data.get('error', 'Unknown error'), 'details': response_data},
+                        {"error": error_message},
                         status=status.HTTP_400_BAD_REQUEST
                     )
             except ValueError:
@@ -1184,6 +1185,7 @@ class PurchaseTokenView(APIView):
     Vista para realizar una compra de tokens.
     """
     permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
     
     def post(self, request, *args, **kwargs):
         serializer = PurchaseTokenSerializer(data=request.data, context={'request': request})

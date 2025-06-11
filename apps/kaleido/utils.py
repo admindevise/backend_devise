@@ -304,7 +304,6 @@ def get_wallet_index(user, fund_id):
     except requests.exceptions.RequestException as e:
         return None, f"Request failed: {str(e)}"
 
-
 #! ================ Funciones de utilidad ================ #
 def mint_721_token(token_id, fund_id, contract_address_id):
     # Verificar primero si el token ya existe

@@ -1,35 +1,18 @@
 from rest_framework import viewsets, filters, status
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.generics import ListAPIView
-from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.decorators import permission_classes, authentication_classes, api_view, action
 
-from django.contrib.auth import get_user
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.contenttypes.models import ContentType
 
-from django.utils import timezone
-from datetime import datetime, timedelta
-import pytz
-import time
-
 from apps.audit.audit_service import AuditService
-from apps.fund.models import Fund, FundInvestment, TransferReceipt, FundToken, FundApplication
+from apps.fund.models import Fund, TransferReceipt, FundToken
 
-from apps.fund.serializers.serializer_fund_core import FundSerializer, FundInvestmentSerializer, TransferReceiptSerializer, FundTokenSerializer
-from apps.fund.serializers.serializer_fund_investment import            (        FundApplicationSerializer, FundInvestmentSerializer as FIS,         FundApplicationReviewSerializer, FundApplicationRejectionSerializer, FundApplicationStatusSerializer
-                                                                         )
-from apps.fund.services.application_service import FundApplicationService
+from apps.fund.serializers.serializer_fund_core import FundSerializer, TransferReceiptSerializer, FundTokenSerializer
 
 from apps.utils.views.Mixins import DateFilterMixin
-
-import requests
-from requests.auth import HTTPBasicAuth
-import json
-
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -216,185 +199,6 @@ class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
             
             raise  # Re-lanzar la excepción para que DRF la maneje
         
-class FundInvestmentViewSet(DateFilterMixin, viewsets.ModelViewSet):
-    """
-    API endpoint para gestionar inversiones en fondos.
-    """
-    permission_classes = [IsAuthenticated]
-    serializer_class = FundInvestmentSerializer
-    authentication_classes = [JWTAuthentication]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['fund', 'investor']
-    search_fields = ['fund__name']
-    ordering_fields = ['joined_at', 'invested_amount']
-    ordering = ['-joined_at']
-    date_field = 'joined_at'
-
-    def get_queryset(self):
-        user = self.request.user
-        queryset = FundInvestment.objects.all()
-        
-        if not user.is_staff:
-            queryset = queryset.filter(investor=user)
-            
-        queryset = self.apply_date_filters(queryset)
-        return queryset
-
-    def perform_create(self, serializer):
-        """
-        Crea una nueva inversión y registra la operación en la auditoría.
-        """
-        user = self.request.user
-        fund = serializer.validated_data.get('fund')
-        amount = serializer.validated_data.get('invested_amount')
-        
-        # Auditar inicio del proceso de inversión
-        initial_audit = AuditService.log_action(
-            request=self.request,
-            action_code="INVESTMENT_CREATE",
-            obj=fund,  # Usamos el fondo como referencia inicial
-            details={
-                'fund_id': fund.id,
-                'fund_name': fund.name,
-                'amount': str(amount),
-                'investor': user.username,
-                'operation': 'create_investment'
-            },
-            status='PENDING'
-        )
-        
-        try:
-            # Crear la inversión
-            investment = serializer.save(investor=user)
-            
-            # En lugar de actualizar el registro inicial, crear uno nuevo con el objeto correcto
-            AuditService.log_action(
-                request=self.request,
-                action_code="INVESTMENT_CREATE",
-                obj=investment,  # Usar directamente el objeto investment
-                details={
-                    'fund_id': fund.id,
-                    'fund_name': fund.name,
-                    'amount': str(amount),
-                    'investor': user.username,
-                    'operation': 'create_investment'
-                },
-                status='SUCCESS'
-            )
-            
-            # Eliminar el registro inicial para evitar duplicados
-            if initial_audit:
-                initial_audit.delete()
-            
-            return investment
-            
-        except Exception as e:
-            # Actualizar estado de auditoría a ERROR
-            if initial_audit:
-                initial_audit.status = 'ERROR'
-                initial_audit.details.update({'error': str(e)})
-                initial_audit.save(update_fields=['status', 'details'])
-            
-            raise  # Re-lanzar la excepción para que DRF la maneje
-
-    def perform_update(self, serializer):
-        """
-        Actualiza una inversión existente y registra la operación en la auditoría.
-        """
-        # Obtener la inversión antes de la actualización
-        investment = self.get_object()
-        old_data = {
-            'fund_id': investment.fund.id,
-            'fund_name': investment.fund.name,
-            'invested_amount': str(investment.invested_amount)
-        }
-        
-        # Auditar inicio de actualización
-        initial_audit = AuditService.log_action(
-            request=self.request,
-            action_code="INVESTMENT_UPDATE",
-            obj=investment,
-            details={
-                'old_data': old_data,
-                'investor': investment.investor.username,
-                'operation': 'update_investment'
-            },
-            status='PENDING'
-        )
-        
-        try:
-            # Actualizar la inversión
-            updated_investment = serializer.save()
-            
-            # Datos después de la actualización
-            new_data = {
-                'fund_id': updated_investment.fund.id,
-                'fund_name': updated_investment.fund.name,
-                'invested_amount': str(updated_investment.invested_amount)
-            }
-            
-            # Actualizar estado de auditoría a SUCCESS
-            if initial_audit:
-                initial_audit.status = 'SUCCESS'
-                initial_audit.details.update({'new_data': new_data})
-                initial_audit.save(update_fields=['status', 'details'])
-            
-            return updated_investment
-            
-        except Exception as e:
-            # Actualizar estado de auditoría a ERROR
-            if initial_audit:
-                initial_audit.status = 'ERROR'
-                initial_audit.details.update({'error': str(e)})
-                initial_audit.save(update_fields=['status', 'details'])
-            
-            raise
-
-    def perform_destroy(self, instance):
-        """
-        Elimina una inversión y registra la operación en la auditoría.
-        """
-        investment_data = {
-            'id': instance.id,
-            'fund_id': instance.fund.id,
-            'fund_name': instance.fund.name,
-            'investor': instance.investor.username,
-            'invested_amount': str(instance.invested_amount),
-            'joined_at': instance.joined_at.strftime("%Y-%m-%d %H:%M:%S")
-        }
-        
-        # Auditar inicio de eliminación
-        initial_audit = AuditService.log_action(
-            request=self.request,
-            action_code="INVESTMENT_DELETE",
-            obj=instance,
-            details={
-                'investment_data': investment_data,
-                'operation': 'delete_investment'
-            },
-            status='PENDING'
-        )
-        
-        try:
-            # Eliminar la inversión
-            result = super().perform_destroy(instance)
-            
-            # Actualizar estado de auditoría a SUCCESS
-            if initial_audit:
-                initial_audit.status = 'SUCCESS'
-                initial_audit.save(update_fields=['status'])
-            
-            return result
-            
-        except Exception as e:
-            # Actualizar estado de auditoría a ERROR
-            if initial_audit:
-                initial_audit.status = 'ERROR'
-                initial_audit.details.update({'error': str(e)})
-                initial_audit.save(update_fields=['status', 'details'])
-            
-            raise
-
 class TransferReceiptViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     """
     API endpoint que permite ver recibos de transferencia.
@@ -453,24 +257,3 @@ class FundTokenViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
         queryset = self.apply_date_filters(queryset)
         
         return queryset
-    
-
-class FundInvestmentView(APIView):
-    """
-    API endpoint para gestionar inversiones en fondos.
-    
-    Permite a los usuarios invertir en fondos activos.
-    """
-    permission_classes = [IsAuthenticated]
-    serializer_class = FIS
-    authentication_classes = [JWTAuthentication]
-
-    def post(self, request):
-        """
-        Crea una nueva inversión en un fondo.
-        """
-        serializer = self.serializer_class(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            investment = serializer.save()
-            return Response(self.serializer_class(investment).data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

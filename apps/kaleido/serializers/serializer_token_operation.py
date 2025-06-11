@@ -11,6 +11,7 @@ from apps.kaleido.utils import (
     safe_transfer_721_index_to_index as st721i,
     is_investor_valid,
     )
+from apps.fund.utils import ( get_next_available_token, reserve_next_available_token )
 
 from django.db import transaction
 from datetime import datetime
@@ -107,12 +108,14 @@ class TokenMintSerializer(BaseTokenOperationSerializer):
     def _generate_token_id(self, fund, initial_audit):
         """Genera un ID único para un nuevo token"""
         now = datetime.now()
-        next_token_count = fund.amount_tokens + 1
         
-        date_part = int(now.strftime('%Y%m%d%H%M%S'))
-        fund_id_part = int(fund.id) % 1000  # Limitar a 4 dígitos
+        current_token_count = FundToken.objects.filter(fund=fund).count()
+        next_token_count = current_token_count + 1
         
-        token_id = (date_part * 1000000) + (fund_id_part * 1000) + next_token_count
+        date_part = now.strftime('%y%m%d%H%M')
+        fund_id_part = f"{int(fund.id):03d}"   
+        
+        token_id = int(f"{next_token_count}{fund_id_part}{date_part}")
         
         if initial_audit:
             self._update_audit(initial_audit, 'PENDING', {'token_id': token_id})
@@ -236,7 +239,6 @@ class TokenMintSerializer(BaseTokenOperationSerializer):
                 # Generar ID para el nuevo token
                 token_id, next_token_count = self._generate_token_id(fund, initial_audit)
                 
-                # Crear el token
                 result_data, error = mint_721_token(token_id, fund.id, fund.contract_address)
                 
                 if not error:
@@ -246,10 +248,6 @@ class TokenMintSerializer(BaseTokenOperationSerializer):
                     
             except Exception as e:
                 self._handle_exception(results, initial_audit, token_id if 'token_id' in locals() else None, e)
-        
-        # Determinar estado final
-        if results['minted'] == 0:
-            results['success'] = False
         
         return results
       
@@ -273,7 +271,15 @@ class TokenBurnSerializer(BaseTokenOperationSerializer):
     def _handle_burn_success(self, results, init_audit, fund, token_id, result_data, user):
         """Maneja el éxito durante el proceso de burn."""
         # Eliminar el token de la base de datos
-        FundToken.objects.filter(fund=fund, token_id=token_id).delete()
+        try:
+            # Buscar y eliminar directamente
+            token = FundToken.objects.get(fund=fund, token_id=token_id)
+            token.delete()
+            deleted = True
+            print("exito fundtoken")
+        except FundToken.DoesNotExist:
+            deleted = False
+            print("fallo fundtoken")
         
         results['burned'] += 1
         results['details'].append({
@@ -335,7 +341,23 @@ class TokenBurnSerializer(BaseTokenOperationSerializer):
     
 class PurchaseTokenSerializer(BaseTokenOperationSerializer):
     """Serializer para comprar tokens existentes"""
-    token_id = serializers.IntegerField(required=True, help_text="ID del token a comprar")
+    #token_id = serializers.IntegerField(required=True, help_text="ID del token a comprar")
+
+    def _get_next_available_token(self, fund):
+        """Obtiene el proximo token disponible automaticamente"""
+        try:
+            token = get_next_available_token(fund.id)
+            return token.token_id
+        except ValueError as e:
+            raise serializers.ValidationError(f"No hay tokens disponibles para comprar: {str(e)}")
+
+    def _reserve_token_for_user(self, fund, user):
+        """Reserva el proximo token disponible para el usuario"""
+        try:
+            token = reserve_next_available_token(fund.id, user)
+            return token
+        except ValueError as e:
+            raise serializers.ValidationError(f"No se pudo reservar token: {str(e)}")
 
     def _handle_purchase_error(self, results, init_audit, token_id, error):
         """Maneja los errores durante el proceso de compra."""
@@ -352,6 +374,12 @@ class PurchaseTokenSerializer(BaseTokenOperationSerializer):
     
     def _handle_purchase_success(self, results, init_audit, fund, token_id, result_data, user):
         """Maneja el éxito durante el proceso de compra."""
+        # Actualizar ownership en la base de datos
+        FundToken.objects.filter(
+            fund=fund,
+            token_id=token_id
+        ).update(owner_user=user)
+        
         results['bought'] += 1
         results['success'] = True
         results['details'].append({
@@ -379,9 +407,8 @@ class PurchaseTokenSerializer(BaseTokenOperationSerializer):
             
     def _execute_token_operation(self, validated_data):
         """Implementación específica para comprar tokens"""
+        #token_id = validated_data.get('token_id')
         fund_id = validated_data.get('fund_id')
-        token_id = validated_data.get('token_id')
-        
         fund = self._get_fund(fund_id)
         
         # Datos para auditoría
@@ -408,11 +435,14 @@ class PurchaseTokenSerializer(BaseTokenOperationSerializer):
         # Verificar si el fondo tiene un contrato de token
         self._validate_contract_address(fund, init_audit)
         
+        token_id = None
+        
         # Usar transacción atómica
         with transaction.atomic():
             fund = Fund.objects.select_for_update().get(id=fund_id)
             
             try:
+                token_id = self._get_next_available_token(fund)
                 # Ejecutar purchase
                 result_data, error = safe_transfer_721(token_id, fund.id, fund.contract_address, user)
                 
@@ -422,6 +452,7 @@ class PurchaseTokenSerializer(BaseTokenOperationSerializer):
                     self._handle_purchase_error(results, init_audit, token_id, error)
                     
             except Exception as e:
+                #tokend_id_for_error = tokend_id if 'token_id' in locals() else None
                 self._handle_exception(results, init_audit, token_id, e)
             
             return results 

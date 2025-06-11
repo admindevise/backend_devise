@@ -13,7 +13,8 @@ from apps.utils.views.Mixins import DateFilterMixin
 from apps.fund.models import Fund, FundInvestment, FundApplication
 
 from apps.fund.serializers.serializer_fund_investment import (
-    FundApplicationSerializer, FundApplicationReviewSerializer, FundApplicationRejectionSerializer, FundApplicationStatusSerializer
+    FundApplicationSerializer, FundApplicationReviewSerializer, FundApplicationRejectionSerializer, FundApplicationStatusSerializer,
+    FundInvestmentSerializer
 )
 from apps.fund.services.application_service import FundApplicationService
 import requests
@@ -95,7 +96,7 @@ class FundApplicationViewSet(DateFilterMixin, viewsets.ModelViewSet):
             
         except Exception as e:
             return Response({
-                "error": str(e.detail[0])
+                "error": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=True, methods=['patch'], url_path='reject')

@@ -255,11 +255,11 @@ class FundInvestment(models.Model):
     """
     
     class InvestmentStatus(models.TextChoices):
-        """Enum para estados de la inversión usando TextChoices (Django 3.0+)"""
-        PENDING_TOKENS = 'pending_tokens', 'Pendiente de Tokens'
-        TOKENS_PURCHASED = 'tokens_purchased', 'Tokens Comprados'
-        INVESTMENT_COMPLETED = 'investment_completed', 'Inversión Completada'
-        INVESTMENT_CANCELLED = 'investment_cancelled', 'Inversión Cancelada'
+        APPROVED = 'approved', 'Verificación Aprobada'
+        ACTIVE = 'active', 'Activa'
+        INACTIVE = 'inactive', 'Inactiva'
+        CANCELLED = 'cancelled', 'Cancelada'
+        SUSPENDED = 'suspended', 'Suspendida'
     
     # Relaciones
     application = models.OneToOneField(
@@ -287,7 +287,7 @@ class FundInvestment(models.Model):
     status = models.CharField(
         max_length=25,
         choices=InvestmentStatus.choices,
-        default=InvestmentStatus.PENDING_TOKENS,
+        default=InvestmentStatus.APPROVED,
         verbose_name="Estado"
     )
     invested_amount = models.DecimalField(
@@ -297,39 +297,10 @@ class FundInvestment(models.Model):
         verbose_name="Monto invertido",
         help_text="Monto realmente invertido"
     )
-    fund_units_purchased = models.DecimalField(
-        max_digits=14,
-        decimal_places=4,
-        default=0,
-        verbose_name="Unidades compradas",
-        help_text="Unidades del fondo adquiridas"
-    )
-    
-    # Información de tokens
-    tokens_purchased = models.PositiveIntegerField(
-        default=0,
-        verbose_name="Tokens comprados",
-        help_text="Cantidad total de tokens comprados"
-    )
-    tokens_used_for_investment = models.PositiveIntegerField(
-        default=0,
-        verbose_name="Tokens utilizados",
-        help_text="Tokens utilizados para esta inversión"
-    )
     
     # Fechas del proceso
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación", null=True)
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
-    tokens_purchase_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name="Fecha de compra de tokens"
-    )
-    investment_completion_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name="Fecha de finalización"
-    )
     
     # Información adicional
     cancellation_reason = models.TextField(
@@ -349,19 +320,7 @@ class FundInvestment(models.Model):
         ]
     
     def __str__(self) -> str:
-        return f"{self.investor.username} → {self.fund.name} ({self.get_status_display()})"
-    
-    @property
-    def remaining_tokens(self) -> int:
-        """Tokens disponibles para usar."""
-        return self.tokens_purchased - self.tokens_used_for_investment
-    
-    @property
-    def current_fund_value(self) -> float:
-        """Valor actual de las unidades del fondo."""
-        if self.fund_units_purchased > 0:
-            return float(self.fund_units_purchased * self.fund.current_price)
-        return 0.0
+        return f"{self.investor.email} → {self.fund.name} ({self.get_status_display()})"
     
     @property
     def investment_return(self) -> float:

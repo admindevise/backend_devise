@@ -111,31 +111,6 @@ class FundSerializer(serializers.ModelSerializer):
             fund.save(update_fields=['token_contract_721'])
             return fund
 
-class FundInvestmentSerializer(serializers.ModelSerializer):
-    investor = serializers.PrimaryKeyRelatedField(
-        read_only=True, 
-        default=serializers.CurrentUserDefault()
-    )
-    
-    joined_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
-    
-    class Meta:
-        model = FundInvestment
-        fields = ['fund', 'investor', 'invested_amount', 'joined_at']
-        read_only_fields = ['joined_at', 'investor']
-        validators = [
-            UniqueTogetherValidator(
-                queryset=FundInvestment.objects.all(),
-                fields=['fund', 'investor'],
-                message="You have already invested in this fund."
-            )
-        ]
-        
-    def create(self, validated_data):
-        # Asignar el usuario actual como inversor
-        validated_data['investor'] = self.context['request'].user
-        return super().create(validated_data)
-
 class TransferReceiptSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     
@@ -149,5 +124,5 @@ class FundTokenSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = FundToken
-        fields = ['id', 'fund', 'token_id', 'created_by', 'owner_user', 'created_at']
-        read_only_fields = ['created_at']
+        fields = ['id', 'fund', 'token_id', 'nickname', 'created_by', 'owner_user', 'created_at']
+        read_only_fields = ['id', 'created_at']
