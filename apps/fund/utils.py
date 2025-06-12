@@ -7,24 +7,26 @@ from .models import FundToken
 
 def get_next_available_token(fund_id, user=None):
     """
-    Get the next available token (oldest by created_at) for purchase.
-    
-    Args:
-        fund_id (int): ID of the fund to get token from
-        user: User object for validation (optional)
+        Get the next available token (oldest by created_at) for purchase.
         
-    Returns:
-        FundToken: Next available token object
-        
-    Raises:
-        ValueError: If no tokens are available
+        Args:
+            fund_id (int): ID of the fund to get token from
+            user: User object for validation (optional)
+            
+        Returns:
+            FundToken: Next available token object
+            
+        Raises:
+            ValueError: If no tokens are available
     """
     try:
         # Get the oldest available token
         token = FundToken.objects.filter(
             fund_id=fund_id,
-            status=True
-        ).order_by('created_at').first()
+            status=True,
+        ).filter(
+            Q(owner_user__is_staff=True)
+        ).order_by('-created_at').first()
         
         if not token:
             raise ValueError(f"No available tokens found for fund {fund_id}")
@@ -37,25 +39,27 @@ def get_next_available_token(fund_id, user=None):
 
 def reserve_next_available_token(fund_id, user):
     """
-    Reserve the next available token for a user by setting the owner_user field.
-    Uses select_for_update to prevent race conditions.
-    
-    Args:
-        fund_id (int): ID of the fund
-        user: User object to assign as owner
+        Reserve the next available token for a user by setting the owner_user field.
+        Uses select_for_update to prevent race conditions.
         
-    Returns:
-        FundToken: Reserved token object
-        
-    Raises:
-        ValueError: If no tokens are available
+        Args:
+            fund_id (int): ID of the fund
+            user: User object to assign as owner
+            
+        Returns:
+            FundToken: Reserved token object
+            
+        Raises:
+            ValueError: If no tokens are available
     """
     with transaction.atomic():
         # Get oldest available token with select_for_update to prevent race conditions
         token = FundToken.objects.select_for_update().filter(
             fund_id=fund_id,
             status=True
-        ).order_by('created_at').first()
+        ).filter(
+            Q(owner_user__is_staff=True)
+        ).order_by('-created_at').first()
         
         if not token:
             raise ValueError(f"No available tokens found for fund {fund_id}")

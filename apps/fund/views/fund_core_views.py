@@ -8,9 +8,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.contenttypes.models import ContentType
 
 from apps.audit.audit_service import AuditService
-from apps.fund.models import Fund, TransferReceipt, FundToken
+from apps.fund.models import Fund, TransferReceipt, FundToken, TokenTransaction
 
 from apps.fund.serializers.serializer_fund_core import FundSerializer, TransferReceiptSerializer, FundTokenSerializer
+
+from apps.fund.serializers.serializer_transaction import TokenTransactionSerializer
 
 from apps.utils.views.Mixins import DateFilterMixin
 
@@ -253,6 +255,30 @@ class FundTokenViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
         
         if not user.is_staff:
             queryset = queryset.filter(created_by=user)
+            
+        queryset = self.apply_date_filters(queryset)
+        
+        return queryset
+
+class TokenTransactionViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint para gestionar transacciones de tokens.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = TokenTransactionSerializer
+    authentication_classes = [JWTAuthentication]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['token_id', 'from_user', 'to_user']
+    search_fields = ['kaleido_transaction_id', 'description']
+    ordering_fields = ['created_at', 'amount']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = TokenTransaction.objects.all()
+        
+        if not user.is_staff:
+            queryset = queryset.filter(from_user=user)
             
         queryset = self.apply_date_filters(queryset)
         

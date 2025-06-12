@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from django.core.validators import RegexValidator
 
-from apps.fund.models import Fund, FundToken, TransferReceipt
+from apps.fund.models import Fund, FundToken, TransferReceipt, TokenTransaction
 
 from apps.audit.audit_service import AuditService
 from apps.kaleido.utils import (
@@ -180,12 +180,28 @@ class TokenMintSerializer(BaseTokenOperationSerializer):
         
         generated_nickname = self._generate_nickname(self.validated_data.get('nickname'))    
         
-        FundToken.objects.create(
+        fund_token = FundToken.objects.create(
             fund=fund,
             token_id=token_id,
             nickname=generated_nickname,
             created_by=user,
             owner_user=user,
+        )
+        
+        TokenTransaction.objects.create(
+            fund=fund,
+            token=fund_token,
+            transaction_type=TokenTransaction.TransactionTypes.MINT,
+            to_user=user,
+            amount=1,
+            kaleido_transaction_id=result_data.get('id', None),
+            price_per_unit=0,
+            description=f"Token {token_id} minted with nickname {generated_nickname}",
+            metadata={
+                'nickname': generated_nickname,
+                'token_id': token_id,
+                'mint_result': result_data
+            }
         )
         
         results['minted'] += 1
@@ -276,10 +292,8 @@ class TokenBurnSerializer(BaseTokenOperationSerializer):
             token = FundToken.objects.get(fund=fund, token_id=token_id)
             token.delete()
             deleted = True
-            print("exito fundtoken")
         except FundToken.DoesNotExist:
             deleted = False
-            print("fallo fundtoken")
         
         results['burned'] += 1
         results['details'].append({
@@ -374,11 +388,30 @@ class PurchaseTokenSerializer(BaseTokenOperationSerializer):
     
     def _handle_purchase_success(self, results, init_audit, fund, token_id, result_data, user):
         """Maneja el éxito durante el proceso de compra."""
+        fund_token = FundToken.objects.get(fund=fund, token_id=token_id)
+        previous_owner = fund_token.owner_user
+        
         # Actualizar ownership en la base de datos
         FundToken.objects.filter(
             fund=fund,
             token_id=token_id
         ).update(owner_user=user)
+        
+        TokenTransaction.objects.create(
+            fund=fund,
+            token=fund_token,
+            transaction_type=TokenTransaction.TransactionTypes.TRANSFER,
+            from_user=previous_owner,
+            amount=1,
+            price_per_unit=fund.price_per_unit,
+            to_user=user,
+            kaleido_transaction_id=result_data.get('id'),
+            description=f'Token {token_id} comprado por {user.email}',
+            metadata={
+                'previous_owner': previous_owner.email if previous_owner else 'Fund',
+                'purchase_result': result_data
+            }
+        )
         
         results['bought'] += 1
         results['success'] = True
