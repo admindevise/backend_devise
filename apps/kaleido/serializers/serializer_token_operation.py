@@ -1,21 +1,24 @@
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
+from django.db import models, transaction
 from django.core.validators import RegexValidator
+from datetime import datetime
+from django.utils import timezone
+import pytz
+import time
 
 from apps.fund.models import Fund, FundToken, TransferReceipt, TokenTransaction
-
 from apps.audit.audit_service import AuditService
+
 from apps.kaleido.utils import (
-    get_owner_of,
     mint_721_token, burn_721_token, safe_transfer_721,
     safe_transfer_721_index_to_index as st721i,
     is_investor_valid,
     )
-from apps.fund.utils import ( get_next_available_token, reserve_next_available_token )
+from apps.fund.utils import ( 
+    get_next_available_token, 
+    reserve_next_available_token
+    )
 
-from django.db import transaction
-from datetime import datetime
-import time
 
 class BaseTokenOperationSerializer(serializers.Serializer):
     fund_id = serializers.IntegerField(required=True, help_text="ID del fondo")
@@ -266,6 +269,345 @@ class TokenMintSerializer(BaseTokenOperationSerializer):
                 self._handle_exception(results, initial_audit, token_id if 'token_id' in locals() else None, e)
         
         return results
+
+class TokenMintBatchSerializer(BaseTokenOperationSerializer):
+    """Serializer para crear (mint) tokens masivamente en lotes"""
+    nickname = serializers.CharField(
+        required=True, 
+        max_length=20,
+        validators=[RegexValidator(r'^[a-zA-Z0-9_]+$', 'El nickname solo puede contener letras, números y guiones bajos')],
+        help_text="Apodo base para los tokens"
+    )
+    quantity = serializers.IntegerField(
+        required=True,
+        min_value=1,
+        max_value=1000,  # Límite máximo por operación
+        help_text="Cantidad total de tokens a crear"
+    )
+    batch_size = serializers.IntegerField(
+        default=40,
+        min_value=1,
+        max_value=50,
+        help_text="Tamaño del lote (máximo 50 tokens por lote)"
+    )
+    
+    def validate(self, data):
+        """Validaciones adicionales"""
+        if data['quantity'] > 1000:
+            raise serializers.ValidationError("No se pueden crear más de 1000 tokens en una sola operación")
+        return data
+    
+    def _generate_batch_token_ids(self, fund, quantity, initial_audit):
+        """Genera múltiples IDs únicos para un lote de tokens"""
+        now = datetime.now()
+        
+        current_token_count = FundToken.objects.filter(fund=fund).count()
+        
+        date_part = now.strftime('%y%m%d%H%M')
+        fund_id_part = f"{int(fund.id):03d}"
+        
+        token_ids = []
+        for i in range(quantity):
+            next_token_count = current_token_count + i + 1
+            token_id = int(f"{next_token_count}{fund_id_part}{date_part}")
+            token_ids.append((token_id, next_token_count))
+        
+        if initial_audit:
+            self._update_audit(initial_audit, 'PENDING', {
+                'batch_size': quantity,
+                'first_token_id': token_ids[0][0] if token_ids else None,
+                'last_token_id': token_ids[-1][0] if token_ids else None
+            })
+        
+        return token_ids
+    
+    def _generate_batch_nicknames(self, nickname, quantity):
+        """Genera múltiples apodos únicos y secuenciales para un lote de tokens"""
+        fund = self._get_fund(self.validated_data.get('fund_id'))
+
+        # Usar el nickname base del fondo
+        if fund.nickname_tokens:
+            prefix = fund.nickname_tokens
+        else:
+            fund.nickname_tokens = nickname
+            fund.save(update_fields=['nickname_tokens'])
+            prefix = nickname
+
+        nicknames = []
+        base_count = fund.amount_tokens
+        current_index = base_count
+
+        # Obtener todos los nicknames existentes para este fondo y prefix
+        existing_nicknames = set(
+            FundToken.objects.filter(
+                fund=fund,
+                nickname__startswith=f"{prefix}_"
+            ).values_list('nickname', flat=True)
+        )
+
+        tokens_needed = quantity
+        while len(nicknames) < tokens_needed:
+            candidate = f"{prefix}_{current_index}"
+            if candidate not in existing_nicknames:
+                nicknames.append(candidate)
+            current_index += 1
+
+        return nicknames
+    
+    def _process_batch(self, fund, token_batch, nickname_batch, user, results, initial_audit):
+        """Procesa un lote de tokens"""
+        batch_results = []
+        
+        for (token_id, next_token_count), nickname in zip(token_batch, nickname_batch):
+            try:
+                # Crear token en Kaleido
+                result_data, error = mint_721_token(token_id, fund.id, fund.contract_address)
+                
+                if not error:
+                    # Crear token en Django
+                    fund_token = FundToken.objects.create(
+                        fund=fund,
+                        token_id=token_id,
+                        nickname=nickname,
+                        created_by=user,
+                        owner_user=user,
+                    )
+                    
+                    # Crear transacción de tracking
+                    TokenTransaction.objects.create(
+                        fund=fund,
+                        token=fund_token,
+                        transaction_type=TokenTransaction.TransactionTypes.MINT,
+                        to_user=user,
+                        amount=1,
+                        kaleido_transaction_id=result_data.get('id', None),
+                        price_per_unit=0,
+                        description=f"Token {token_id} minted with nickname {nickname} (batch operation)",
+                        metadata={
+                            'nickname': nickname,
+                            'token_id': token_id,
+                            'mint_result': result_data,
+                            'batch_operation': True
+                        }
+                    )
+                    
+                    batch_results.append({
+                        'token_id': token_id,
+                        'nickname': nickname,
+                        'success': True,
+                        'transaction_id': result_data.get('id'),
+                        'next_token_count': next_token_count
+                    })
+                    
+                    results['minted'] += 1
+                    
+                else:
+                    batch_results.append({
+                        'token_id': token_id,
+                        'nickname': nickname,
+                        'success': False,
+                        'error': str(error)
+                    })
+                    
+                    results['failures'] += 1
+                    
+            except Exception as e:
+                batch_results.append({
+                    'token_id': token_id,
+                    'nickname': nickname,
+                    'success': False,
+                    'error': str(e)
+                })
+                
+                results['failures'] += 1
+        
+        return batch_results
+    
+    def _execute_token_operation(self, validated_data):
+        """Implementación específica para mint masivo en lotes"""
+        fund_id = validated_data.get('fund_id')
+        quantity = validated_data.get('quantity')
+        batch_size = validated_data.get('batch_size', 40)
+        nickname = validated_data.get('nickname')
+        
+        fund = self._get_fund(fund_id)
+        
+        # Datos para auditoría
+        request = self.context.get('request')
+        user = request.user if request else None
+        
+        # Crear auditoría inicial
+        initial_audit = self._create_initial_audit(
+            request, 
+            'TOKEN_BATCH_CREATE', 
+            fund, 
+            'mint_tokens_batch'
+        )
+        
+        # Resultados generales
+        results = {
+            'success': True,
+            'total_requested': quantity,
+            'total_batches': 0,
+            'minted': 0,
+            'failures': 0,
+            'batch_details': [],
+            'summary': {
+                'completed_batches': 0,
+                'failed_batches': 0,
+                'total_processing_time': 0
+            }
+        }
+        
+        # Verificar si el fondo tiene un contrato de token
+        self._validate_contract_address(fund, initial_audit)
+        
+        start_time = time.time()
+        
+        try:
+            # Generar todos los token_ids y nicknames
+            token_ids_with_counts = self._generate_batch_token_ids(fund, quantity, initial_audit)
+            nicknames = self._generate_batch_nicknames(nickname, quantity)
+            
+            # Dividir en lotes
+            total_batches = (quantity + batch_size - 1) // batch_size  # Ceiling division
+            results['total_batches'] = total_batches
+            
+            # Procesar lote por lote
+            for batch_num in range(total_batches):
+                start_idx = batch_num * batch_size
+                end_idx = min(start_idx + batch_size, quantity)
+                
+                # Obtener datos del lote actual
+                token_batch = token_ids_with_counts[start_idx:end_idx]
+                nickname_batch = nicknames[start_idx:end_idx]
+                
+                print(f"Procesando lote {batch_num + 1}/{total_batches} - Tokens {start_idx + 1} a {end_idx}")
+                
+                # Usar transacción atómica para cada lote
+                with transaction.atomic():
+                    fund = Fund.objects.select_for_update().get(id=fund_id)
+                    
+                    batch_start_time = time.time()
+                    
+                    # Procesar el lote
+                    batch_results = self._process_batch(
+                        fund, token_batch, nickname_batch, user, results, initial_audit
+                    )
+                    
+                    # Actualizar contador de tokens del fondo
+                    successful_tokens = sum(1 for r in batch_results if r['success'])
+                    if successful_tokens > 0:
+                        fund.amount_tokens += successful_tokens
+                        fund.save(update_fields=['amount_tokens'])
+                    
+                    batch_processing_time = time.time() - batch_start_time
+                    
+                    # Registrar resultados del lote
+                    batch_summary = {
+                        'batch_number': batch_num + 1,
+                        'tokens_in_batch': len(token_batch),
+                        'successful': successful_tokens,
+                        'failed': len(token_batch) - successful_tokens,
+                        'processing_time': round(batch_processing_time, 2),
+                        'details': batch_results
+                    }
+                    
+                    results['batch_details'].append(batch_summary)
+                    
+                    if successful_tokens == len(token_batch):
+                        results['summary']['completed_batches'] += 1
+                        print(f"✅ Lote {batch_num + 1} completado exitosamente")
+                    else:
+                        results['summary']['failed_batches'] += 1
+                        print(f"❌ Lote {batch_num + 1} completado con errores")
+                
+                # Pequeña pausa entre lotes para evitar saturar el sistema
+                time.sleep(0.1)
+            
+            # Calcular tiempo total
+            total_processing_time = time.time() - start_time
+            results['summary']['total_processing_time'] = round(total_processing_time, 2)
+            
+            # Determinar si la operación fue exitosa
+            if results['failures'] == 0:
+                results['success'] = True
+                status = 'SUCCESS'
+            elif results['minted'] > 0:
+                results['success'] = False  # Parcialmente exitoso
+                status = 'PARTIAL_SUCCESS'
+            else:
+                results['success'] = False
+                status = 'ERROR'
+            
+            # Actualizar auditoría final
+            if initial_audit:
+                self._update_audit(initial_audit, status, {
+                    'total_requested': quantity,
+                    'total_minted': results['minted'],
+                    'total_failed': results['failures'],
+                    'total_batches': total_batches,
+                    'completed_batches': results['summary']['completed_batches'],
+                    'processing_time': results['summary']['total_processing_time']
+                })
+            
+            print(f"Operación completada: {results['minted']}/{quantity} tokens creados en {total_processing_time:.2f}s")
+            
+        except Exception as e:
+            results['success'] = False
+            results['error'] = str(e)
+            
+            if initial_audit:
+                self._update_audit(initial_audit, 'ERROR', {'error': str(e)})
+            
+            print(f"Error en operación masiva: {str(e)}")
+        
+        return results
+
+def get_batch_creation_progress(fund_id, start_time=None):
+    """
+    Obtiene el progreso de creación de tokens para un fondo
+    
+    Args:
+        fund_id (int): ID del fondo
+        start_time (datetime): Tiempo de inicio para filtrar
+    
+    Returns:
+        dict: Información del progreso con timestamps en zona horaria de Colombia
+    """
+    # ✅ NUEVO: Configurar zona horaria de Colombia explícitamente
+    bogota_tz = pytz.timezone('America/Bogota')
+    
+    queryset = TokenTransaction.objects.filter(
+        fund_id=fund_id,
+        transaction_type=TokenTransaction.TransactionTypes.MINT
+    )
+    
+    if start_time:
+        queryset = queryset.filter(created_at__gte=start_time)
+    
+    total_created = queryset.count()
+    
+    # Agrupar por lotes (usando metadata)
+    batch_transactions = queryset.filter(
+        metadata__has_key='batch_operation'
+    ).values('created_at').annotate(
+        batch_count=models.Count('id')
+    ).order_by('created_at')
+    
+    # ✅ NUEVO: Convertir explícitamente la fecha a zona horaria de Colombia
+    latest_batch_time = None
+    if batch_transactions:
+        latest_utc = batch_transactions.last()['created_at']
+        # Convertir de UTC a Bogotá
+        latest_batch_time = latest_utc.astimezone(bogota_tz).isoformat()
+    
+    return {
+        'total_tokens_created': total_created,
+        'batch_operations': len(batch_transactions),
+        'latest_batch_time': latest_batch_time,  # ✅ Ahora en zona horaria de Colombia
+        'average_batch_size': sum(b['batch_count'] for b in batch_transactions) / len(batch_transactions) if batch_transactions else 0
+    }
       
 class TokenBurnSerializer(BaseTokenOperationSerializer):
     """Serializer para quemar tokens existentes"""
@@ -286,14 +628,37 @@ class TokenBurnSerializer(BaseTokenOperationSerializer):
     
     def _handle_burn_success(self, results, init_audit, fund, token_id, result_data, user):
         """Maneja el éxito durante el proceso de burn."""
-        # Eliminar el token de la base de datos
         try:
-            # Buscar y eliminar directamente
-            token = FundToken.objects.get(fund=fund, token_id=token_id)
-            token.delete()
-            deleted = True
+            fund_token = FundToken.objects.get(fund=fund, token_id=token_id)
+            original_nickname = fund_token.nickname
+            
+            TokenTransaction.objects.create(
+                fund=fund,
+                token=fund_token,
+                transaction_type=TokenTransaction.TransactionTypes.BURN,
+                from_user=user,
+                amount=1,
+                kaleido_transaction_id=result_data.get('id'),
+                description=f'Token {token_id} ({original_nickname}) quemado por {user.email}',
+                metadata={
+                    'original_nickname': original_nickname,
+                    'burn_result': result_data,
+                    'token_id': token_id
+                }
+            )
+            
+            fund_token.status = False
+            fund_token.owner_user = None  # Opcional: quitar propietario
+            fund_token.save(update_fields=['status', 'owner_user'])
+            
+            active_tokens_count = FundToken.objects.filter(fund=fund, status=True).count()
+            fund.amount_tokens = active_tokens_count
+            fund.save(update_fields=['amount_tokens'])
+            
+            burned = True
+            
         except FundToken.DoesNotExist:
-            deleted = False
+            burned = False
         
         results['burned'] += 1
         results['details'].append({
@@ -400,7 +765,7 @@ class PurchaseTokenSerializer(BaseTokenOperationSerializer):
         TokenTransaction.objects.create(
             fund=fund,
             token=fund_token,
-            transaction_type=TokenTransaction.TransactionTypes.TRANSFER,
+            transaction_type=TokenTransaction.TransactionTypes.PURCHASE,
             from_user=previous_owner,
             amount=1,
             price_per_unit=fund.price_per_unit,

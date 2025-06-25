@@ -1,19 +1,29 @@
-from django.contrib.auth import get_user
-from rest_framework import viewsets, status
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.decorators import permission_classes, authentication_classes
+from rest_framework.decorators import permission_classes
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, BEARER, SERVICE_HOST, NODE_ID, CONSOLE_URL, SERVICE_WALLET, MEMBERSHIP_ID, ZONE_DOMAIN, USER_ACCOUNTS, SERVICE
+from django.utils.dateparse import parse_datetime
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+import datetime
 
-from apps.kaleido.models import Wallet, InstanceOfTokenContract721
+from config.const_kaleido import USERNAME, PASSWORD, BEARER, SERVICE_HOST, USER_ACCOUNTS, SERVICE
+
 from apps.kaleido.utils import is_investor_valid, get_owner_of, get_wallet_index
 from apps.fund.models import FundInvestment, TransferReceipt, Fund
-from apps.kaleido.serializers.serializer_token_operation import (TokenMintSerializer, TokenBurnSerializer, PurchaseTokenSerializer, PurchaseTokenIndexToIndexSerializer as PTIS)
 from apps.audit.audit_service import AuditService
+from apps.kaleido.serializers.serializer_token_operation import (
+    TokenMintSerializer, 
+    TokenBurnSerializer, 
+    PurchaseTokenSerializer, 
+    TokenMintBatchSerializer,
+    PurchaseTokenIndexToIndexSerializer as PTIS,
+    get_batch_creation_progress
+    )
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -282,6 +292,69 @@ def get_token_balance_from_kaleido(contract_address, owner_address):
         raise Exception(f"API error: {response.text}")
     
     return response.json()
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def batch_creation_progress_view(request, fund_id):
+    """
+    Vista para obtener el progreso de creación de tokens en lotes
+    
+    URL: GET /api/kaleido/fund/{fund_id}/batch-progress/
+    
+    Query Parameters:
+    - start_time: Fecha inicio en formato ISO (opcional)
+    
+    Ejemplo:
+    GET /api/kaleido/fund/1/batch-progress/?start_time=2025-01-15T10:00:00-05:00
+    """
+    try:
+        # Verificar que el fondo existe
+        fund = get_object_or_404(Fund, id=fund_id)
+        
+        # Verificar permisos de acceso al fondo
+        if not _has_fund_access(request.user, fund):
+            return Response({
+                'error': 'No tienes permisos para acceder a este fondo'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Parsear parámetro start_time opcional
+        start_time = None
+        start_time_str = request.GET.get('start_time')
+        
+        if start_time_str:
+            start_time = parse_datetime(start_time_str)
+            if not start_time:
+                return Response({
+                    'error': 'Formato de start_time inválido. Usa formato ISO: YYYY-MM-DDTHH:MM:SS-05:00'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Obtener datos de progreso
+        progress_data = get_batch_creation_progress(fund_id, start_time)
+        
+        return Response({
+            'success': True,
+            'fund_id': fund_id,
+            'fund_name': fund.name,
+            'progress': progress_data,
+            'query_params': {
+                'start_time': start_time_str,
+                'timestamp': datetime.datetime.now(timezone.get_current_timezone())
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': f'Error obteniendo progreso del lote: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def _has_fund_access(user, fund):
+    """Función auxiliar para verificar acceso al fondo"""
+    return (
+        user.is_superuser or 
+        user.is_staff or
+        fund.created_by == user
+    )
 
 class Mint721View(APIView):
     """
@@ -1280,6 +1353,44 @@ class PurchaseTokenIndexToIndexView(APIView):
             response_status = status.HTTP_400_BAD_REQUEST
         return Response(response_data, status=response_status)
 
+class TokenMintBatchView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        serializer = TokenMintBatchSerializer(data=request.data, context={'request': request})
+        
+        if serializer.is_valid():
+            results = serializer.save()
+            
+            # ✅ Validación defensiva
+            minted = results.get('minted', 0)
+            total_requested = results.get('total_requested', 0)
+            failures = results.get('failures', 0)
+            success = results.get('success', False)
+            
+            if success:
+                message = f"Operación completada: {minted}/{total_requested} tokens creados exitosamente"
+                response_status = status.HTTP_200_OK
+            elif minted > 0:
+                message = f"Operación parcial: {minted}/{total_requested} tokens creados, {failures} fallidos"
+                response_status = status.HTTP_207_MULTI_STATUS
+            else:
+                message = f"Operación fallida: 0/{total_requested} tokens creados"
+                response_status = status.HTTP_400_BAD_REQUEST
+            
+            return Response({
+                'status': 'success' if success else ('partial_success' if minted > 0 else 'error'),
+                'message': message,
+                'data': results
+            }, status=response_status)
+            
+        else:
+            return Response({
+                'status': 'error',
+                'message': 'Validation failed',
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+                
 
 class Test(APIView):
     permission_classes = [IsAuthenticated]

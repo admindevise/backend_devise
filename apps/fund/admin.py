@@ -27,7 +27,9 @@ class TransferReceiptAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'transaction_id')
     
 class FundTokenAdmin(admin.ModelAdmin):
-    list_display = ('fund', 'token_id', 'created_at')
+    list_display = ('fund', 'token_id', 'status', 'created_at')
+    list_filter = ('status', 'created_at', 'fund')
+    ordering = ('-created_at',)
     search_fields = ('fund__name', 'created_by__username')
 
 admin.site.register(Fund, FundAdmin)

@@ -244,8 +244,8 @@ class FundTokenViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = FundTokenSerializer
     authentication_classes = [JWTAuthentication]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['fund']
-    search_fields = ['token_id']
+    filterset_fields = ['fund', 'status', 'created_by', 'owner_user']
+    search_fields = ['token_id', 'nickname']
     ordering_fields = ['created_at', 'token_id']
     ordering = ['-created_at']
 
@@ -268,7 +268,7 @@ class TokenTransactionViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = TokenTransactionSerializer
     authentication_classes = [JWTAuthentication]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['token_id', 'from_user', 'to_user']
+    filterset_fields = ['fund', 'from_user', 'to_user']
     search_fields = ['kaleido_transaction_id', 'description']
     ordering_fields = ['created_at', 'amount']
     ordering = ['-created_at']

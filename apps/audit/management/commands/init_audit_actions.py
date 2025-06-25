@@ -21,6 +21,18 @@ class Command(BaseCommand):
                         'description': 'Creación de un nuevo token'
                     },
                     {
+                        'name': 'Crear Tokens Masivos',
+                        'code': 'TOKEN_BATCH_CREATE',
+                        'severity': 'HIGH',
+                        'description': 'Creación masiva de tokens'  
+                    },
+                    {
+                        'name': 'Comprar Token',
+                        'code': 'TOKEN_PURCHASE',
+                        'severity': 'MEDIUM',
+                        'description': 'Compra de un token'
+                    },
+                    {
                         'name': 'Transferir Token',
                         'code': 'TOKEN_TRANSFER',
                         'severity': 'MEDIUM',

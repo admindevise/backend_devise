@@ -12,7 +12,8 @@ from apps.fund.views.fund_investment_views import (
 )
 
 from apps.kaleido.views.kaleido_fund import (
-    TokenMintView, TokenBurnView, PurchaseTokenView, PurchaseTokenIndexToIndexView as PTIV,
+    TokenMintView, TokenMintBatchView, TokenBurnView, PurchaseTokenView, PurchaseTokenIndexToIndexView as PTIV,
+    batch_creation_progress_view
 )
 
 router = DefaultRouter()
@@ -29,9 +30,11 @@ urlpatterns = [
     
     #=========== APIREST Views FundToken ===========#
     path('api/mint_token/', TokenMintView.as_view(), name='mint-token'),
+    path('api/mint_token_batch/', TokenMintBatchView.as_view(), name='mint-token-batch'),
     path('api/burn_token/', TokenBurnView.as_view(), name='burn-token'),
     path('api/purchase_token/', PurchaseTokenView.as_view(), name='purchase-token'),
     path('api/purchase_token_user/', PTIV.as_view(), name='purchase-token-user'),
+    path('api/<int:fund_id>/batch_progress/', batch_creation_progress_view, name='batch-creation-progress'),
     
     #=========== APIREST Views Application ===========#
     path('api/pending_review/', FundApplicationPendingReviewView.as_view(), name='fund-application-view'),

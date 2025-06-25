@@ -182,7 +182,6 @@ class FundApplicationStatusSerializer(serializers.ModelSerializer):
 
 class FundInvestmentSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
-    fund_id = serializers.IntegerField(write_only=True, required=True)
     investor = serializers.PrimaryKeyRelatedField(read_only=True)
     
     invested_amount = serializers.DecimalField(
@@ -196,7 +195,7 @@ class FundInvestmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = FundInvestment
         fields = [
-            'id', 'fund_id', 'application', 'investor', 
+            'id', 'fund', 'application', 'investor', 
             'status', 'invested_amount',
             'created_at', 'updated_at',
             'cancellation_reason'

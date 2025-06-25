@@ -4,6 +4,7 @@ Utility functions for Fund operations
 
 from django.db.models import Q
 from .models import FundToken
+from django.db import transaction
 
 def get_next_available_token(fund_id, user=None):
     """
@@ -26,7 +27,7 @@ def get_next_available_token(fund_id, user=None):
             status=True,
         ).filter(
             Q(owner_user__is_staff=True)
-        ).order_by('-created_at').first()
+        ).order_by('created_at').first()
         
         if not token:
             raise ValueError(f"No available tokens found for fund {fund_id}")
@@ -59,7 +60,7 @@ def reserve_next_available_token(fund_id, user):
             status=True
         ).filter(
             Q(owner_user__is_staff=True)
-        ).order_by('-created_at').first()
+        ).order_by('created_at').first()
         
         if not token:
             raise ValueError(f"No available tokens found for fund {fund_id}")

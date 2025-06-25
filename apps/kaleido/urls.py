@@ -8,7 +8,8 @@ from apps.kaleido.views.kaleido_views_model import ListUserWalletsView
 from apps.kaleido.views.kaleido_fund import (
     Mint721View, SafeTransfer721View, SafeTransfer721IndexToIndexView, ReceipStoreView, TokenOwnershipView, 
     get_wallet_address, get_token_balance, burn_721_token, 
-    Test)
+    Test,
+    )
 
 urlpatterns = [
     #=========== APIREST Views Kaleido ===========#

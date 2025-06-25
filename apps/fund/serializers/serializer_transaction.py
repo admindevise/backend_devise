@@ -14,7 +14,6 @@ class TokenTransactionSerializer(serializers.ModelSerializer):
 
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
 
-    token_id = serializers.IntegerField(write_only=True, required=True)
     from_user = serializers.PrimaryKeyRelatedField(read_only=True)
     to_user = serializers.PrimaryKeyRelatedField(read_only=True)
 
@@ -23,9 +22,9 @@ class TokenTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = TokenTransaction
         fields = [
-            'id', 'token_id', 'from_user', 'to_user', 
-            'kaleido_transaction_id', 'price_per_unit', 'amount',
-            'created_at', 'status', 'description', 'metadata'
+            'id', 'fund', 'from_user', 'to_user', 'transaction_type',
+            'price_per_unit', 'amount', 'status', 'description',
+            'kaleido_transaction_id', 'metadata', 'created_at', 
         ]
         read_only_fields = ['from_user', 'to_user', 'created_at']
 
