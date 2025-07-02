@@ -1362,7 +1362,7 @@ class TokenMintBatchView(APIView):
         if serializer.is_valid():
             results = serializer.save()
             
-            # ✅ Validación defensiva
+            # Validación defensiva
             minted = results.get('minted', 0)
             total_requested = results.get('total_requested', 0)
             failures = results.get('failures', 0)
@@ -1443,5 +1443,3 @@ class Test(APIView):
         except Fund.DoesNotExist:
             return Response({"error": "Fund not found"}, status=404)
         
-        
-            

@@ -380,6 +380,11 @@ class FundToken(base_model.BaseModel):
     nickname = models.CharField(max_length=255, blank=True, null=True)
     owner_user = models.ForeignKey(User, on_delete=models.PROTECT, null=True, related_name="owned_tokens")
     
+    reserved_for_sale = models.BooleanField(default=False)
+    reserved_for_purchase = models.BooleanField(default=False)
+    reserved_at = models.DateTimeField(null=True, blank=True)
+    reservation_expires_at = models.DateTimeField(null=True, blank=True)
+    
     class Meta:
         verbose_name = "Token de Fondo"
         verbose_name_plural = "Tokens de Fondos"

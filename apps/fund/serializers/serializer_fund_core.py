@@ -121,8 +121,10 @@ class TransferReceiptSerializer(serializers.ModelSerializer):
 
 class FundTokenSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    reserved_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    reservation_expires_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     
     class Meta:
         model = FundToken
-        fields = ['id', 'fund', 'token_id', 'nickname', 'created_by', 'owner_user', 'created_at']
+        fields = ['id', 'fund', 'token_id', 'nickname', 'created_by', 'owner_user', 'reserved_for_sale', 'reserved_for_purchase', 'reserved_at', 'reservation_expires_at' , 'created_at']
         read_only_fields = ['id', 'created_at']

@@ -37,7 +37,6 @@ def get_next_available_token(fund_id, user=None):
     except Exception as e:
         raise ValueError(f"Error getting next available token: {str(e)}")
 
-
 def reserve_next_available_token(fund_id, user):
     """
         Reserve the next available token for a user by setting the owner_user field.
@@ -65,6 +64,69 @@ def reserve_next_available_token(fund_id, user):
         if not token:
             raise ValueError(f"No available tokens found for fund {fund_id}")
         
+        # Reserve the token
+        token.owner_user = user
+        token.save(update_fields=['owner_user'])
+        
+        return token
+
+#+ ========================================
+#+ Métodos públicos del servicio
+#+ ========================================
+
+def get_next_available_token_trading(fund_id, user=None):
+    """
+    Get the next available token for trading (oldest by created_at).
+    
+    Args:
+        fund_id (int): ID of the fund to get token from
+        user: User object for validation (optional)
+        
+    Returns:
+        FundToken: Next available token object
+        
+    Raises:
+        ValueError: If no tokens are available
+    """
+    try:
+        # Get the oldest available token
+        token = FundToken.objects.filter(
+            fund_id=fund_id,
+            status=True,
+            owner_user__isnull=False
+        ).order_by('created_at').first()
+        
+        if not token:
+            raise ValueError(f"No available tokens found for fund {fund_id}")
+            
+        return token
+        
+    except Exception as e:
+        raise ValueError(f"Error getting next available token for trading: {str(e)}")
+
+def reserve_next_available_token_trading(fund_id, user):
+    """
+    Reserve the next available token for trading by setting the owner_user field.
+    Uses select_for_update to prevent concurrent access.
+    Args:
+        fund_id (int): ID of the fund
+        user: User object to assign as owner
+    Returns:
+        FundToken: Reserved token object
+    Raises:
+        ValueError: If no tokens are available
+    """
+    with transaction.atomic():
+        # Get oldest available token with select_for_update to
+        token = FundToken.objects.select_for_update().filter(
+            fund_id=fund_id,
+            status=True,
+            owner_user__isnull=False
+        ).order_by('created_at').first()
+        
+        if not token:
+            raise ValueError(f"No available tokens found for fund {fund_id}")
+
         # Reserve the token
         token.owner_user = user
         token.save(update_fields=['owner_user'])
@@ -109,7 +171,6 @@ def get_oldest_available_tokens(fund_id, quantity=None):
     
     return queryset
 
-
 def get_available_tokens_count(fund_id):
     """
     Get the count of available tokens for a specific fund.
@@ -123,9 +184,8 @@ def get_available_tokens_count(fund_id):
     return FundToken.objects.filter(
         fund_id=fund_id,
         status=True,
-        owner_user__isnull=True
+        owner_user__isnull=False
     ).count()
-
 
 def check_token_availability(fund_id, required_quantity):
     """
@@ -150,7 +210,6 @@ def check_token_availability(fund_id, required_quantity):
         'required_count': required_quantity,
         'shortage': max(0, required_quantity - available_count)
     }
-
 
 def reserve_oldest_tokens(fund_id, quantity, user):
     """

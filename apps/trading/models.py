@@ -18,6 +18,7 @@ class BaseOrder(base_model.BaseModel):
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     expiration_date = models.DateField()
+    metadata = models.JSONField(default=dict, blank=True)
     margin = models.DecimalField(
         max_digits=5, 
         decimal_places=2, 
@@ -27,13 +28,8 @@ class BaseOrder(base_model.BaseModel):
         max_length=20, 
         choices=[
             ('PENDING', 'Pendiente'),
-            ('APPROVED', 'Aprobada'),
-            ('REJECTED', 'Rechazada'),
-            ('WAITING_MATCH', 'Esperando Emparejamiento'),
-            ('PARTIAL_MATCH', 'Emparejamiento Parcial'),
             ('MATCHED', 'Emparejada'),
             ('EXPIRED', 'Expirada'),
-            ('PAYMENT_PENDING', 'Pago Pendiente'),
             ('PROCESSING_PAYMENT', 'Procesando Pago'),
             ('PAID', 'Pagada'),
             ('COMPLETED', 'Completada'),
@@ -46,7 +42,6 @@ class BaseOrder(base_model.BaseModel):
     created_by = models.ForeignKey(User, on_delete=models.PROTECT)
     
     # Campos de seguimiento temporal
-    approved_at = models.DateTimeField(null=True, blank=True)
     paid_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)

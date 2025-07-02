@@ -156,6 +156,61 @@ class Command(BaseCommand):
                         'description': 'Eliminación de una inversión en un fondo'
                     }
                 ]
+            },
+            {
+                'name': 'Mercado Secundario de Fondos',
+                'code': 'TRADING',
+                'description': 'Operaciones en el mercado secundario de fondos',
+                'actions': [
+                    {
+                        'name': 'Crear Orden de Compra',
+                        'code': 'PURCHASE_ORDER_CREATE',
+                        'severity': 'MEDIUM',
+                        'description': 'Creación de una nueva orden de compra en el mercado secundario'
+                    },
+                    {
+                        'name': 'Cancelar Orden de Compra',
+                        'code': 'PURCHASE_ORDER_CANCEL',
+                        'severity': 'MEDIUM',
+                        'description': 'Cancelación de una orden de compra existente'
+                    },
+                    {
+                        'name': 'Orden de Compra pagada',
+                        'code': 'PURCHASE_ORDER_PAID',
+                        'severity': 'MEDIUM',
+                        'description': 'Pago de una orden de compra en el mercado secundario'  
+                    },
+                    {
+                        'name': 'Completar Orden de Compra',
+                        'code': 'PURCHASE_ORDER_COMPLETE',
+                        'severity': 'HIGH',
+                        'description': 'Finalización de una orden de compra en el mercado secundario'
+                    },
+                    {
+                        'name': 'Crear Orden de Venta',
+                        'code': 'SALES_ORDER_CREATE',
+                        'severity': 'MEDIUM',
+                        'description': 'Creación de una nueva orden de venta en el mercado secundario'
+                    },
+                    {
+                        'name': 'Cancelar Orden de Venta',
+                        'code': 'SALES_ORDER_CANCEL',
+                        'severity': 'MEDIUM',
+                        'description': 'Cancelación de una orden de venta existente'
+                    },
+                    {
+                        'name': 'Orden de Venta pagada',
+                        'code': 'SALES_ORDER_PAID',
+                        'severity': 'MEDIUM',
+                        'description': 'Pago de una orden de venta en el mercado secundario'  
+                    },
+                    {
+                        'name': 'Completar Orden de Venta',
+                        'code': 'SALES_ORDER_COMPLETE',
+                        'severity': 'HIGH',
+                        'description': 'Finalización de una orden de venta en el mercado secundario'
+                    }
+                ]
             }
         ]
         

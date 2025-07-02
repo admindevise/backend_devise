@@ -244,7 +244,7 @@ class FundTokenViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = FundTokenSerializer
     authentication_classes = [JWTAuthentication]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['fund', 'status', 'created_by', 'owner_user']
+    filterset_fields = ['fund', 'status', 'created_by', 'owner_user', 'reserved_for_sale', 'reserved_at']
     search_fields = ['token_id', 'nickname']
     ordering_fields = ['created_at', 'token_id']
     ordering = ['-created_at']

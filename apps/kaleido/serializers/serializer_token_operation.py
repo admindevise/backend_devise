@@ -575,7 +575,7 @@ def get_batch_creation_progress(fund_id, start_time=None):
     Returns:
         dict: Información del progreso con timestamps en zona horaria de Colombia
     """
-    # ✅ NUEVO: Configurar zona horaria de Colombia explícitamente
+    # NUEVO: Configurar zona horaria de Colombia explícitamente
     bogota_tz = pytz.timezone('America/Bogota')
     
     queryset = TokenTransaction.objects.filter(
@@ -595,7 +595,7 @@ def get_batch_creation_progress(fund_id, start_time=None):
         batch_count=models.Count('id')
     ).order_by('created_at')
     
-    # ✅ NUEVO: Convertir explícitamente la fecha a zona horaria de Colombia
+    # NUEVO: Convertir explícitamente la fecha a zona horaria de Colombia
     latest_batch_time = None
     if batch_transactions:
         latest_utc = batch_transactions.last()['created_at']
@@ -605,7 +605,7 @@ def get_batch_creation_progress(fund_id, start_time=None):
     return {
         'total_tokens_created': total_created,
         'batch_operations': len(batch_transactions),
-        'latest_batch_time': latest_batch_time,  # ✅ Ahora en zona horaria de Colombia
+        'latest_batch_time': latest_batch_time,  # Ahora en zona horaria de Colombia
         'average_batch_size': sum(b['batch_count'] for b in batch_transactions) / len(batch_transactions) if batch_transactions else 0
     }
       
