@@ -298,28 +298,35 @@ class TokenMintBatchSerializer(BaseTokenOperationSerializer):
         return data
     
     def _generate_batch_token_ids(self, fund, quantity, initial_audit):
-        """Genera múltiples IDs únicos para un lote de tokens"""
+        """Genera múltiples IDs únicos para un lote de tokens - VERSIÓN FIJA"""
+        # SOLUCION: Generar timestamp una sola vez y reutilizarlo
         now = datetime.now()
-        
-        current_token_count = FundToken.objects.filter(fund=fund).count()
-        
-        date_part = now.strftime('%y%m%d%H%M')
+        date_part = now.strftime('%y%m%d')
         fund_id_part = f"{int(fund.id):03d}"
         
-        token_ids = []
-        for i in range(quantity):
-            next_token_count = current_token_count + i + 1
-            token_id = int(f"{next_token_count}{fund_id_part}{date_part}")
-            token_ids.append((token_id, next_token_count))
+        # Usar transacción atómica para obtener el contador actual y bloquearlo
+        with transaction.atomic():
+            # Bloquear el fondo para evitar condiciones de carrera
+            fund = Fund.objects.select_for_update().get(id=fund.id)
+            current_token_count = FundToken.objects.filter(fund=fund).count()
+            
+            token_ids = []
+            for i in range(quantity):
+                next_token_count = current_token_count + i + 1
+                # CLAVE: Usar el mismo timestamp para todos los tokens del lote
+                token_id = int(f"{next_token_count}{fund_id_part}{date_part}")
+                token_ids.append((token_id, next_token_count))
         
         if initial_audit:
             self._update_audit(initial_audit, 'PENDING', {
                 'batch_size': quantity,
                 'first_token_id': token_ids[0][0] if token_ids else None,
-                'last_token_id': token_ids[-1][0] if token_ids else None
+                'last_token_id': token_ids[-1][0] if token_ids else None,
+                'timestamp_used': date_part,  # Agregar para debugging
+                'generation_time': now.isoformat()
             })
-        
-        return token_ids
+            
+            return token_ids
     
     def _generate_batch_nicknames(self, nickname, quantity):
         """Genera múltiples apodos únicos y secuenciales para un lote de tokens"""
@@ -854,6 +861,327 @@ class PurchaseTokenSerializer(BaseTokenOperationSerializer):
                 self._handle_exception(results, init_audit, token_id, e)
             
             return results 
+
+class PurchaseTokenBatchSerializer(BaseTokenOperationSerializer):
+    """Serializer para comprar tokens masivamente en lotes"""
+    quantity = serializers.IntegerField(
+        required=True,
+        min_value=1,
+        max_value=1000,
+        help_text="Cantidad total de tokens a comprar"
+    )
+    batch_size = serializers.IntegerField(
+        default=40,
+        min_value=1,
+        max_value=50,
+        help_text="Tamaño del lote (máximo 50 tokens por lote)"
+    )
+    
+    def validate(self, data):
+        """Validaciones adicionales"""
+        if data['quantity'] > 1000:
+            raise serializers.ValidationError("No se pueden comprar más de 1000 tokens en una sola operación")
+        return data
+    
+    def _get_batch_available_tokens(self, fund, quantity, initial_audit):
+        """Obtiene múltiples tokens disponibles para compra en lote"""
+        try:
+            # Obtener tokens disponibles para compra ordenados por token_id
+            available_tokens = FundToken.objects.filter(
+                fund=fund,
+                status=True,
+                owner_user=24
+            ).order_by('-created_at', '-token_id')[:quantity]
+            
+            if len(available_tokens) < quantity:
+                available_count = len(available_tokens)
+                raise serializers.ValidationError(
+                    f"Solo hay {available_count} tokens disponibles para comprar, pero se solicitaron {quantity}"
+                )
+            
+            token_ids = [token.token_id for token in available_tokens]
+            
+            if initial_audit:
+                self._update_audit(initial_audit, 'PENDING', {
+                    'batch_size': quantity,
+                    'first_token_id': token_ids[0] if token_ids else None,
+                    'last_token_id': token_ids[-1] if token_ids else None,
+                    'available_tokens': len(available_tokens)
+                })
+            
+            return token_ids
+            
+        except Exception as e:
+            raise serializers.ValidationError(f"Error obteniendo tokens disponibles: {str(e)}")
+    
+    def _process_purchase_batch(self, fund, token_batch, user, results, initial_audit):
+        """Procesa un lote de compras de tokens"""
+        batch_results = []
+        
+        for token_id in token_batch:
+            try:
+                # Ejecutar compra individual
+                result_data, error = safe_transfer_721(token_id, fund.id, fund.contract_address, user)
+                
+                if not error:
+                    # Actualizar ownership en la base de datos
+                    fund_token = FundToken.objects.get(fund=fund, token_id=token_id)
+                    previous_owner = fund_token.owner_user
+                    
+                    FundToken.objects.filter(
+                        fund=fund,
+                        token_id=token_id
+                    ).update(owner_user=user)
+                    
+                    # Crear transacción de tracking
+                    TokenTransaction.objects.create(
+                        fund=fund,
+                        token=fund_token,
+                        transaction_type=TokenTransaction.TransactionTypes.PURCHASE,
+                        from_user=previous_owner,
+                        amount=1,
+                        price_per_unit=fund.price_per_unit,
+                        to_user=user,
+                        kaleido_transaction_id=result_data.get('id'),
+                        description=f'Token {token_id} comprado por {user.email} (batch operation)',
+                        metadata={
+                            'previous_owner': previous_owner.email if previous_owner else 'Fund',
+                            'purchase_result': result_data,
+                            'batch_operation': True
+                        }
+                    )
+                    
+                    # Crear recibo de transferencia
+                    TransferReceipt.objects.create(
+                        fund=fund,
+                        user=user,
+                        transaction_id=result_data.get('id'),
+                        description='Transferencia exitosa (lote), token #{} desde fondo: {}'.format(
+                            token_id, 
+                            fund.name
+                        )
+                    )
+                    
+                    batch_results.append({
+                        'token_id': token_id,
+                        'success': True,
+                        'transaction_id': result_data.get('id'),
+                        'previous_owner': previous_owner.email if previous_owner else 'Fund'
+                    })
+                    
+                    results['bought'] += 1
+                    
+                else:
+                    batch_results.append({
+                        'token_id': token_id,
+                        'success': False,
+                        'error': str(error)
+                    })
+                    
+                    results['failures'] += 1
+                    
+            except Exception as e:
+                batch_results.append({
+                    'token_id': token_id,
+                    'success': False,
+                    'error': str(e)
+                })
+                
+                results['failures'] += 1
+        
+        return batch_results
+    
+    def _analyze_errors(self, batch_details):
+        """Analiza los errores para generar un resumen comprehensivo"""
+        error_summary = {
+            'total_errors': 0,
+            'error_types': {},
+            'common_errors': [],
+            'sample_errors': []
+        }
+        
+        all_errors = []
+        
+        for batch in batch_details:
+            for detail in batch.get('details', []):
+                if not detail.get('success', True):
+                    error_msg = detail.get('error', 'Error desconocido')
+                    error_type = detail.get('error_type', 'unknown')
+                    
+                    all_errors.append({
+                        'token_id': detail.get('token_id'),
+                        'error': error_msg,
+                        'error_type': error_type,
+                        'batch_number': batch.get('batch_number')
+                    })
+                    
+                    error_summary['total_errors'] += 1
+                    
+                    # Contar tipos de errores
+                    if error_type not in error_summary['error_types']:
+                        error_summary['error_types'][error_type] = 0
+                    error_summary['error_types'][error_type] += 1
+        
+        # Encontrar errores más comunes
+        if all_errors:
+            from collections import Counter
+            error_messages = [err['error'] for err in all_errors]
+            common_errors = Counter(error_messages).most_common(3)
+            
+            error_summary['common_errors'] = [
+                {
+                    'error_message': error,
+                    'count': count,
+                    'percentage': round((count / len(all_errors)) * 100, 2)
+                }
+                for error, count in common_errors
+            ]
+            
+            # Tomar una muestra de errores únicos
+            unique_errors = list({err['error']: err for err in all_errors}.values())[:5]
+            error_summary['sample_errors'] = unique_errors
+        
+        return error_summary    
+    
+    def _execute_token_operation(self, validated_data):
+        """Implementación específica para compra masiva en lotes"""
+        fund_id = validated_data.get('fund_id')
+        quantity = validated_data.get('quantity')
+        batch_size = validated_data.get('batch_size', 40)
+        
+        fund = self._get_fund(fund_id)
+        
+        # Datos para auditoría
+        request = self.context.get('request')
+        user = request.user if request else None
+        
+        if user:
+            application, error = is_investor_valid(user, fund)
+            if not application:
+                raise serializers.ValidationError("El usuario no es un inversionista válido para este fondo")
+        
+        # Crear auditoría inicial
+        initial_audit = self._create_initial_audit(
+            request, 
+            'TOKEN_BATCH_PURCHASE', 
+            fund, 
+            'purchase_tokens_batch'
+        )
+        
+        # Resultados generales
+        results = {
+            'success': True,
+            'total_requested': quantity,
+            'total_batches': 0,
+            'bought': 0,
+            'failures': 0,
+            'batch_details': [],
+            'summary': {
+                'completed_batches': 0,
+                'failed_batches': 0,
+                'total_processing_time': 0
+            }
+        }
+        
+        # Verificar si el fondo tiene un contrato de token
+        self._validate_contract_address(fund, initial_audit)
+        
+        start_time = time.time()
+        
+        try:
+            # Obtener todos los token_ids disponibles para compra
+            available_token_ids = self._get_batch_available_tokens(fund, quantity, initial_audit)
+            
+            # Dividir en lotes
+            total_batches = (quantity + batch_size - 1) // batch_size  # Ceiling division
+            results['total_batches'] = total_batches
+            
+            # Procesar lote por lote
+            for batch_num in range(total_batches):
+                start_idx = batch_num * batch_size
+                end_idx = min(start_idx + batch_size, quantity)
+                
+                # Obtener tokens del lote actual
+                token_batch = available_token_ids[start_idx:end_idx]
+                
+                print(f"Procesando lote de compra {batch_num + 1}/{total_batches} - Tokens {start_idx + 1} a {end_idx}")
+                
+                # Usar transacción atómica para cada lote
+                with transaction.atomic():
+                    fund = Fund.objects.select_for_update().get(id=fund_id)
+                    
+                    batch_start_time = time.time()
+                    
+                    # Procesar el lote de compras
+                    batch_results = self._process_purchase_batch(
+                        fund, token_batch, user, results, initial_audit
+                    )
+                    
+                    batch_processing_time = time.time() - batch_start_time
+                    
+                    # Registrar resultados del lote
+                    successful_purchases = sum(1 for r in batch_results if r['success'])
+                    batch_summary = {
+                        'batch_number': batch_num + 1,
+                        'tokens_in_batch': len(token_batch),
+                        'successful': successful_purchases,
+                        'failed': len(token_batch) - successful_purchases,
+                        'processing_time': round(batch_processing_time, 2),
+                        'details': batch_results
+                    }
+                    
+                    results['batch_details'].append(batch_summary)
+                    
+                    if successful_purchases == len(token_batch):
+                        results['summary']['completed_batches'] += 1
+                        print(f"✅ Lote de compra {batch_num + 1} completado exitosamente")
+                    else:
+                        results['summary']['failed_batches'] += 1
+                        print(f"❌ Lote de compra {batch_num + 1} completado con errores")
+                
+                # Pequeña pausa entre lotes para evitar saturar el sistema
+                time.sleep(0.1)
+            
+            # Calcular tiempo total
+            total_processing_time = time.time() - start_time
+            results['summary']['total_processing_time'] = round(total_processing_time, 2)
+            
+            
+            
+            # Determinar si la operación fue exitosa
+            if results['failures'] == 0:
+                results['success'] = True
+                status = 'SUCCESS'
+            elif results['bought'] > 0:
+                results['success'] = False  # Parcialmente exitoso
+                status = 'PARTIAL_SUCCESS'
+            else:
+                results['success'] = False
+                status = 'ERROR'
+            
+            # Actualizar auditoría final
+            if initial_audit:
+                self._update_audit(initial_audit, status, {
+                    'total_requested': quantity,
+                    'total_bought': results['bought'],
+                    'total_failed': results['failures'],
+                    'total_batches': total_batches,
+                    'completed_batches': results['summary']['completed_batches'],
+                    'processing_time': results['summary']['total_processing_time']
+                })
+            
+            print(f"Operación de compra completada: {results['bought']}/{quantity} tokens comprados en {total_processing_time:.2f}s")
+            
+        except Exception as e:
+            results['success'] = False
+            results['error'] = str(e)
+            
+            if initial_audit:
+                self._update_audit(initial_audit, 'ERROR', {'error': str(e)})
+            
+            print(f"Error en operación masiva de compra: {str(e)}")
+        
+        return results
     
 class PurchaseTokenIndexToIndexSerializer(BaseTokenOperationSerializer):
     """Serializer para comprar tokens usando transferencia index-to-index"""

@@ -280,7 +280,6 @@ def get_wallet_index(user, fund_id):
 
         if investment.fund.hd_wallet:
             wallet_id_value = investment.fund.hd_wallet.id_wallet
-            print(f"Found hd_wallet for user {user.email} in fund {fund_id}: {wallet_id_value}")
         else:
             return None, "No hd_wallet found for the specified fund"
 

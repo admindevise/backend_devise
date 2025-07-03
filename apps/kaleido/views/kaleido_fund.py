@@ -22,6 +22,7 @@ from apps.kaleido.serializers.serializer_token_operation import (
     PurchaseTokenSerializer, 
     TokenMintBatchSerializer,
     PurchaseTokenIndexToIndexSerializer as PTIS,
+    PurchaseTokenBatchSerializer,
     get_batch_creation_progress
     )
 
@@ -1390,6 +1391,66 @@ class TokenMintBatchView(APIView):
                 'message': 'Validation failed',
                 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
+            
+class PurchaseTokenBatchView(APIView):
+    """
+    Vista para realizar una compra masiva de tokens.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        serializer = PurchaseTokenBatchSerializer(data=request.data, context={'request': request})
+        
+        if not serializer.is_valid():
+            return Response(
+                {"status": "error", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Ejecutar la operación de compra masiva de tokens
+        result = serializer.save()
+        
+        # Determinar estado y mensaje según el resultado
+        if result.get('success') is True:
+            response_data = {
+                "status": "success",
+                "message": result.get('message', f"Se han comprado {result.get('bought', 0)} tokens exitosamente"),
+                "tokens_bought": result.get('bought', 0),
+                "tokens_failed": result.get('failures', 0),
+                "total_requested": result.get('total_requested', 0),
+                "summary": result.get('summary', {}),
+                "batch_details": result.get('batch_details', [])
+            }
+            response_status = status.HTTP_200_OK
+            
+        elif result.get('bought', 0) > 0:  # Cambio: evaluar si se compraron algunos tokens
+            response_data = {
+                "status": "partial_success",
+                "message": result.get('message', f"Se han comprado {result.get('bought', 0)} tokens con {result.get('failures', 0)} errores"),
+                "tokens_bought": result.get('bought', 0),
+                "tokens_failed": result.get('failures', 0),
+                "total_requested": result.get('total_requested', 0),
+                "summary": result.get('summary', {}),
+                "batch_details": result.get('batch_details', []),
+                "error_analysis": result.get('error_analysis', {})  # NUEVO: Incluir análisis de errores
+            }
+            response_status = status.HTTP_207_MULTI_STATUS
+            
+        else:
+            response_data = {
+                "status": "error",
+                "message": result.get('message', f"Error al comprar tokens: {result.get('failures', 0)} fallidos"),
+                "tokens_bought": result.get('bought', 0),
+                "tokens_failed": result.get('failures', 0),
+                "total_requested": result.get('total_requested', 0),
+                "summary": result.get('summary', {}),
+                "batch_details": result.get('batch_details', []),
+                "error_analysis": result.get('error_analysis', {}),  # NUEVO: Incluir análisis de errores
+                "error": result.get('error', 'Operación fallida')  # NUEVO: Error general si existe
+            }
+            response_status = status.HTTP_400_BAD_REQUEST
+            
+        return Response(response_data, status=response_status)
                 
 
 class Test(APIView):

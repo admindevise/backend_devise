@@ -28,9 +28,15 @@ class Command(BaseCommand):
                     },
                     {
                         'name': 'Comprar Token',
-                        'code': 'TOKEN_PURCHASE',
+                        'code': 'TOKEN_BATCH_PURCHASE',
                         'severity': 'MEDIUM',
                         'description': 'Compra de un token'
+                    },
+                    {
+                        'name': 'Comprar Tokens Masivos',
+                        'code': 'TOKEN_BATCH_PURCHASE',
+                        'severity': 'MEDIUM',
+                        'description': 'Compra masiva de tokens'  
                     },
                     {
                         'name': 'Transferir Token',

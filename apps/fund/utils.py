@@ -140,7 +140,7 @@ def get_oldest_available_tokens(fund_id, quantity=None):
     
     Available tokens are defined as:
     - status=True (active)
-    - owner_user=None (not yet owned by any user)
+    - owner_user=admin (tokens owned by admin are available for purchase)
     
     Args:
         fund_id (int): ID of the fund to get tokens from
@@ -160,16 +160,34 @@ def get_oldest_available_tokens(fund_id, quantity=None):
         # Convert to list of token IDs for use in purchase operations
         token_ids = list(tokens.values_list('token_id', flat=True))
     """
-    queryset = FundToken.objects.filter(
-        fund_id=fund_id,
-        status=True,  # Active tokens only
-        owner_user__isnull=True  # Not yet owned by any user
-    ).order_by('created_at')  # Oldest first (ascending order)
+    # CORREGIDO: Buscar tokens que pertenezcan al admin (disponibles para compra)
+    # Asumiendo que el admin tiene is_staff=True o user_id=24
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
     
-    if quantity is not None:
-        queryset = queryset[:quantity]
-    
-    return queryset
+    try:
+        # Opción 1: Buscar por usuario admin con is_staff=True
+        admin_user = User.objects.filter(is_staff=True, is_superuser=True).first()
+        if not admin_user:
+            # Opción 2: Fallback al usuario con ID 24 si no se encuentra admin
+            admin_user = User.objects.filter(id=24).first()
+        
+        if not admin_user:
+            raise ValueError("No se encontró usuario admin para identificar tokens disponibles")
+            
+        queryset = FundToken.objects.filter(
+            fund_id=fund_id,
+            status=True,  # Active tokens only
+            owner_user=admin_user  # Tokens owned by admin are available for purchase
+        ).order_by('created_at')  # Oldest first (ascending order)
+        
+        if quantity is not None:
+            queryset = queryset[:quantity]
+        
+        return queryset
+        
+    except Exception as e:
+        raise ValueError(f"Error getting available tokens: {str(e)}")
 
 def get_available_tokens_count(fund_id):
     """
@@ -181,11 +199,27 @@ def get_available_tokens_count(fund_id):
     Returns:
         int: Number of available tokens
     """
-    return FundToken.objects.filter(
-        fund_id=fund_id,
-        status=True,
-        owner_user__isnull=False
-    ).count()
+    # CORREGIDO: Contar tokens que pertenezcan al admin
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    
+    try:
+        # Buscar usuario admin
+        admin_user = User.objects.filter(is_staff=True, is_superuser=True).first()
+        if not admin_user:
+            admin_user = User.objects.filter(id=24).first()
+        
+        if not admin_user:
+            return 0
+            
+        return FundToken.objects.filter(
+            fund_id=fund_id,
+            status=True,
+            owner_user=admin_user  # Tokens owned by admin are available
+        ).count()
+        
+    except Exception as e:
+        return 0
 
 def check_token_availability(fund_id, required_quantity):
     """
@@ -228,13 +262,23 @@ def reserve_oldest_tokens(fund_id, quantity, user):
         ValueError: If not enough tokens are available
     """
     from django.db import transaction
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
     
     with transaction.atomic():
+        # CORREGIDO: Buscar tokens del admin disponibles para reserva
+        admin_user = User.objects.filter(is_staff=True, is_superuser=True).first()
+        if not admin_user:
+            admin_user = User.objects.filter(id=24).first()
+        
+        if not admin_user:
+            raise ValueError("No se encontró usuario admin para identificar tokens disponibles")
+        
         # Get oldest available tokens with select_for_update to prevent race conditions
         available_tokens = FundToken.objects.select_for_update().filter(
             fund_id=fund_id,
             status=True,
-            owner_user__isnull=True
+            owner_user=admin_user  # Tokens owned by admin are available
         ).order_by('created_at')[:quantity]
         
         available_tokens_list = list(available_tokens)

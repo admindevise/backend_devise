@@ -126,5 +126,5 @@ class FundTokenSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = FundToken
-        fields = ['id', 'fund', 'token_id', 'nickname', 'created_by', 'owner_user', 'reserved_for_sale', 'reserved_for_purchase', 'reserved_at', 'reservation_expires_at' , 'created_at']
+        fields = ['id', 'fund', 'token_id', 'nickname', 'status', 'created_by', 'owner_user', 'reserved_for_sale', 'reserved_for_purchase', 'reserved_at', 'reservation_expires_at' , 'created_at']
         read_only_fields = ['id', 'created_at']
