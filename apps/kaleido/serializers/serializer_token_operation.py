@@ -150,7 +150,7 @@ class TokenMintSerializer(BaseTokenOperationSerializer):
             prefix = nickname
         
         # Generar un nuevo apodo único con contador incremental
-        entry_nickname = f"{prefix}_{fund.amount_tokens}"
+        entry_nickname = f"{prefix}_{fund.amount_tokens + 1}"
         
         # Verificar si el apodo ya existe (caso raro pero posible)
         if FundToken.objects.filter(nickname=entry_nickname).exists():
@@ -341,7 +341,7 @@ class TokenMintBatchSerializer(BaseTokenOperationSerializer):
             prefix = nickname
 
         nicknames = []
-        base_count = fund.amount_tokens
+        base_count = fund.amount_tokens + 1
         current_index = base_count
 
         # Obtener todos los nicknames existentes para este fondo y prefix
@@ -370,6 +370,8 @@ class TokenMintBatchSerializer(BaseTokenOperationSerializer):
                 # Crear token en Kaleido
                 result_data, error = mint_721_token(token_id, fund.id, fund.contract_address)
                 
+                price_per_unit = Fund.objects.get(id=fund.id).price_per_unit
+                
                 if not error:
                     # Crear token en Django
                     fund_token = FundToken.objects.create(
@@ -388,7 +390,7 @@ class TokenMintBatchSerializer(BaseTokenOperationSerializer):
                         to_user=user,
                         amount=1,
                         kaleido_transaction_id=result_data.get('id', None),
-                        price_per_unit=0,
+                        price_per_unit=price_per_unit,
                         description=f"Token {token_id} minted with nickname {nickname} (batch operation)",
                         metadata={
                             'nickname': nickname,
@@ -724,7 +726,360 @@ class TokenBurnSerializer(BaseTokenOperationSerializer):
                 self._handle_exception(results, init_audit, token_id, e)
             
             return results    
+
+class TokenBurnBatchSerializer(BaseTokenOperationSerializer):
+    """Serializer para quemar tokens masivamente en lotes"""
+    quantity = serializers.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=1000,
+        help_text="Cantidad total de tokens a quemar"
+    )
+    batch_size = serializers.IntegerField(
+        default=40,
+        min_value=1,
+        max_value=50,
+        help_text="Tamaño del lote (máximo 50 tokens por lote)"
+    )
+    burn_criteria = serializers.CharField(
+        default='oldest',
+        help_text="Criterio para seleccionar tokens: 'oldest', 'newest', 'random'"
+    )
+    burn_all = serializers.BooleanField(
+        default=False,
+        help_text="Si se activa, quemará todos los tokens activos del fondo sin necesidad de especificar 'quantity'"
+        )
     
+    def validate(self, data):
+        """Validaciones adicionales"""
+        burn_all = data.get('burn_all', False)
+        quantity = data.get('quantity')
+        burn_criteria = data.get('burn_criteria', 'oldest')
+        
+        # Validar que se proporcione quantity O burn_all
+        if not burn_all and not quantity:
+            raise serializers.ValidationError("Debe especificar 'quantity' o activar 'burn_all'")
+        
+        # Si burn_all está activado, quantity es opcional
+        if burn_all:
+            if quantity:
+                raise serializers.ValidationError("No puede especificar 'quantity' cuando 'burn_all' está activado")
+            # Forzar burn_criteria a 'all' cuando burn_all=True
+            data['burn_criteria'] = 'all'
+        else:
+            # Validaciones normales cuando no es burn_all
+            if quantity > 1000:
+                raise serializers.ValidationError("No se pueden quemar más de 1000 tokens en una sola operación")
+        
+        # Validar criterios
+        valid_criteria = ['oldest', 'newest', 'random', 'all']
+        if burn_criteria not in valid_criteria:
+            raise serializers.ValidationError(f"burn_criteria debe ser uno de: {', '.join(valid_criteria)}")
+        
+        return data
+    
+    def _get_batch_tokens_to_burn(self, fund, quantity, burn_criteria, initial_audit):
+        """Obtiene múltiples tokens disponibles para quemar en lote"""
+        try:
+            # Obtener tokens activos para quemar según el criterio
+            base_queryset = FundToken.objects.filter(
+                fund=fund,
+                status=True  # Solo tokens activos
+            )
+            
+            # Si es 'all', obtener todos los tokens sin límite
+            if burn_criteria == 'all':
+                available_tokens = base_queryset.order_by('created_at', 'token_id')
+                total_tokens = available_tokens.count()
+                
+                if total_tokens == 0:
+                    raise serializers.ValidationError("No hay tokens activos para quemar en este fondo")
+                
+                # Actualizar quantity con el total de tokens encontrados
+                quantity = total_tokens
+                
+            else:
+                # Lógica original para criterios específicos
+                if burn_criteria == 'oldest':
+                    available_tokens = base_queryset.order_by('created_at', 'token_id')
+                elif burn_criteria == 'newest':
+                    available_tokens = base_queryset.order_by('-created_at', '-token_id')
+                else:  # random
+                    available_tokens = base_queryset.order_by('?')
+                
+                available_tokens = available_tokens[:quantity]
+                
+                if len(available_tokens) < quantity:
+                    available_count = len(available_tokens)
+                    raise serializers.ValidationError(
+                        f"Solo hay {available_count} tokens activos para quemar, pero se solicitaron {quantity}"
+                    )
+            
+            token_ids = [token.token_id for token in available_tokens]
+            
+            if initial_audit:
+                self._update_audit(initial_audit, 'PENDING', {
+                    'batch_size': quantity,
+                    'burn_criteria': burn_criteria,
+                    'burn_all_tokens': burn_criteria == 'all',
+                    'total_tokens_in_fund': base_queryset.count(),
+                    'tokens_to_burn': len(token_ids),
+                    'first_token_id': token_ids[0] if token_ids else None,
+                    'last_token_id': token_ids[-1] if token_ids else None,
+                })
+            
+            return token_ids
+            
+        except Exception as e:
+            raise serializers.ValidationError(f"Error obteniendo tokens para quemar: {str(e)}")
+    
+    def _process_burn_batch(self, fund, token_batch, user, results, initial_audit):
+        """Procesa un lote de quemas de tokens"""
+        batch_results = []
+        
+        for token_id in token_batch:
+            try:
+                # Ejecutar quema individual
+                result_data, error = burn_721_token(token_id, fund.id, fund.contract_address)
+
+                if not error:
+                    # Actualizar estado en la base de datos
+                    try:
+                        fund_token = FundToken.objects.get(fund=fund, token_id=token_id)
+                        original_nickname = fund_token.nickname
+                        
+                        # Crear transacción de quema
+                        TokenTransaction.objects.create(
+                            fund=fund,
+                            token=fund_token,
+                            transaction_type=TokenTransaction.TransactionTypes.BURN,
+                            from_user=user,
+                            amount=1,
+                            kaleido_transaction_id=result_data.get('id'),
+                            description=f'Token {token_id} ({original_nickname}) quemado por {user.email}',
+                            metadata={
+                                'original_nickname': original_nickname,
+                                'burn_result': result_data,
+                                'token_id': token_id,
+                                'batch_operation': True
+                            }
+                        )
+                        
+                        # Desactivar token
+                        fund_token.status = False
+                        fund_token.owner_user = None
+                        fund_token.save(update_fields=['status', 'owner_user'])
+                        
+                        results['burned'] += 1
+                        batch_results.append({
+                            'token_id': token_id,
+                            'success': True,
+                            'transaction_id': result_data.get('id'),
+                            'original_nickname': original_nickname
+                        })
+                        
+                    except FundToken.DoesNotExist:
+                        results['failures'] += 1
+                        batch_results.append({
+                            'token_id': token_id,
+                            'success': False,
+                            'error': f'Token {token_id} no encontrado en base de datos'
+                        })
+                else:
+                    results['failures'] += 1
+                    batch_results.append({
+                        'token_id': token_id,
+                        'success': False,
+                        'error': error
+                    })
+                    
+            except Exception as e:
+                results['failures'] += 1
+                batch_results.append({
+                    'token_id': token_id,
+                    'success': False,
+                    'error': str(e)
+                })
+        
+        return batch_results
+    
+    def _analyze_burn_errors(self, batch_details):
+        """Analiza los errores para generar un resumen comprehensivo"""
+        error_analysis = {
+            'total_errors': 0,
+            'error_types': {},
+            'failed_tokens': []
+        }
+        
+        for batch in batch_details:
+            for token_result in batch.get('results', []):
+                if not token_result.get('success', False):
+                    error_analysis['total_errors'] += 1
+                    error_type = token_result.get('error', 'Unknown error')
+                    
+                    if error_type not in error_analysis['error_types']:
+                        error_analysis['error_types'][error_type] = 0
+                    error_analysis['error_types'][error_type] += 1
+                    
+                    error_analysis['failed_tokens'].append({
+                        'token_id': token_result.get('token_id'),
+                        'error': error_type
+                    })
+        
+        return error_analysis
+    
+    def _execute_token_operation(self, validated_data):
+        """Implementación específica para quema masiva en lotes"""
+        fund_id = validated_data.get('fund_id')
+        quantity = validated_data.get('quantity')
+        batch_size = validated_data.get('batch_size', 40)
+        burn_criteria = validated_data.get('burn_criteria', 'oldest')
+        burn_all = validated_data.get('burn_all', False)
+        
+        fund = self._get_fund(fund_id)
+        
+        # Datos para auditoría
+        request = self.context.get('request')
+        user = request.user if request else None
+        
+        # Crear auditoría inicial
+        action_code = 'TOKEN_BATCH_BURN_ALL' if burn_all else 'TOKEN_BATCH_BURN'
+        operation_type = 'burn_all_tokens' if burn_all else 'burn_tokens_batch'
+        
+        initial_audit = self._create_initial_audit(
+            request, 
+            action_code, 
+            fund, 
+            operation_type
+        )
+        
+        # Resultados generales
+        results = {
+            'success': True,
+            'burn_all_requested': burn_all,
+            'total_requested': quantity,
+            'total_batches': 0,
+            'burned': 0,
+            'failures': 0,
+            'batch_details': [],
+            'summary': {
+                'completed_batches': 0,
+                'failed_batches': 0,
+                'total_processing_time': 0,
+                'operation_type': 'BURN_ALL' if burn_all else 'BURN_PARTIAL'
+            }
+        }
+        
+        # Verificar si el fondo tiene un contrato de token
+        self._validate_contract_address(fund, initial_audit)
+        
+        start_time = time.time()
+        
+        try:
+            # Obtener todos los token_ids disponibles para quemar
+            available_token_ids = self._get_batch_tokens_to_burn(
+                fund, quantity, burn_criteria, initial_audit
+            )
+            
+            # Actualizar quantity si era burn_all
+            actual_quantity = len(available_token_ids)
+            results['total_requested'] = actual_quantity
+            
+            # Dividir en lotes
+            total_batches = (actual_quantity + batch_size - 1) // batch_size
+            results['total_batches'] = total_batches
+            
+            # Mensaje especial para burn_all
+            if burn_all:
+                results['message'] = f"Iniciando quema de TODOS los tokens del fondo ({actual_quantity} tokens)"
+            
+            # Procesar lote por lote
+            for batch_num in range(total_batches):
+                start_idx = batch_num * batch_size
+                end_idx = min(start_idx + batch_size, actual_quantity)
+                
+                token_batch = available_token_ids[start_idx:end_idx]
+                
+                batch_start_time = time.time()
+                
+                # Procesar este lote
+                batch_results = self._process_burn_batch(
+                    fund, token_batch, user, results, initial_audit
+                )
+                
+                batch_end_time = time.time()
+                batch_processing_time = batch_end_time - batch_start_time
+                
+                # Registrar detalles del lote
+                batch_detail = {
+                    'batch_number': batch_num + 1,
+                    'tokens_in_batch': len(token_batch),
+                    'successful_burns': len([r for r in batch_results if r.get('success', False)]),
+                    'failed_burns': len([r for r in batch_results if not r.get('success', False)]),
+                    'processing_time': batch_processing_time,
+                    'results': batch_results
+                }
+                
+                results['batch_details'].append(batch_detail)
+                
+                # Actualizar contadores de lotes
+                if batch_detail['failed_burns'] == 0:
+                    results['summary']['completed_batches'] += 1
+                else:
+                    results['summary']['failed_batches'] += 1
+            
+            # Actualizar contador de tokens activos del fondo
+            with transaction.atomic():
+                fund_updated = Fund.objects.select_for_update().get(id=fund_id)
+                active_tokens_count = FundToken.objects.filter(fund=fund_updated, status=True).count()
+                fund_updated.amount_tokens = active_tokens_count
+                fund_updated.save(update_fields=['amount_tokens'])
+            
+            # Calcular tiempo total y determinar estado final
+            end_time = time.time()
+            results['summary']['total_processing_time'] = end_time - start_time
+            
+            # Análisis de errores
+            if results['failures'] > 0:
+                results['error_analysis'] = self._analyze_burn_errors(results['batch_details'])
+            
+            # Determinar estado final
+            if results['burned'] == actual_quantity:
+                results['success'] = True
+                if burn_all:
+                    results['message'] = f"Se han quemado TODOS los tokens del fondo exitosamente ({results['burned']} tokens)"
+                else:
+                    results['message'] = f"Se han quemado {results['burned']} tokens exitosamente"
+            elif results['burned'] > 0:
+                results['success'] = 'partial'
+                results['message'] = f"Se han quemado {results['burned']} tokens con {results['failures']} errores"
+            else:
+                results['success'] = False
+                results['message'] = f"Error al quemar tokens: {results['failures']} fallidos"
+            
+            # Actualizar auditoría final
+            if initial_audit:
+                final_status = 'SUCCESS' if results['success'] is True else 'PARTIAL' if results['success'] == 'partial' else 'ERROR'
+                self._update_audit(initial_audit, final_status, {
+                    'total_burned': results['burned'],
+                    'total_failed': results['failures'],
+                    'processing_time': results['summary']['total_processing_time'],
+                    'completed_batches': results['summary']['completed_batches'],
+                    'burn_all_operation': burn_all,
+                    'final_tokens_remaining': FundToken.objects.filter(fund=fund, status=True).count()
+                })
+            
+            return results
+            
+        except Exception as e:
+            # Manejo de errores generales
+            if initial_audit:
+                self._update_audit(initial_audit, 'ERROR', {'error': str(e)})
+            
+            results['success'] = False
+            results['message'] = f"Error durante la quema masiva: {str(e)}"
+            return results
+          
 class PurchaseTokenSerializer(BaseTokenOperationSerializer):
     """Serializer para comprar tokens existentes"""
     #token_id = serializers.IntegerField(required=True, help_text="ID del token a comprar")
@@ -891,7 +1246,7 @@ class PurchaseTokenBatchSerializer(BaseTokenOperationSerializer):
                 fund=fund,
                 status=True,
                 owner_user=24
-            ).order_by('-created_at', '-token_id')[:quantity]
+            ).order_by('created_at', 'token_id')[:quantity]
             
             if len(available_tokens) < quantity:
                 available_count = len(available_tokens)

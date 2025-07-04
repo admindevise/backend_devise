@@ -1,5 +1,5 @@
 from django.contrib import admin
-from apps.fund.models import Fund, FundInvestment, TransferReceipt, FundToken, FundApplication
+from apps.fund.models import Fund, FundInvestment, TransferReceipt, FundToken, FundApplication, TokenTransaction
 
 class FundAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'amount_units', 'amount_tokens', 'created_at')
@@ -31,9 +31,16 @@ class FundTokenAdmin(admin.ModelAdmin):
     list_filter = ('status', 'created_at', 'fund')
     ordering = ('-created_at',)
     search_fields = ('fund__name', 'created_by__username')
+    
+class TokenTransactionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'fund', 'token', 'amount', 'created_at')
+    search_fields = ('fund__fund__name', 'fund_token__token')
+    list_filter = ('created_at',)
+    ordering = ('-created_at',)
 
 admin.site.register(Fund, FundAdmin)
 admin.site.register(FundApplication, FundApplicationAdmin)
 admin.site.register(FundInvestment, FundInvestmentAdmin)
 admin.site.register(TransferReceipt, TransferReceiptAdmin)
 admin.site.register(FundToken, FundTokenAdmin) 
+admin.site.register(TokenTransaction, TokenTransactionAdmin)

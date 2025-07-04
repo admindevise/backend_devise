@@ -49,6 +49,18 @@ class Command(BaseCommand):
                         'code': 'TOKEN_BURN',
                         'severity': 'HIGH',
                         'description': 'Eliminación de un token del sistema'
+                    },
+                    {
+                        'name': 'Quemar Tokens Masivos',
+                        'code': 'TOKEN_BATCH_BURN',
+                        'severity': 'HIGH',
+                        'description': 'Eliminación masiva de tokens del sistema'
+                    },
+                    {
+                        'name': 'Quemar Todos los Tokens',
+                        'code': 'TOKEN_BATCH_BURN_ALL',
+                        'severity': 'CRITICAL',
+                        'description': 'Eliminación de todos los tokens del sistema'
                     }
                 ]
             },

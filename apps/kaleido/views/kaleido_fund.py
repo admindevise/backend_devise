@@ -20,8 +20,9 @@ from apps.kaleido.serializers.serializer_token_operation import (
     TokenMintSerializer, 
     TokenBurnSerializer, 
     PurchaseTokenSerializer, 
-    TokenMintBatchSerializer,
     PurchaseTokenIndexToIndexSerializer as PTIS,
+    TokenMintBatchSerializer,
+    TokenBurnBatchSerializer,
     PurchaseTokenBatchSerializer,
     get_batch_creation_progress
     )
@@ -29,6 +30,7 @@ from apps.kaleido.serializers.serializer_token_operation import (
 import requests
 from requests.auth import HTTPBasicAuth
 import json
+import time
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -1391,6 +1393,64 @@ class TokenMintBatchView(APIView):
                 'message': 'Validation failed',
                 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
+            
+class TokenBurnBatchView(APIView):
+    """
+    Vista para realizar una quema masiva de tokens en lotes.
+    Solo accesible por administradores.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        serializer = TokenBurnBatchSerializer(data=request.data, context={'request': request})
+        
+        if not serializer.is_valid():
+            return Response(
+                {"status": "error", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Ejecutar la operación de quema masiva de tokens
+        result = serializer.save()
+        
+        # Validación defensiva para extraer resultados
+        burned = result.get('burned', 0)
+        total_requested = result.get('total_requested', 0)
+        failures = result.get('failures', 0)
+        success = result.get('success', False)
+        
+        # Determinar estado y mensaje según el resultado
+        if success is True:
+            message = f"Operación completada: {burned}/{total_requested} tokens quemados exitosamente"
+            response_status = status.HTTP_200_OK
+            status_text = "success"
+            
+        elif burned > 0:
+            message = f"Operación parcial: {burned}/{total_requested} tokens quemados, {failures} fallidos"
+            response_status = status.HTTP_207_MULTI_STATUS
+            status_text = "partial_success"
+            
+        else:
+            message = f"Operación fallida: 0/{total_requested} tokens quemados"
+            response_status = status.HTTP_400_BAD_REQUEST
+            status_text = "error"
+        
+        response_data = {
+            "status": status_text,
+            "message": message,
+            "tokens_burned": burned,
+            "tokens_failed": failures,
+            "total_requested": total_requested,
+            "batch_details": result.get('batch_details', []),
+            "summary": result.get('summary', {}),
+            "processing_time": result.get('summary', {}).get('total_processing_time', 0)
+        }
+        
+        # Agregar análisis de errores si hay fallos
+        if failures > 0 and 'error_analysis' in result:
+            response_data['error_analysis'] = result['error_analysis']
+        
+        return Response(response_data, status=response_status)   
             
 class PurchaseTokenBatchView(APIView):
     """

@@ -12,7 +12,7 @@ from apps.fund.views.fund_investment_views import (
 )
 
 from apps.kaleido.views.kaleido_fund import (
-    TokenMintView, TokenMintBatchView, TokenBurnView, 
+    TokenMintView, TokenMintBatchView, TokenBurnView, TokenBurnBatchView, 
     PurchaseTokenView, PurchaseTokenBatchView,
     PurchaseTokenIndexToIndexView as PTIV,
     batch_creation_progress_view
@@ -35,6 +35,7 @@ urlpatterns = [
     path('api/mint_token_batch/', TokenMintBatchView.as_view(), name='mint-token-batch'),
     
     path('api/burn_token/', TokenBurnView.as_view(), name='burn-token'),
+    path('api/burn_token_batch/', TokenBurnBatchView.as_view(), name='burn-token-batch'),
     
     path('api/purchase_token/', PurchaseTokenView.as_view(), name='purchase-token'),
     path('api/purchase_token_batch/', PurchaseTokenBatchView.as_view(), name='purchase-token-batch'),
