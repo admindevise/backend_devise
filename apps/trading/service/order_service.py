@@ -418,8 +418,19 @@ class PaymentProcessingService:
             # 2. Generar datos ficticios
             payment_data = self._generate_fake_payment_data(payment_data, purchase_order)
             
-            # 3. Validar monto del pago
-            expected_amount = purchase_order.total_amount
+            # 3. CORREGIDO: Validar monto del pago contra la selección, no el total original
+            if hasattr(purchase_order, 'metadata') and purchase_order.metadata:
+                # Si hay metadata de selección, usar ese monto
+                selection_summary = purchase_order.metadata.get('selection_summary', {})
+                if 'total_amount' in selection_summary:
+                    expected_amount = Decimal(str(selection_summary['total_amount']))
+                else:
+                    # Fallback al monto total si no hay selección
+                    expected_amount = purchase_order.total_amount
+            else:
+                # Fallback al monto total si no hay metadata
+                expected_amount = purchase_order.total_amount
+            
             paid_amount = Decimal(str(payment_data.get('amount', 0)))
             
             if abs(paid_amount - expected_amount) > Decimal('0.01'):
@@ -472,7 +483,7 @@ class PaymentProcessingService:
                         'reserved_tokens': len(fake_token_ids),
                         'token_ids': fake_token_ids,
                         'operation': 'process_payment',
-                        'states_flow': 'APPROVED → PROCESSING_PAYMENT → PAID'
+                        'states_flow': 'PENDING → PROCESSING_PAYMENT → PAID'
                     },
                     status='SUCCESS'
                 )
@@ -501,7 +512,7 @@ class PaymentProcessingService:
             if request:
                 AuditService.log_action(
                     request=request,
-                    action_code='PURCHASE_PAYMENT_PROCESS_ERROR',
+                    action_code='PURCHASE_PAYMENT_PROCESS',
                     obj=purchase_order,
                     details={
                         'order_id': purchase_order.id,

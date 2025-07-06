@@ -91,7 +91,7 @@ def select_matches(request):
             validated_selections.append({
                 'sales_order_id': str(sales_order.id),
                 'sales_order_number': sales_order.order_number,
-                'seller_username': sales_order.seller_user.username,
+                'seller_email': sales_order.seller_user.email,
                 'units': requested_units,
                 'price_per_unit': float(sales_order.price_per_unit),
                 'subtotal': float(unit_cost)

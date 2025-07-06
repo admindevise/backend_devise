@@ -193,27 +193,27 @@ class TradingTokenValidator(BaseTokenValidator):
         }
     
     def validate_fund_liquidity(self, fund_id: int, required_quantity: int) -> dict:
-        """
-        Valida que el fondo tenga suficiente liquidez (tokens disponibles)
-        Utiliza check_token_availability de fund/utils.py
-        """
+        """Validar liquidez para mercado secundario (no del fondo directamente)"""
         try:
-            availability = check_token_availability(fund_id, required_quantity)
+            # CORREGIDO: Usar liquidez del mercado secundario
+            from apps.trading.utils import check_trading_liquidity
+            availability = check_trading_liquidity(fund_id, required_quantity)
             
             return {
                 'valid': availability['available'],
                 'available_count': availability['available_count'],
                 'required_count': availability['required_count'],
                 'shortage': availability['shortage'],
-                'liquidity_ratio': availability['available_count'] / required_quantity if required_quantity > 0 else 0
+                'liquidity_ratio': availability['available_count'] / required_quantity if required_quantity > 0 else 0,
+                'source': 'secondary_market'
             }
             
         except Exception as e:
-            logger.error(f"Error checking fund liquidity for fund {fund_id}: {str(e)}")
+            logger.error(f"Error checking trading liquidity for fund {fund_id}: {str(e)}")
             return {
                 'valid': False,
                 'error': str(e),
-                'reason': 'LIQUIDITY_CHECK_ERROR'
+                'reason': 'TRADING_LIQUIDITY_CHECK_ERROR'
             }
     
     def auto_select_tokens_for_sale(self, user, fund_id: int, quantity: int) -> dict:

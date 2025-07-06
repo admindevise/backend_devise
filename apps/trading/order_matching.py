@@ -197,6 +197,7 @@ class OrderMatch:
                 sales_orders = SalesOrder.objects.filter(
                     status='PENDING',
                     fund=po.fund,
+                    available_units__gt=0,
                     price_per_unit__lte=po.price_per_unit,  # Sales price <= Purchase max price
                     price_per_unit__gte=po_min_price,      # Sales price >= Purchase min acceptable price
                 ).order_by('price_per_unit')  # Get the lowest price first

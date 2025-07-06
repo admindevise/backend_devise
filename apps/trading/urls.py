@@ -10,6 +10,8 @@ from apps.trading.views.trading_views import (
 )
 
 from apps.trading.views.find_matching_views import execute_match, find_matches
+from apps.trading.views.payment_execution_views import pay_selection
+from apps.trading.views.order_selection_views import select_matches
 
 router = DefaultRouter()
 router.register(r'purchase-orders', PurchaseOrderViewSet, basename='purchaseorder')
@@ -21,11 +23,14 @@ urlpatterns = [
     path('api/', include(router.urls)),
     
     # Matching URLs (existentes)
-    path('execute-match/', execute_match, name='execute-match'),
-    path('find-matches/', find_matches, name='find-matches'),
+    path('api/execute-match/', execute_match, name='execute-match'),
+    path('api/find-matches/', find_matches, name='find-matches'),
+    
+    path('api/pay-selection/', pay_selection, name='pay-selection'),
+    path('api/select-matches/', select_matches, name='select-matches'),
     
     # Utility URLs
-    path('active-orders/', ActiveOrdersAPIView.as_view(), name='active-orders'),
+    path('api/active-orders/', ActiveOrdersAPIView.as_view(), name='active-orders'),
     
     path('api/cleanup-reservations/', cleanup_expired_reservations, name='cleanup-reservations'),
 ]

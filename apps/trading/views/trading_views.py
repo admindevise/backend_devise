@@ -35,7 +35,7 @@ class PurchaseOrderViewSet(DateFilterMixin,
     serializer_class = PurchaseOrderSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    filterset_fields = ['status', 'created_by', 'supplier_user']
+    filterset_fields = ['created_by', 'supplier_user']
     search_fields = ['order_number', 'fund__name']
     ordering_fields = ['created_at', 'price_per_unit', 'units', 'expiration_date']
     ordering = ['-created_at']
@@ -133,7 +133,7 @@ class SalesOrderViewSet(DateFilterMixin,
     serializer_class = SalesOrderSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    filterset_fields = ['status', 'created_by', 'seller_user']
+    filterset_fields = ['created_by', 'seller_user']
     search_fields = ['order_number', 'fund__name']
     ordering_fields = ['created_at', 'price_per_unit', 'units', 'expiration_date']
     ordering = ['-created_at']

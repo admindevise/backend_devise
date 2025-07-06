@@ -15,6 +15,7 @@ class BaseOrder(base_model.BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order_number = models.CharField(max_length=50, unique=True, blank=True)
     units = models.PositiveIntegerField(blank=False, null=False)
+    available_units = models.PositiveIntegerField(null=True, blank=True)    
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     expiration_date = models.DateField()
@@ -29,6 +30,7 @@ class BaseOrder(base_model.BaseModel):
         choices=[
             ('PENDING', 'Pendiente'),
             ('MATCHED', 'Emparejada'),
+            ('MATCHES_SELECTED', 'Matches Seleccionados'),
             ('EXPIRED', 'Expirada'),
             ('PROCESSING_PAYMENT', 'Procesando Pago'),
             ('PAID', 'Pagada'),

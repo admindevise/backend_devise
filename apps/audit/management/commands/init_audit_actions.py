@@ -193,6 +193,12 @@ class Command(BaseCommand):
                         'description': 'Cancelación de una orden de compra existente'
                     },
                     {
+                        'name': 'Orden de compra en proceso',
+                        'code': 'PURCHASE_PAYMENT_PROCESS',
+                        'severyity': 'MEDIUM',
+                        'description': 'Pago de una orden de compra en proceso del mercado secundario'
+                    },
+                    {
                         'name': 'Orden de Compra pagada',
                         'code': 'PURCHASE_ORDER_PAID',
                         'severity': 'MEDIUM',

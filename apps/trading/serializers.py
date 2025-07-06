@@ -24,7 +24,7 @@ class BaseOrderSerializer(serializers.ModelSerializer):
     
     # Campos comunes para ambos serializadores
     common_fields = [
-        'id', 'order_number', 'units', 'expiration_date', 'margin',
+        'id', 'order_number', 'units', 'available_units', 'expiration_date', 'margin',
         'status', 'fund', 'fund_name', 'created_by',
         'paid_at', 'completed_at', 'cancelled_at', 'created_at',
         'min_acceptable_price', 'max_acceptable_price', 'days_until_expiration', 'price_per_unit', 'total_amount',
