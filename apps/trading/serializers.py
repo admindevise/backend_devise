@@ -30,7 +30,7 @@ class BaseOrderSerializer(serializers.ModelSerializer):
         'min_acceptable_price', 'max_acceptable_price', 'days_until_expiration', 'price_per_unit', 'total_amount',
     ]
     
-    common_read_only = ['order_number', 'total_amount', 'approved_at', 'paid_at', 'completed_at', 'cancelled_at']
+    common_read_only = ['order_number', 'total_amount', 'available_units', 'approved_at', 'paid_at', 'completed_at', 'cancelled_at']
     
     order_prefix = 'OR'
     
@@ -78,6 +78,10 @@ class BaseOrderSerializer(serializers.ModelSerializer):
         
         if 'units' in data and 'price_per_unit' in data:
             data['total_amount'] = data['units'] * data['price_per_unit']
+        
+        if 'units' in data:
+            data['available_units'] = data['units']
+            
         
         return data
     
@@ -367,7 +371,6 @@ class OrderCancellationSerializer(serializers.Serializer):
         except Exception as e:
             raise serializers.ValidationError(f"Error al cancelar orden: {str(e)}")
 
-# ✅ ACTUALIZADO: TransactionSerializer con validaciones mejoradas
 class TransactionSerializer(serializers.ModelSerializer):
     """Serializer for transactions between purchase and sales orders"""
     fund_name = serializers.CharField(source='fund.name', read_only=True)
@@ -472,3 +475,5 @@ class OrderBookSerializer(serializers.ModelSerializer):
         ).data
         
         return representation
+    
+    

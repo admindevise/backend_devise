@@ -1,16 +1,17 @@
-from rest_framework import viewsets, status, permissions, filters, mixins
+from rest_framework import viewsets, status, filters, mixins
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
+from collections import OrderedDict
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Q
 
-from apps.trading.models import PurchaseOrder, SalesOrder, Transaction, OrderBook
-from apps.trading.order_matching import OrderMatch
+from apps.trading.models import PurchaseOrder, SalesOrder, Transaction
+from apps.trading.service.order_query_service import OrderQueryService
 from apps.trading.service.order_service import (
-    OrderCreationService, 
     OrderManagementService, 
     PaymentProcessingService
 )
@@ -351,53 +352,264 @@ class TransactionViewSet(DateFilterMixin,
         # El serializer ya maneja la ejecución segura con servicios
         serializer.save()
 
-class ActiveOrdersAPIView(APIView):
+class ActiveOrdersPagination(PageNumberPagination):
     """
-    API endpoint para obtener órdenes activas del usuario autenticado
+    Paginación personalizada para órdenes activas
+    """
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+    
+    def get_paginated_response(self, data):
+        """
+        Respuesta personalizada que mantiene la estructura de purchase_orders y sales_orders
+        """
+        return Response(OrderedDict([
+            ('count', self.page.paginator.count),
+            ('next', self.get_next_link()),
+            ('previous', self.get_previous_link()),
+            ('page_info', {
+                'current_page': self.page.number,
+                'total_pages': self.page.paginator.num_pages,
+                'page_size': self.page_size,
+                'has_next': self.page.has_next(),
+                'has_previous': self.page.has_previous(),
+            }),
+            ('results', data)
+        ]))
+
+class ActiveOrdersAPIView(DateFilterMixin, APIView):
+    """
+    API endpoint para obtener órdenes activas del usuario autenticado con paginación
     """
     permission_classes = [IsAuthenticated]
+    pagination_class = ActiveOrdersPagination
+    
+    def __init__(self):
+        super().__init__()
+        self.query_service = OrderQueryService()
+    
+    @property
+    def paginator(self):
+        """
+        Inicializa el paginador si no existe
+        """
+        if not hasattr(self, '_paginator'):
+            self._paginator = self.pagination_class()
+        return self._paginator
     
     def get(self, request):
-        user = request.user
+        """
+        GET /api/orders/active/
         
-        # Definir estados activos
-        active_statuses = ['PENDING', 'APPROVED']
+        Query params:
+        - all_orders: bool (admin only)
+        - user_id: int (admin only)
+        - start_date: date
+        - end_date: date
+        - include_stats: bool
+        - min_price: float
+        - max_price: float
+        - exact_price: float
+        - page: int (número de página)
+        - page_size: int (tamaño de página, máximo 100)
         
-        # Filtrar órdenes de compra activas
-        if user.is_staff and 'user_id' in request.query_params:
-            # Administradores pueden ver órdenes de cualquier usuario
-            user_id = request.query_params.get('user_id')
-            purchase_orders = PurchaseOrder.objects.filter(
-                Q(supplier_user_id=user_id) | Q(created_by_id=user_id),
-                status__in=active_statuses
+        """
+        try:
+            # Extraer parámetros de consulta
+            filters = self._extract_filters(request)
+            
+            # Usar el servicio para obtener órdenes
+            result = self.query_service.get_active_orders(
+                requesting_user=request.user,
+                **filters
             )
-            sales_orders = SalesOrder.objects.filter(
-                Q(seller_user_id=user_id) | Q(created_by_id=user_id),
-                status__in=active_statuses
+            
+            # NUEVO: Combinar órdenes para paginación
+            combined_orders = self._combine_orders_for_pagination(
+                result['purchase_orders'], 
+                result['sales_orders']
             )
-        else:
-            # Usuarios normales solo ven sus propias órdenes
-            purchase_orders = PurchaseOrder.objects.filter(
-                Q(supplier_user=user) | Q(created_by=user),
-                status__in=active_statuses
+            
+            # NUEVO: Aplicar paginación
+            paginated_orders = self.paginator.paginate_queryset(
+                combined_orders, 
+                request, 
+                view=self
             )
-            sales_orders = SalesOrder.objects.filter(
-                Q(seller_user=user) | Q(created_by=user),
-                status__in=active_statuses
+            
+            # NUEVO: Separar órdenes paginadas
+            paginated_data = self._separate_paginated_orders(paginated_orders)
+            
+            # Serializar datos paginados
+            purchase_serializer = PurchaseOrderSerializer(
+                paginated_data['purchase_orders'], 
+                many=True, 
+                context={'request': request}
             )
+            sales_serializer = SalesOrderSerializer(
+                paginated_data['sales_orders'], 
+                many=True, 
+                context={'request': request}
+            )
+            
+            # Preparar respuesta con estructura original
+            response_data = {
+                'purchase_orders': purchase_serializer.data,
+                'sales_orders': sales_serializer.data,
+                'total_active_orders': result['metadata']['total_count'],
+                'summary': result['metadata']
+            }
+            
+            # NUEVO: Agregar información de paginación
+            response_data['pagination'] = {
+                'current_page': self.paginator.page.number,
+                'total_pages': self.paginator.page.paginator.num_pages,
+                'page_size': self.paginator.page_size,
+                'total_count': self.paginator.page.paginator.count,
+                'has_next': self.paginator.page.has_next(),
+                'has_previous': self.paginator.page.has_previous(),
+                'next_page_url': self.paginator.get_next_link(),
+                'previous_page_url': self.paginator.get_previous_link()
+            }
+            
+            # Agregar estadísticas si se solicitan
+            if filters.get('include_stats'):
+                stats = self.query_service.get_order_statistics(
+                    requesting_user=request.user,
+                    **filters
+                )
+                response_data['statistics'] = stats
+            
+            return Response(response_data)
+            
+        except Exception as e:
+            return Response({
+                'error': f'Error obteniendo órdenes activas: {str(e)}',
+                'purchase_orders': [],
+                'sales_orders': [],
+                'total_active_orders': 0,
+                'pagination': {
+                    'current_page': 1,
+                    'total_pages': 0,
+                    'page_size': 20,
+                    'total_count': 0,
+                    'has_next': False,
+                    'has_previous': False
+                }
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _combine_orders_for_pagination(self, purchase_orders, sales_orders):
+        """
+        Combina órdenes de compra y venta para paginación unificada
+        """
+        from itertools import chain
         
-        # Serializar resultados
-        purchase_serializer = PurchaseOrderSerializer(purchase_orders, many=True, context={'request': request})
-        sales_serializer = SalesOrderSerializer(sales_orders, many=True, context={'request': request})
+        # Agregar tipo de orden para poder separar después
+        purchase_list = []
+        for order in purchase_orders:
+            order._order_type = 'purchase'
+            purchase_list.append(order)
         
-        # Combinar resultados en una respuesta
-        return Response({
-            'purchase_orders': purchase_serializer.data,
-            'sales_orders': sales_serializer.data,
-            'total_active_orders': purchase_orders.count() + sales_orders.count()
-        })
+        sales_list = []
+        for order in sales_orders:
+            order._order_type = 'sales'
+            sales_list.append(order)
+        
+        # Combinar y ordenar por fecha de creación (más recientes primero)
+        combined = list(chain(purchase_list, sales_list))
+        combined.sort(key=lambda x: x.created_at, reverse=True)
+        
+        return combined
+    
+    def _separate_paginated_orders(self, paginated_orders):
+        """
+        Separa órdenes paginadas en compra y venta
+        """
+        purchase_orders = []
+        sales_orders = []
+        
+        for order in paginated_orders:
+            if hasattr(order, '_order_type'):
+                if order._order_type == 'purchase':
+                    purchase_orders.append(order)
+                elif order._order_type == 'sales':
+                    sales_orders.append(order)
+        
+        return {
+            'purchase_orders': purchase_orders,
+            'sales_orders': sales_orders
+        }
+    
+    def _extract_filters(self, request):
+        """Extrae y valida filtros de la consulta"""
+        filters = {}
+        errors = []
+        price_range = {}
+        
+        # Filtro por rango de precios
+        try:
+            if request.query_params.get('min_price'):
+                min_price = float(request.query_params.get('min_price'))
+                if min_price <= 0:
+                    errors.append("El precio mínimo no puede ser cero o negativo")
+                else:
+                    price_range['min_price'] = min_price
+            
+            if request.query_params.get('max_price'):
+                max_price = float(request.query_params.get('max_price'))
+                if max_price <= 0:
+                    errors.append("El precio máximo no puede ser cero o negativo")
+                else:
+                    price_range['max_price'] = max_price
+            
+            # Validar que min_price <= max_price
+            if price_range.get('min_price') and price_range.get('max_price'):
+                if price_range['min_price'] > price_range['max_price']:
+                    errors.append("El precio mínimo no puede ser mayor que el precio máximo")
+            
+            if request.query_params.get('exact_price'):
+                exact_price = float(request.query_params.get('exact_price'))
+                if exact_price <= 0:
+                    errors.append("El precio exacto no puede ser cero o negativo")
+                else:
+                    price_range['exact_price'] = exact_price
+        
+        except ValueError:
+            errors.append("Los valores de precio deben ser números válidos")
+        
+        if price_range:
+            filters['price_range'] = price_range
+        
+        # Si hay errores, lanzar excepción
+        if errors:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"filter_errors": errors})
+        
+        # Filtros de permisos
+        if request.query_params.get('all_orders', '').lower() == 'true':
+            filters['all_orders'] = True
+        
+        if request.query_params.get('user_id'):
+            filters['user_id'] = request.query_params.get('user_id')
+        
+        # Filtros de fecha
+        date_range = {}
+        if request.query_params.get('start_date'):
+            date_range['start_date'] = request.query_params.get('start_date')
+        if request.query_params.get('end_date'):
+            date_range['end_date'] = request.query_params.get('end_date')
+        
+        if date_range:
+            filters['date_range'] = date_range
+        
+        # Opciones adicionales
+        if request.query_params.get('include_stats', '').lower() == 'true':
+            filters['include_stats'] = True
+        
+        return filters
 
-# ✅ NUEVO: Vista para gestión de tokens reservados
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def cleanup_expired_reservations(request):
