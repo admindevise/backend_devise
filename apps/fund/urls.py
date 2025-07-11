@@ -18,6 +18,8 @@ from apps.kaleido.views.kaleido_fund import (
     batch_creation_progress_view
 )
 
+from apps.fund.views.fund_utils_views import get_token_count
+
 router = DefaultRouter()
 router.register(r'main', FundViewSet, basename='fund'),
 router.register(r'investment', FundInvestmentViewSet, basename='fund-investment'),
@@ -46,4 +48,8 @@ urlpatterns = [
     #=========== APIREST Views Application ===========#
     path('api/pending_review/', FundApplicationPendingReviewView.as_view(), name='fund-application-view'),
     
+    #============================
+    #+ Fund Utils Views
+    #============================
+    path('api/tokens_count/', get_token_count, name='get-token-count'),
 ]

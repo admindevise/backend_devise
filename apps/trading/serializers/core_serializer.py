@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.utils import timezone
 from django.db import transaction
 
-from apps.trading.service.order_service import OrderCreationService, OrderManagementService
+from apps.trading.services.order_service import OrderCreationService, OrderManagementService
 from apps.user.models import User
 from apps.trading.models import (
     PurchaseOrder,
@@ -27,7 +27,7 @@ class BaseOrderSerializer(serializers.ModelSerializer):
         'id', 'order_number', 'units', 'available_units', 'expiration_date', 'margin',
         'status', 'fund', 'fund_name', 'created_by',
         'paid_at', 'completed_at', 'cancelled_at', 'created_at',
-        'min_acceptable_price', 'max_acceptable_price', 'days_until_expiration', 'price_per_unit', 'total_amount',
+        'min_acceptable_price', 'max_acceptable_price', 'days_until_expiration', 'price_per_unit', 'total_amount', 'metadata'
     ]
     
     common_read_only = ['order_number', 'total_amount', 'available_units', 'approved_at', 'paid_at', 'completed_at', 'cancelled_at']
@@ -389,60 +389,10 @@ class TransactionSerializer(serializers.ModelSerializer):
             'units',
             'price_per_unit',
             'total_amount',
-            'created_at'
+            'metadata',
+            'created_at',
         ]
         read_only_fields = ['transaction_date', 'created_at', 'updated_at']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # ✅ NUEVO: Servicio para ejecución de transacciones
-        from apps.trading.service.order_service import TransactionExecutionService
-        self.transaction_service = TransactionExecutionService()
-
-    def validate(self, data):
-        """Validaciones adicionales para transacciones"""
-        purchase_order = data.get('purchase_order')
-        sales_order = data.get('sales_order')
-        units = data.get('units', 0)
-        
-        if purchase_order and sales_order:
-            # Validar que las órdenes pertenezcan al mismo fondo
-            if purchase_order.fund != sales_order.fund:
-                raise serializers.ValidationError("Las órdenes deben pertenecer al mismo fondo")
-            
-            # Validar unidades disponibles
-            max_units = min(purchase_order.units, sales_order.units)
-            if units > max_units:
-                raise serializers.ValidationError(
-                    f"Units cannot exceed available units in orders. Max: {max_units}"
-                )
-        
-        return data
-
-    @transaction.atomic
-    def create(self, validated_data):
-        """Crear transacción usando el servicio de ejecución"""
-        request = self.context.get('request')
-        purchase_order = validated_data['purchase_order']
-        sales_order = validated_data['sales_order']
-        units_to_trade = validated_data['units']
-        
-        try:
-            # Usar el servicio de ejecución que maneja blockchain y DB
-            result = self.transaction_service.execute_trade(
-                purchase_order=purchase_order,
-                sales_order=sales_order,
-                units_to_trade=units_to_trade,
-                request=request
-            )
-            
-            if not result['success']:
-                raise serializers.ValidationError("Error ejecutando la transacción")
-            
-            return result['transaction']
-            
-        except Exception as e:
-            raise serializers.ValidationError(f"Error en transacción: {str(e)}")
 
 class OrderBookSerializer(serializers.ModelSerializer):
     """Serializer for order book which shows open buy/sell orders for a fund"""

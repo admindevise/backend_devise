@@ -8,7 +8,7 @@ from apps.trading.models import PurchaseOrder, SalesOrder, Transaction, OrderBoo
 from apps.fund.models import Fund
 from apps.user.models import User
 
-from apps.trading.serializers import (
+from apps.trading.serializers.core_serializer import (
     PurchaseOrderSerializer,
     SalesOrderSerializer,
     TransactionSerializer,

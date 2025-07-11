@@ -280,7 +280,8 @@ class TokenReservationManager:
                         token_id=token_id,
                         fund_id=fund_id,
                         owner_user=user,
-                        status=True
+                        status=True,
+                        reserved_for_sale=False
                     )
                     
                     # Verificar si ya está reservado

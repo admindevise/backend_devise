@@ -20,7 +20,6 @@ class PurchaseOrderAdmin(admin.ModelAdmin):
         'fund',
         'created_by',
         'paid_at',
-        'completed_at',
         'cancelled_at',
         'created_at'
     )
@@ -39,7 +38,7 @@ class PurchaseOrderAdmin(admin.ModelAdmin):
             'fields': ('fund',)
         }),
         ('Timestamps', {
-            'fields': ('approved_at', 'paid_at', 'completed_at', 'cancelled_at', 'created_at')
+            'fields': ('approved_at', 'paid_at', 'cancelled_at', 'created_at')
         })
     ) """
 
@@ -56,8 +55,6 @@ class SalesOrderAdmin(admin.ModelAdmin):
         'seller_user',
         'fund',
         'created_by',
-        'paid_at',
-        'completed_at',
         'cancelled_at',
         'created_at'
     )
@@ -76,7 +73,7 @@ class SalesOrderAdmin(admin.ModelAdmin):
             'fields': ('fund',)
         }),
         ('Timestamps', {
-            'fields': ('approved_at', 'paid_at', 'completed_at', 'cancelled_at', 'created_at')
+            'fields': ('approved_at', 'paid_at', 'cancelled_at', 'created_at')
         })
     ) """
 

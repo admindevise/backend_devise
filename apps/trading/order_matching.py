@@ -16,104 +16,141 @@ class OrderMatch:
     def __init__(self):
         self.processed_matches = []
     
+
     def find_matches_for_order(self, order, limit=100, min_match_percentage=20):
         """
-        Encuentra coincidencias para una orden específica (compra o venta).
-        Permite que un usuario busque matches para su propia orden.
+        Encuentra coincidencias para una orden específica usando MÁRGENES de tolerancia.
         """
         matches = []
         today = timezone.now().date()
         
         if isinstance(order, PurchaseOrder):
-            # Buscar órdenes de venta compatibles para una orden de compra
             po = order
-            po_min_price = po.min_acceptable_price
-            # Limitar la búsqueda a órdenes de venta que expiran pronto
-            soon_expiring = today + timedelta(days=5)
             
             sales_orders = SalesOrder.objects.filter(
-                status='PENDING',
+                status__in=['PENDING', 'PARTIALLY_EXECUTED'],
                 fund=po.fund,
-                price_per_unit__lte=po.price_per_unit,
-                price_per_unit__gte=po_min_price,
                 expiration_date__gte=today,
             ).annotate(
                 days_to_expire = ExpressionWrapper(
                     F('expiration_date') - today,
                     output_field=fields.DurationField()
                 )
-            ).order_by('days_to_expire', 'price_per_unit')[:limit]
+            ).order_by('days_to_expire', 'price_per_unit')[:limit * 2]  # Obtener más candidatos
             
             for so in sales_orders:
                 # No permitir operaciones con uno mismo
                 if so.seller_user == po.supplier_user:
                     continue
+                
+                # ✅ NUEVA VALIDACIÓN: Verificar compatibilidad de márgenes
+                # Comprador acepta pagar hasta: po.max_acceptable_price
+                # Vendedor quiere recibir mínimo: so.min_acceptable_price
+                # Vendedor acepta recibir hasta: so.max_acceptable_price
+                # Comprador quiere pagar mínimo: po.min_acceptable_price
+                
+                buyer_max = po.max_acceptable_price  
+                seller_min = so.min_acceptable_price    
+                seller_max = so.max_acceptable_price    
+                buyer_min = po.min_acceptable_price     
+                
+                # ✅ CONDICIÓN DE MATCH: Hay superposición en los rangos
+                if buyer_max >= seller_min and seller_max >= buyer_min:
+                    # ✅ Calcular precio de compromiso
+                    # Precio final: el menor entre lo máximo que acepta el comprador 
+                    # y lo que pide el vendedor
+                    final_price = min(buyer_max, so.price_per_unit)
                     
-                # Verificar precios compatibles
-                if po.price_per_unit <= so.max_acceptable_price:
-                    available_units = min(po.units, so.units)
-                    
-                    match_percentage_po = (available_units / po.units) * 100
-                    match_percentage_so = (available_units / so.units) * 100
-                    
-                    if match_percentage_po >= min_match_percentage:
-                        matches.append({
-                            'purchase_order': po,
-                            'sales_order': so,
-                            'matched_units': available_units,
-                            'match_price': so.price_per_unit,
-                            'total_amount': available_units * so.price_per_unit,
-                            'match_percentage': match_percentage_po,
-                            'is_partial': available_units < po.units
-                        })
+                    # ✅ También verificar que no exceda lo que el vendedor acepta
+                    if final_price >= seller_min and final_price <= seller_max:
+                        # Calcular unidades disponibles
+                        available_units_po = po.available_units or po.units
+                        available_units_so = so.available_units or so.units
+                        available_units = min(available_units_po, available_units_so)
+                        
+                        match_percentage_po = (available_units / po.units) * 100
+                        
+                        if match_percentage_po >= min_match_percentage:
+                            matches.append({
+                                'purchase_order': po,
+                                'sales_order': so,
+                                'matched_units': available_units,
+                                'match_price': final_price,  # ✅ Precio negociado
+                                'total_amount': available_units * final_price,
+                                'match_percentage': match_percentage_po,
+                                'is_partial': available_units < po.units,
+                                'negotiation_details': {  # ✅ NUEVO: Detalles de negociación
+                                    'buyer_range': f"{buyer_min} - {buyer_max}",
+                                    'seller_range': f"{seller_min} - {seller_max}",
+                                    'overlap_range': f"{max(buyer_min, seller_min)} - {min(buyer_max, seller_max)}",
+                                    'final_price': final_price,
+                                    'original_buyer_price': po.price_per_unit,
+                                    'original_seller_price': so.price_per_unit
+                                }
+                            })
             
         elif isinstance(order, SalesOrder):
-            # Buscar órdenes de compra compatibles para una orden de venta
+            # ✅ NUEVA LÓGICA SIMILAR PARA SALES ORDERS
             so = order
-            so_max_price = so.max_acceptable_price
             
             purchase_orders = PurchaseOrder.objects.filter(
-                status='PENDING',
+                status__in=['PENDING', 'PARTIALLY_EXECUTED'],
                 fund=so.fund,
-                price_per_unit__gte=so.price_per_unit,
-                price_per_unit__lte=so_max_price,
                 expiration_date__gte=today,
-                
             ).annotate(
                 days_to_expire = ExpressionWrapper(
                     F('expiration_date') - today,
                     output_field=fields.DurationField()
                 )
-                ).order_by('days_to_expire','-price_per_unit')[:limit]  # Mejor precio primero
+            ).order_by('days_to_expire', '-price_per_unit')[:limit * 2]  # Mejor precio primero
             
             for po in purchase_orders:
                 # No permitir operaciones con uno mismo
                 if po.supplier_user == so.seller_user:
                     continue
+                
+                # ✅ MISMA VALIDACIÓN DE MÁRGENES
+                buyer_max = po.max_acceptable_price      
+                seller_min = so.min_acceptable_price    
+                seller_max = so.max_acceptable_price    
+                buyer_min = po.min_acceptable_price     
+                
+                if buyer_max >= seller_min and seller_max >= buyer_min:
+                    # Precio final para sales order: el mayor entre lo mínimo que acepta el vendedor
+                    # y lo que ofrece el comprador
+                    final_price = max(seller_min, po.price_per_unit)
                     
-                # Verificar precios compatibles
-                po_min_price = po.min_acceptable_price
-                if so.price_per_unit >= po_min_price:
-                    available_units = min(po.units, so.units)
-                    
-                    match_percentage_po = (available_units / po.units) * 100
-                    match_percentage_so = (available_units / so.units) * 100
-                    
-                    # Solo considerar coincidencias que cubran al menos  el procentaje mínimo
-                    if match_percentage_so >= min_match_percentage:
-                        matches.append({
-                            'purchase_order': po,
-                            'sales_order': so,
-                            'matched_units': available_units,
-                            'match_price': so.price_per_unit,
-                            'total_amount': available_units * so.price_per_unit,
-                            'match_percentage': match_percentage_so,
-                            'is_partial': available_units < so.units
-                        })
+                    if final_price >= seller_min and final_price <= seller_max and final_price <= buyer_max:
+                        available_units_po = po.available_units or po.units
+                        available_units_so = so.available_units or so.units
+                        available_units = min(available_units_po, available_units_so)
+                        
+                        match_percentage_so = (available_units / so.units) * 100
+                        
+                        if match_percentage_so >= min_match_percentage:
+                            matches.append({
+                                'purchase_order': po,
+                                'sales_order': so,
+                                'matched_units': available_units,
+                                'match_price': final_price,
+                                'total_amount': available_units * final_price,
+                                'match_percentage': match_percentage_so,
+                                'is_partial': available_units < so.units,
+                                'negotiation_details': {
+                                    'buyer_range': f"{buyer_min} - {buyer_max}",
+                                    'seller_range': f"{seller_min} - {seller_max}",
+                                    'overlap_range': f"{max(buyer_min, seller_min)} - {min(buyer_max, seller_max)}",
+                                    'final_price': final_price,
+                                    'original_buyer_price': po.price_per_unit,
+                                    'original_seller_price': so.price_per_unit
+                                }
+                            })
         
-        matches.sort(key=lambda m: (m['match_percentage'], -m['match_price']
-                                    if isinstance(order, PurchaseOrder)
-                                    else m['match_price']), reverse=True)
+        # ✅ ORDENAR POR MEJOR MATCH
+        matches.sort(key=lambda m: (
+            m['match_percentage'], 
+            -m['match_price'] if isinstance(order, PurchaseOrder) else m['match_price']
+        ), reverse=True)
         
         return matches[:limit]
     

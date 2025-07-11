@@ -10,13 +10,11 @@ from django.utils import timezone
 from django.db.models import Q
 
 from apps.trading.models import PurchaseOrder, SalesOrder, Transaction
-from apps.trading.service.order_query_service import OrderQueryService
-from apps.trading.service.order_service import (
-    OrderManagementService, 
-    PaymentProcessingService
-)
+from apps.trading.services.order_query_service import OrderQueryService
+from apps.trading.services.order_service import OrderManagementService
+from apps.trading.services.payment_execution_service import PaymentExecutionService
 from apps.utils.views.Mixins import DateFilterMixin
-from apps.trading.serializers import (
+from apps.trading.serializers.core_serializer import (
     PurchaseOrderSerializer,
     SalesOrderSerializer,
     TransactionSerializer,
@@ -44,7 +42,7 @@ class PurchaseOrderViewSet(DateFilterMixin,
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.order_management_service = OrderManagementService()
-        self.payment_service = PaymentProcessingService()
+        self.payment_execution_service = PaymentExecutionService()
 
     def perform_create(self, serializer):
         """Override para usar el contexto de request"""
@@ -352,6 +350,9 @@ class TransactionViewSet(DateFilterMixin,
         # El serializer ya maneja la ejecución segura con servicios
         serializer.save()
 
+#+ =================================
+#+ ActiveOrdersAPIView
+#+ =================================
 class ActiveOrdersPagination(PageNumberPagination):
     """
     Paginación personalizada para órdenes activas

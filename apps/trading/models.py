@@ -12,6 +12,7 @@ class BaseOrder(base_model.BaseModel):
     Modelo base abstracto para órdenes de compra y venta.
     Contiene los campos y métodos comunes a ambos tipos de órdenes.
     """
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order_number = models.CharField(max_length=50, unique=True, blank=True)
     units = models.PositiveIntegerField(blank=False, null=False)
@@ -25,30 +26,15 @@ class BaseOrder(base_model.BaseModel):
         decimal_places=2, 
         default=0
     )    
-    status = models.CharField(
-        max_length=20, 
-        choices=[
-            ('PENDING', 'Pendiente'),
-            ('MATCHED', 'Emparejada'),
-            ('MATCHES_SELECTED', 'Matches Seleccionados'),
-            ('EXPIRED', 'Expirada'),
-            ('PROCESSING_PAYMENT', 'Procesando Pago'),
-            ('PAID', 'Pagada'),
-            ('COMPLETED', 'Completada'),
-            ('CANCELLED', 'Cancelada')
-        ],
-        default='PENDING'
-    )
     
     fund = models.ForeignKey(Fund, on_delete=models.PROTECT)
     created_by = models.ForeignKey(User, on_delete=models.PROTECT)
     
     # Campos de seguimiento temporal
-    paid_at = models.DateTimeField(null=True, blank=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
+    fully_executed_at = models.DateTimeField(null=True, blank=True)
+    partially_executed_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     matched_at = models.DateTimeField(null=True, blank=True)
-    processing_payment_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         abstract = True
@@ -74,37 +60,36 @@ class BaseOrder(base_model.BaseModel):
         delta = self.expiration_date - today
         return delta.days
 
-    def update_status(self, new_status):
-        """
-        Actualiza el estado de la orden y registra la fecha del cambio.
-        """
-        self.status = new_status
-        now = timezone.now()
-        
-        if new_status == 'APPROVED':
-            self.approved_at = now
-        elif new_status == 'PAID':
-            self.paid_at = now
-        elif new_status == 'COMPLETED':
-            self.completed_at = now
-        elif new_status == 'CANCELLED':
-            self.cancelled_at = now
-            
-        self.save()
-
 
 class PurchaseOrder(BaseOrder):
     """
     Modelo que representa una orden de compra de unidades de un fondo.
     """
     
+    class PurchaseOrderStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pendiente'
+        MATCHES_SELECTED = 'MATCHES_SELECTED', 'Matches Seleccionados'
+        MATCHED = 'MATCHED', 'Emparejada'
+        
+        PROCESSING_PAYMENT = 'PROCESSING_PAYMENT', 'Procesando Pago'
+        PAID = 'PAID', 'Pagada'
+        PARTIALLY_EXECUTED = 'PARTIALLY_EXECUTED', 'Parcialmente Ejecutada'
+        FULLY_EXECUTED = 'FULLY_EXECUTED', 'Completamente Ejecutada'
+        
+        CANCELLED = 'CANCELLED', 'Cancelada'    
+        EXPIRED = 'EXPIRED', 'Expirada'
+    
+    status = models.CharField(
+        max_length=30,
+        choices=PurchaseOrderStatus.choices,
+        default=PurchaseOrderStatus.PENDING,
+    )
     supplier_user = models.ForeignKey(
         User, 
         on_delete=models.PROTECT, 
         related_name='purchase_orders'
     )
     
-    # Relaciones específicas para órdenes de compra
     created_by = models.ForeignKey(
         User, 
         on_delete=models.PROTECT, 
@@ -115,6 +100,8 @@ class PurchaseOrder(BaseOrder):
         on_delete=models.PROTECT, 
         related_name='purchase_orders'
     )
+    paid_at = models.DateTimeField(null=True, blank=True)
+    processing_payment_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         ordering = ['-created_at']
@@ -155,14 +142,26 @@ class SalesOrder(BaseOrder):
     """
     Modelo que representa una orden de venta de unidades de un fondo.
     """
+    class SalesOrderStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pendiente'
+        MATCHED = 'MATCHED', 'Emparejada'
+        MATCHES_SELECTED = 'MATCHES_SELECTED', 'Matches Seleccionados'
+        PARTIALLY_EXECUTED = 'PARTIALLY_EXECUTED', 'Parcialmente Ejecutada'
+        FULLY_EXECUTED = 'FULLY_EXECUTED', 'Completamente Ejecutada'
+        
+        CANCELLED = 'CANCELLED', 'Cancelada'    
+        EXPIRED = 'EXPIRED', 'Expirada'
     
+    status = models.CharField(
+        max_length=30,
+        choices=SalesOrderStatus.choices,
+        default=SalesOrderStatus.PENDING,
+    )
     seller_user = models.ForeignKey(
         User, 
         on_delete=models.PROTECT, 
         related_name='sales_orders_seller'
     )
-    
-    # Relaciones específicas para órdenes de venta
     created_by = models.ForeignKey(
         User, 
         on_delete=models.PROTECT, 
@@ -222,6 +221,7 @@ class Transaction(base_model.BaseModel):
     units = models.PositiveIntegerField()
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    metadata = models.JSONField(default=dict, blank=True)
     
     class Meta:
         ordering = ['-created_at']

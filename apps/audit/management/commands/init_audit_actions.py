@@ -193,9 +193,27 @@ class Command(BaseCommand):
                         'description': 'Cancelación de una orden de compra existente'
                     },
                     {
-                        'name': 'Orden de compra en proceso',
+                        'name': 'Orden de Compra en Proceso de Match',
+                        'code': 'MATCH_SELECTION_PROCESS',
+                        'severity': 'MEDIUM',
+                        'description': 'Selección de matches para una orden de compra en el mercado secundario'
+                    },
+                    {
+                        'name': 'Orden de Compra Autoseleccionada',
+                        'code': 'AUTO_MATCH_SELECTION',
+                        'severity': 'MEDIUM',
+                        'description': 'Orden de compra que se autoselecciona en el mercado secundario'
+                    },
+                    {
+                        'name': 'Advertencia de Unidades Insuficientes',
+                        'code': 'AUTO_SELECTION_WARNING',
+                        'severity': 'LOW',
+                        'description': 'Advertencia de unidades insuficientes al seleccionar matches para una orden de compra'
+                    },
+                    {
+                        'name': 'Orden de Compra en Proceso de Pago',
                         'code': 'PURCHASE_PAYMENT_PROCESS',
-                        'severyity': 'MEDIUM',
+                        'severity': 'MEDIUM',
                         'description': 'Pago de una orden de compra en proceso del mercado secundario'
                     },
                     {
