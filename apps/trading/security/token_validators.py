@@ -1,10 +1,6 @@
 from abc import ABC, abstractmethod
 from apps.fund.models import FundToken
 from apps.kaleido.utils import get_owner_of, is_investor_valid
-from apps.fund.utils import ( 
-    check_token_availability,
-    reserve_oldest_tokens
-)
 from django.utils import timezone
 from django.db import transaction
 import logging
@@ -236,7 +232,7 @@ class TradingTokenValidator(BaseTokenValidator):
             if len(user_tokens_list) < quantity:
                 return {
                     'valid': False,
-                    'error': f'Insufficient tokens. User has {len(user_tokens_list)}, needs {quantity}',
+                    'error': f'Tokens insuficientes. Usuario tiene {len(user_tokens_list)}, necesita {quantity}',
                     'available_tokens': user_tokens_list,
                     'shortage': quantity - len(user_tokens_list)
                 }
@@ -262,7 +258,7 @@ class TokenReservationManager:
     """
     
     @staticmethod
-    def reserve_tokens_for_sale(user, token_ids: list, fund_id: int, duration_minutes: int = 30) -> dict:
+    def reserve_tokens_for_sale(user, token_ids: list, fund_id: int) -> dict:
         """
         Reserva tokens temporalmente para una orden de venta
         """
@@ -270,8 +266,6 @@ class TokenReservationManager:
         
         reserved_tokens = []
         failed_reservations = []
-        
-        expiration_time = timezone.now() + timedelta(minutes=duration_minutes)
         
         with transaction.atomic():
             for token_id in token_ids:
@@ -288,7 +282,7 @@ class TokenReservationManager:
                     if hasattr(fund_token, 'reserved_for_sale') and fund_token.reserved_for_sale:
                         failed_reservations.append({
                             'token_id': token_id,
-                            'error': 'Token already reserved'
+                            'error': 'El token ya está reservado para otra operación',
                         })
                         continue
                     
@@ -296,19 +290,17 @@ class TokenReservationManager:
                     if hasattr(fund_token, 'reserved_for_sale'):
                         fund_token.reserved_for_sale = True
                         fund_token.reserved_at = timezone.now()
-                        fund_token.reservation_expires_at = expiration_time
-                        fund_token.save(update_fields=['reserved_for_sale', 'reserved_at', 'reservation_expires_at'])
+                        fund_token.save(update_fields=['reserved_for_sale', 'reserved_at',])
                     
                     reserved_tokens.append({
                         'token_id': token_id,
                         'fund_token': fund_token,
-                        'expires_at': expiration_time
                     })
                     
                 except FundToken.DoesNotExist:
                     failed_reservations.append({
                         'token_id': token_id,
-                        'error': 'Token not found or not owned by user'
+                        'error': 'Token no encontrado o no pertenece al usuario',
                     })
                 except Exception as e:
                     failed_reservations.append({
@@ -322,46 +314,6 @@ class TokenReservationManager:
             'failed_reservations': failed_reservations,
             'total_reserved': len(reserved_tokens)
         }
-    
-    @staticmethod
-    def reserve_tokens_for_purchase(fund_id: int, quantity: int, buyer_user) -> dict:
-        """
-        Reserva tokens automáticamente para una orden de compra usando las funciones de fund/utils.py
-        """
-        try:
-            # Verificar disponibilidad primero
-            availability = check_token_availability(fund_id, quantity)
-            
-            if not availability['available']:
-                return {
-                    'success': False,
-                    'error': f"Insufficient tokens available. Need {quantity}, have {availability['available_count']}",
-                    'availability_info': availability
-                }
-            
-            # Reservar los tokens más antiguos disponibles
-            reserved_tokens = reserve_oldest_tokens(fund_id, quantity, buyer_user)
-            
-            return {
-                'success': True,
-                'reserved_tokens': reserved_tokens,
-                'total_reserved': len(reserved_tokens),
-                'token_ids': [token.token_id for token in reserved_tokens]
-            }
-            
-        except ValueError as e:
-            return {
-                'success': False,
-                'error': str(e),
-                'reason': 'RESERVATION_ERROR'
-            }
-        except Exception as e:
-            logger.error(f"Error reserving tokens for purchase: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e),
-                'reason': 'UNEXPECTED_ERROR'
-            }
     
     @staticmethod
     def release_token_reservations(token_ids: list, fund_id: int) -> dict:

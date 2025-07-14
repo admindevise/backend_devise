@@ -44,7 +44,7 @@ class OrderCreationService:
             
             # 3. Reservar tokens para la venta
             reservation_result = self.reservation_manager.reserve_tokens_for_sale(
-                user, selected_tokens, fund.id, duration_minutes=60
+                user, selected_tokens, fund.id
             )
             
             if not reservation_result['success']:
@@ -62,11 +62,9 @@ class OrderCreationService:
             # 5. Registrar metadatos de la reserva
             if hasattr(sales_order, 'metadata'):
                 sales_order.metadata = {
-                    'reserved_tokens': selected_tokens,
-                    'reservation_expires_at': reservation_result['reserved_tokens'][0]['expires_at'].isoformat(),
                     'total_tokens_reserved': len(selected_tokens),
+                    'reserved_tokens': selected_tokens,
                     'feasibility_validated': feasibility['feasible'],
-                    'created_at': timezone.now().isoformat()
                 }
                 sales_order.save(update_fields=['metadata'])
                         
@@ -241,7 +239,7 @@ class OrderManagementService:
         print('entro a la funcion')
         try:
             # 1. Verificar que la orden se pueda cancelar
-            if sales_order.status in ['COMPLETED', 'CANCELLED']:
+            if not sales_order.status == SalesOrder.SalesOrderStatus.PENDING:
                 raise ValueError(f"Cannot cancel order with status: {sales_order.status}")
             
             # 2. Obtener tokens reservados de los metadatos
@@ -313,8 +311,8 @@ class OrderManagementService:
         """
         try:
             # 1. Verificar que la orden se pueda cancelar
-            if purchase_order.status in ['COMPLETED', 'CANCELLED']:
-                raise ValueError(f"Cannot cancel order with status: {purchase_order.status}")
+            if not purchase_order.status == PurchaseOrder.PurchaseOrderStatus.PENDING:
+                raise ValueError(f"La orden no se puede eliminar con estado: {purchase_order.status}")
             
             # 2. Actualizar estado de la orden
             purchase_order.status = 'CANCELLED'
@@ -328,7 +326,7 @@ class OrderManagementService:
                     action_code='PURCHASE_ORDER_CANCEL',
                     obj=purchase_order,
                     details={
-                        'order_id': purchase_order.id,
+                        'order_id': str(purchase_order.id),
                         'cancelled_by': user.id,
                         'cancelled_at': purchase_order.cancelled_at.isoformat(),
                         'operation': 'cancel_purchase_order'
@@ -348,7 +346,7 @@ class OrderManagementService:
             if request:
                 AuditService.log_action(
                     request=request,
-                    action_code='PURCHASE_ORDER_CANCEL_ERROR',
+                    action_code='PURCHASE_ORDER_CANCEL',
                     obj=purchase_order,
                     details={
                         'order_id': purchase_order.id,

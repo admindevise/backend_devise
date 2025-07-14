@@ -145,7 +145,7 @@ class TokenTransferService:
         }
     
     def get_reserved_tokens_for_transfer(self, sales_order: SalesOrder, units_needed: int) -> List[str]:
-        """Obtiene tokens reservados para transferencia con validación"""
+        """Obtiene tokens reservados para transferencia con validación usando metadata como fuente de verdad"""
         
         # ✅ DEBUGGING COMPLETO
         logger.info(f"=== DEBUGGING SALES ORDER {sales_order.id} ===")
@@ -154,13 +154,7 @@ class TokenTransferService:
         logger.info(f"Seller: {sales_order.seller_user.email}")
         logger.info(f"Units needed: {units_needed}")
         
-        # Verificar reserved_tokens_info
-        if hasattr(sales_order, 'reserved_tokens_info'):
-            logger.info(f"reserved_tokens_info exists: {sales_order.reserved_tokens_info}")
-        else:
-            logger.info("reserved_tokens_info: NOT FOUND")
-        
-        # Verificar metadata
+        # Verificar metadata como única fuente de verdad
         if sales_order.metadata:
             logger.info(f"metadata exists: {sales_order.metadata}")
             reserved_in_metadata = sales_order.metadata.get('reserved_tokens', [])
@@ -177,26 +171,11 @@ class TokenTransferService:
         logger.info(f"Actual tokens owned by seller: {actual_tokens[:10]}...")  # Solo primeros 10
         logger.info(f"Total tokens owned: {len(actual_tokens)}")
         
-        # Opción 1: reserved_tokens_info (estructura actual)
-        if hasattr(sales_order, 'reserved_tokens_info') and sales_order.reserved_tokens_info:
-            token_ids = sales_order.reserved_tokens_info.get('token_ids', [])
-            available_tokens = token_ids[:units_needed]
-            logger.info(f"✅ Found {len(token_ids)} tokens in reserved_tokens_info")
-            
-            if len(available_tokens) < units_needed:
-                logger.error(f"❌ INSUFFICIENT TOKENS in reserved_tokens_info: Need {units_needed}, Found {len(available_tokens)}")
-                raise TokenTransferError(
-                    f"Vendedor no tiene suficientes tokens reservados en reserved_tokens_info. "
-                    f"Necesario: {units_needed}, Disponible: {len(available_tokens)}"
-                )
-            
-            return available_tokens
-        
-        # Opción 2: metadata.reserved_tokens (estructura legacy)
+        # Opción 1: metadata.reserved_tokens (fuente única de verdad)
         if sales_order.metadata and sales_order.metadata.get('reserved_tokens'):
             token_ids = sales_order.metadata.get('reserved_tokens', [])
             available_tokens = token_ids[:units_needed]
-            logger.info(f"✅ Found {len(token_ids)} tokens in metadata (legacy)")
+            logger.info(f"✅ Found {len(token_ids)} tokens in metadata")
             
             if len(available_tokens) < units_needed:
                 logger.error(f"❌ INSUFFICIENT TOKENS in metadata: Need {units_needed}, Found {len(available_tokens)}")
@@ -207,8 +186,8 @@ class TokenTransferService:
             
             return available_tokens
         
-        # ✅ Opción 3: RESERVA AUTOMÁTICA como fallback
-        logger.warning(f"⚠️ No reserved tokens found. Attempting automatic reservation...")
+        # Opción 2: RESERVA AUTOMÁTICA como fallback
+        logger.warning(f"No reserved tokens found in metadata. Attempting automatic reservation...")
         
         if len(actual_tokens) < units_needed:
             logger.error(f"❌ INSUFFICIENT TOKENS OWNED: Need {units_needed}, Owner has {len(actual_tokens)}")
@@ -231,7 +210,7 @@ class TokenTransferService:
         logger.info(f"✅ AUTO-RESERVED {len(auto_reserved_tokens)} tokens for sales order {sales_order.id}")
         
         return auto_reserved_tokens
-    
+
     def execute_single_token_transfer(
         self, 
         token_id: str, 
@@ -240,80 +219,117 @@ class TokenTransferService:
     ) -> dict:
         """Ejecuta la transferencia de un token individual"""
         
-        logger.info(f"Transferring token {token_id} from {sales_order.seller_user.email} to {purchase_order.supplier_user.email}")
+        logger.info(f"=== STARTING TOKEN TRANSFER ===")
+        logger.info(f"Token ID: {token_id}")
+        logger.info(f"From: {sales_order.seller_user.email}")
+        logger.info(f"To: {purchase_order.supplier_user.email}")
+        logger.info(f"Fund ID: {purchase_order.fund.id}")
         
-        from apps.kaleido.utils import safe_transfer_721_index_to_index, get_wallet_index
-        
-        address_wallet_sender = get_wallet_index(sales_order.seller_user, purchase_order.fund.id)
-        if not address_wallet_sender:
-            raise TokenTransferError(f"Wallet address not found for user {sales_order.seller_user.email}")
-        
-        # TRANSFERENCIA CORRECTA: De un usuario a otro usuario
-        transfer_result, transfer_error = safe_transfer_721_index_to_index(
-            token_id=token_id,
-            fund_id=purchase_order.fund.id,
-            contract_address_id=purchase_order.fund.token_contract_721.contract_address,
-            user_investor=sales_order.seller_user,
-            address_wallet_sender= address_wallet_sender,
-            wallet_id=purchase_order.fund.hd_wallet.id_wallet,
-        )
-        
-        if transfer_error:
-            raise TokenTransferError(f"Blockchain transfer failed: {transfer_error}")
-        
-        # Actualizar propiedad en base de datos
-        updated_count = FundToken.objects.filter(
-            token_id=token_id,
-            fund=purchase_order.fund
-        ).update(owner_user=purchase_order.supplier_user)
-        
-        if updated_count == 0:
-            logger.warning(f"No FundToken record found for token_id {token_id} in fund {purchase_order.fund.id}")
-            
         try:
-            FundToken.objects.filter(
+            from apps.kaleido.utils import safe_transfer_721, get_wallet_index
+            
+            # 1. Get wallet addresses
+            logger.info("=== GETTING WALLET ADDRESSES ===")
+            
+            sender_wallet = get_wallet_index(sales_order.seller_user, purchase_order.fund.id)
+            logger.info(f"Sender wallet result: {sender_wallet}")
+            
+            receiver_wallet = get_wallet_index(purchase_order.supplier_user, purchase_order.fund.id)
+            logger.info(f"Receiver wallet result: {receiver_wallet}")
+            
+            if not sender_wallet or not receiver_wallet:
+                error_msg = f"Wallet address not found - Sender: {bool(sender_wallet)}, Receiver: {bool(receiver_wallet)}"
+                logger.error(error_msg)
+                raise TokenTransferError(error_msg)
+            
+            # 2. Execute blockchain transfer
+            logger.info("=== EXECUTING BLOCKCHAIN TRANSFER ===")
+            logger.info(f"Transfer parameters:")
+            logger.info(f"  - token_id: {token_id}")
+            logger.info(f"  - fund_id: {purchase_order.fund.id}")
+            logger.info(f"  - from_user: {sales_order.seller_user}")
+            logger.info(f"  - to_user: {purchase_order.supplier_user}")
+            
+            transfer_result, transfer_error = safe_transfer_721(
+                token_id=token_id,
+                fund_id=purchase_order.fund.id,
+                from_user=sales_order.seller_user,
+                to_user=purchase_order.supplier_user
+            )
+            
+            logger.info(f"Transfer result: {transfer_result}")
+            logger.info(f"Transfer error: {transfer_error}")
+            
+            if transfer_error:
+                logger.error(f"❌ BLOCKCHAIN TRANSFER FAILED: {transfer_error}")
+                raise TokenTransferError(f"Blockchain transfer failed: {transfer_error}")
+            
+            if not transfer_result:
+                logger.error("❌ BLOCKCHAIN TRANSFER RETURNED EMPTY RESULT")
+                raise TokenTransferError("Blockchain transfer returned empty result")
+            
+            # 3. Update database ownership
+            logger.info("=== UPDATING DATABASE OWNERSHIP ===")
+            
+            updated_count = FundToken.objects.filter(
                 token_id=token_id,
                 fund=purchase_order.fund
-            ).update(
-                reserved_for_sale=False,
-                reserved_at=None,
-                reservation_expires_at=None
-            )
-            logger.info(f"✅ Released reservation for token {token_id}")
+            ).update(owner_user=purchase_order.supplier_user)
+            
+            logger.info(f"Database update count: {updated_count}")
+            
+            if updated_count == 0:
+                logger.warning("⚠️ No database records updated - token may not exist in DB")
+            
+            # 4. Release token reservation
+            logger.info("=== RELEASING TOKEN RESERVATION ===")
+            
+            try:
+                from apps.trading.security.token_validators import TokenReservationManager
+                manager = TokenReservationManager()
+                release_result = manager.release_token_reservations([token_id], purchase_order.fund.id)
+                logger.info(f"Release result: {release_result}")
+            except Exception as e:
+                logger.error(f"Error releasing reservation: {str(e)}")
+            
+            # 5. Update metadata
+            logger.info("=== UPDATING METADATA ===")
+            
+            try:
+                if sales_order.metadata and 'reserved_tokens' in sales_order.metadata:
+                    reserved_tokens = sales_order.metadata.get('reserved_tokens', [])
+                    if str(token_id) in [str(t) for t in reserved_tokens]:
+                        updated_reserved = [t for t in reserved_tokens if str(t) != str(token_id)]
+                        sales_order.metadata['reserved_tokens'] = updated_reserved
+                        sales_order.save(update_fields=['metadata'])
+                        logger.info(f"✅ Removed token {token_id} from reserved list")
+            except Exception as e:
+                logger.error(f"Error updating metadata: {str(e)}")
+            
+            logger.info("=== TOKEN TRANSFER COMPLETED SUCCESSFULLY ===")
+            
+            return {
+                'success': True,
+                'token_id': token_id,
+                'from_user': sales_order.seller_user.email,
+                'to_user': purchase_order.supplier_user.email,
+                'transfer_result': transfer_result,
+                'database_updated': updated_count > 0
+            }
             
         except Exception as e:
-            logger.error(f"Error releasing reservation for token {token_id}: {str(e)}")
-            # No fallar por esto, la transferencia ya se completó
-        
-        # ✅ 3. REMOVER TOKEN DE LA LISTA DE RESERVADOS EN METADATA
-        try:
-            if sales_order.metadata and 'reserved_tokens' in sales_order.metadata:
-                reserved_tokens = sales_order.metadata.get('reserved_tokens', [])
-                
-                # Remover el token transferido
-                if str(token_id) in [str(t) for t in reserved_tokens]:
-                    updated_reserved = [t for t in reserved_tokens if str(t) != str(token_id)]
-                    sales_order.metadata['reserved_tokens'] = updated_reserved
-                    sales_order.save(update_fields=['metadata'])
-                    logger.info(f"✅ Removed token {token_id} from reserved list in metadata")
+            logger.error(f"=== TOKEN TRANSFER FAILED ===")
+            logger.error(f"Error: {str(e)}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             
-        except Exception as e:
-            logger.error(f"Error updating metadata: {str(e)}")
-            # No fallar por esto
-        
-        # Preparar resultado
-        result = {
-            'token_id': token_id,
-            'from_user': sales_order.seller_user.email,
-            'to_user': purchase_order.supplier_user.email,
-            'sales_order_id': str(sales_order.id),
-            'transfer_result': transfer_result,
-            'database_updated': updated_count > 0,
-            'reservation_released': True  # ✅ Nuevo campo
-        }
-        
-        logger.info(f"Token {token_id} transferred successfully and reservation released")
-        return result
+            return {
+                'success': False,
+                'token_id': token_id,
+                'error': str(e),
+                'error_type': type(e).__name__
+            }    
     
     def update_sales_order_after_transfer(self, sales_order: SalesOrder, units_transferred: int) -> None:
         """Actualiza el estado de la orden de venta después de transferencias"""

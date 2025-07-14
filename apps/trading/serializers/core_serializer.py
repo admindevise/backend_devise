@@ -214,45 +214,12 @@ class SalesOrderSerializer(BaseOrderSerializer):
         write_only=True,
         help_text="Lista opcional de IDs de tokens específicos a vender"
     )
-    # ✅ NUEVO: Información de tokens reservados en respuesta
-    reserved_tokens_info = serializers.SerializerMethodField(read_only=True)
-    
     order_prefix = 'SO'
     
     class Meta:
         model = SalesOrder
-        fields = BaseOrderSerializer.common_fields + ['seller_user', 'token_ids', 'reserved_tokens_info']
-        read_only_fields = BaseOrderSerializer.common_read_only + ['reserved_tokens_info']
-    
-    def get_reserved_tokens_info(self, obj):
-        """Obtiene información de tokens reservados"""
-        if hasattr(obj, 'metadata') and obj.metadata:
-            reserved_tokens = obj.metadata.get('reserved_tokens', [])
-            expires_at_raw = obj.metadata.get('reservation_expires_at')
-            
-            # ✅ ALTERNATIVA: Usar el mismo formato que created_at
-            expires_at_formatted = None
-            if expires_at_raw:
-                try:
-                    from django.utils.dateparse import parse_datetime
-                    from django.utils import timezone
-                    
-                    # Parse the datetime string
-                    if isinstance(expires_at_raw, str):
-                        expires_dt = parse_datetime(expires_at_raw)
-                        if expires_dt:
-                            # Formatear exactamente igual que created_at
-                            expires_at_formatted = expires_dt.strftime("%Y-%m-%d %H:%M:%S")
-                    
-                except Exception:
-                    expires_at_formatted = expires_at_raw
-            
-            return {
-                'count': len(reserved_tokens),
-                'token_ids': reserved_tokens,
-                'expires_at': expires_at_formatted
-            }
-        return None
+        fields = BaseOrderSerializer.common_fields + ['seller_user', 'token_ids']
+        read_only_fields = BaseOrderSerializer.common_read_only
     
     def validate(self, data):
         """Validaciones adicionales y asignacion automatica de seller_user"""

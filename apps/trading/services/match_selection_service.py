@@ -433,27 +433,29 @@ class MatchSelectionService:
         validated_selections: List[Dict[str, Any]],
         purchase_order: PurchaseOrder
     ) -> Dict[str, Any]:
-        """Calcula resumen de la selección"""
+        """Calcula resumen de la selección sin restricciones de presupuesto"""
         
         total_selected_units = sum(sel['units'] for sel in validated_selections)
         total_amount = sum(Decimal(str(sel['subtotal'])) for sel in validated_selections)
         
-        # Verificar presupuesto
-        if total_amount > purchase_order.total_amount:
-            raise MatchSelectionError(
-                f'Total seleccionado ({total_amount}) excede presupuesto máximo ({purchase_order.total_amount})'
-            )
+        # Calcular ahorros (dinero que NO se gasta del presupuesto original)
+        savings = float(purchase_order.total_amount - total_amount)
         
-        # Calcular ahorros
-        savings = purchase_order.total_amount - total_amount
+        # Solo calcular información, sin restricciones
+        budget_comparison = {
+            'original_budget': float(purchase_order.total_amount),
+            'selected_amount': float(total_amount),
+            'difference': savings,  # Usar el valor calculado
+            'exceeds_original': total_amount > purchase_order.total_amount
+        }
         
-        # Calcular expiración
         expires_at = timezone.now() + timedelta(minutes=self.selection_expiry_minutes)
         
         return {
             'total_units': total_selected_units,
             'total_amount': float(total_amount),
-            'savings': float(savings),
+            'savings': savings,  # ← AGREGAR este campo faltante
+            'budget_comparison': budget_comparison,
             'matches_count': len(validated_selections),
             'selected_at': timezone.now().isoformat(),
             'expires_at': expires_at.isoformat(),

@@ -68,12 +68,6 @@ class PurchaseOrderViewSet(DateFilterMixin,
         try:
             purchase_order = self.get_object()
             
-            # Verificar permisos
-            if not request.user.is_staff and purchase_order.created_by != request.user:
-                return Response({
-                    'error': 'No tienes permisos para cancelar esta orden'
-                }, status=status.HTTP_403_FORBIDDEN)
-            
             # Usar el serializer de cancelación
             cancellation_serializer = OrderCancellationSerializer(data=request.data)
             cancellation_serializer.is_valid(raise_exception=True)
@@ -84,7 +78,7 @@ class PurchaseOrderViewSet(DateFilterMixin,
             
             return Response({
                 'success': True,
-                'message': 'Orden cancelada exitosamente',
+                'message': 'Orden de compra cancelada exitosamente',
                 'order_status': result['order_status']
             })
             
@@ -162,58 +156,8 @@ class SalesOrderViewSet(DateFilterMixin,
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def cancel(self, request, pk=None):
         """Cancela una orden de venta y libera tokens reservados"""
-        print('entro a action cancel')
         try:
-            # ✅ DEBUGGING: Verificar la orden SIN filtros de queryset
-            try:
-                raw_order = SalesOrder.objects.get(id=pk)
-                print(f"=== ORDEN ENCONTRADA (sin filtros) ===")
-                print(f"Order ID: {raw_order.id}")
-                print(f"seller_user: {raw_order.seller_user} (ID: {raw_order.seller_user.id})")
-                print(f"created_by: {raw_order.created_by} (ID: {raw_order.created_by.id})")
-                print(f"Status: {raw_order.status}")
-                print(f"Usuario que cancela: {request.user} (ID: {request.user.id})")
-                print(f"Usuario es staff: {request.user.is_staff}")
-                
-                # Verificar si el usuario está autorizado
-                is_authorized = (
-                    request.user.is_staff or 
-                    raw_order.seller_user == request.user or 
-                    raw_order.created_by == request.user
-                )
-                print(f"Usuario autorizado: {is_authorized}")
-                
-            except SalesOrder.DoesNotExist:
-                print(f"ERROR: La orden {pk} NO existe en la base de datos")
-                return Response({
-                    'error': f'No se encontró la orden con ID {pk}'
-                }, status=status.HTTP_404_NOT_FOUND)
-            
-            # Ahora intentar get_object() que usa el queryset filtrado
-            try:
-                sales_order = self.get_object()
-                print("✅ get_object() exitoso")
-            except Exception as get_obj_error:
-                print(f"❌ ERROR en get_object(): {str(get_obj_error)}")
-                print("Esto confirma que el problema está en los filtros del queryset")
-                
-                # Si el usuario tiene permisos, usar la orden raw
-                if (request.user.is_staff or 
-                    raw_order.seller_user == request.user or 
-                    raw_order.created_by == request.user):
-                    
-                    print("🔧 Usando orden sin filtros porque el usuario tiene permisos")
-                    sales_order = raw_order
-                else:
-                    return Response({
-                        'error': 'No tienes permisos para cancelar esta orden'
-                    }, status=status.HTTP_403_FORBIDDEN)
-            
-            # Verificar permisos
-            if not request.user.is_staff and sales_order.created_by != request.user:
-                return Response({
-                    'error': 'No tienes permisos para cancelar esta orden'
-                }, status=status.HTTP_403_FORBIDDEN)
+            sales_order = self.get_object()
             
             # Usar el serializer de cancelación
             cancellation_serializer = OrderCancellationSerializer(data=request.data)
@@ -231,9 +175,6 @@ class SalesOrderViewSet(DateFilterMixin,
             })
             
         except Exception as e:
-            print(f"ERROR EN CANCEL: {type(e).__name__}: {str(e)}")
-            import traceback
-            traceback.print_exc()
             return Response({
                 'success': False,
                 'error': str(e)
