@@ -4,6 +4,7 @@ import logging
 
 from apps.trading.models import PurchaseOrder, SalesOrder
 from apps.audit.audit_service import AuditService
+from apps.fund.models import TransferReceipt
 
 logger = logging.getLogger('trading.payment_finalizer')
 
@@ -60,6 +61,7 @@ class PaymentFinalizerService:
     ) -> List[dict]:
         """
         Crea registros de transacciones formales por cada match ejecutado
+        Y crea TransferReceipt con transfer_result.get('id')
         """
         from apps.trading.models import Transaction
         
@@ -98,6 +100,15 @@ class PaymentFinalizerService:
                 if units_transferred == 0:
                     continue
                 
+                # ✅ OBTENER TRANSACTION_ID DE BLOCKCHAIN
+                # Buscar un transfer_result válido con ID
+                blockchain_transaction_id = None
+                for token_transfer in transferred_tokens:
+                    transfer_result_data = token_transfer.get('transfer_result', {})
+                    if isinstance(transfer_result_data, dict) and transfer_result_data.get('id'):
+                        blockchain_transaction_id = transfer_result_data.get('id')
+                        break
+                
                 # Crear registro de transacción
                 transaction = Transaction.objects.create(
                     purchase_order=purchase_order,
@@ -116,11 +127,28 @@ class PaymentFinalizerService:
                         'units_requested': units_requested,
                         'units_transferred': units_transferred,
                         'blockchain_confirmed': True,
+                        'blockchain_transaction_id': blockchain_transaction_id,
                         'created_via': 'payment_execution_service',
                         'payment_reference': purchase_order.metadata.get('payment_data', {}).get('reference'),
                         'execution_flow': 'select_matches -> pay_selection -> token_transfer'
                     }
                 )
+                
+                # ✅ CREAR TRANSFER RECEIPT CON BLOCKCHAIN TRANSACTION ID
+                transfer_receipt = None
+                try:
+                    transfer_receipt = TransferReceipt.objects.create(
+                        user=purchase_order.supplier_user,
+                        transaction_id=blockchain_transaction_id or str(transaction.id),  # ✅ Usar blockchain ID o transaction ID como fallback
+                        fund=purchase_order.fund,
+                        description=f"Transferencia exitosa (Mercado Secundario). Tokens: {units_transferred}. Desde {sales_order.order_number}",
+                    )
+                    
+                    logger.info(f"✅ TransferReceipt created: {transfer_receipt.id} with transaction_id: {transfer_receipt.transaction_id}")
+                    
+                except Exception as e:
+                    logger.error(f"Error creating TransferReceipt for transaction {transaction.id}: {str(e)}")
+                    # No fallar por esto, la transacción principal ya se creó
                 
                 transaction_info = {
                     'transaction_id': str(transaction.id),
@@ -131,7 +159,12 @@ class PaymentFinalizerService:
                     'units_transferred': units_transferred,
                     'price_per_unit': float(sales_order.price_per_unit),
                     'total_amount': float(transaction.total_amount),
-                    'tokens_transferred': [t['token_id'] for t in transferred_tokens]
+                    'tokens_transferred': [t['token_id'] for t in transferred_tokens],
+                    
+                    # ✅ NUEVOS CAMPOS: Información de TransferReceipt
+                    'transfer_receipt_id': str(transfer_receipt.id) if transfer_receipt else None,
+                    'blockchain_transaction_id': blockchain_transaction_id,
+                    'receipt_created': transfer_receipt is not None
                 }
                 
                 transactions_created.append(transaction_info)
@@ -141,43 +174,12 @@ class PaymentFinalizerService:
                     f"{units_transferred} units from {sales_order.order_number} to {purchase_order.order_number}"
                 )
                 
-                # ✅ DEBUGGING: Verificar que se creó correctamente
-                logger.info(f"=== TRANSACTION CREATED ===")
-                logger.info(f"Transaction ID: {transaction.id}")
-                logger.info(f"Purchase Order: {purchase_order.order_number}")
-                logger.info(f"Sales Order: {sales_order.order_number}")
-                logger.info(f"Buyer: {purchase_order.supplier_user.email}")
-                logger.info(f"Seller: {sales_order.seller_user.email}")
-                logger.info(f"Units: {units_transferred}")
-                logger.info(f"Total Amount: {transaction.total_amount}")
-                logger.info(f"Created At: {transaction.created_at}")
+                if transfer_receipt:
+                    logger.info(f"✅ TransferReceipt linked: {transfer_receipt.id}")
 
                 # ✅ VERIFICAR EN BASE DE DATOS
                 db_transaction = Transaction.objects.get(id=transaction.id)
                 logger.info(f"Verified in DB: {db_transaction.id} exists")
-                
-                # Registrar auditoría de transacción individual
-                """ if request:
-                    try:
-                        AuditService.log_action(
-                            request=request,
-                            action_code='TRANSACTION_CREATED',
-                            obj=transaction,
-                            details={
-                                'transaction_id': str(transaction.id),
-                                'purchase_order_id': str(purchase_order.id),
-                                'sales_order_id': str(sales_order.id),
-                                'buyer_id': str(purchase_order.supplier_user.id),
-                                'seller_id': str(sales_order.seller_user.id),
-                                'units_transferred': units_transferred,
-                                'total_amount': float(transaction.total_amount),
-                                'tokens_transferred': [t['token_id'] for t in transferred_tokens],
-                                'created_via': 'payment_execution_service'
-                            },
-                            status='SUCCESS'
-                        )
-                    except Exception as e:
-                        logger.error(f"Failed to log transaction audit: {str(e)}") """
                 
             except SalesOrder.DoesNotExist:
                 logger.error(f"Sales order {sales_order_id} not found for transaction creation")
@@ -186,8 +188,8 @@ class PaymentFinalizerService:
                 logger.error(f"Error creating transaction for sales order {sales_order_id}: {str(e)}")
                 continue
         
-        logger.info(f"Created {len(transactions_created)} transactions for purchase order {purchase_order.order_number}")
-        return transactions_created    
+        logger.info(f"Created {len(transactions_created)} transactions with TransferReceipts for purchase order {purchase_order.order_number}")
+        return transactions_created
     
     def update_order_metadata(
         self, 
