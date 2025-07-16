@@ -198,7 +198,7 @@ class MatchSelectionService:
             Dict con selecciones validadas e información de disponibilidad
         """
         
-        target_units = purchase_order.units
+        target_units = purchase_order.available_units
         remaining_units = target_units
         validated_selections = []
         total_cost = Decimal('0')
@@ -405,13 +405,13 @@ class MatchSelectionService:
         
         # Usar automático si no se especifica
         if not requested_units:
-            remaining_purchase_units = purchase_order.units - total_selected_units
-            available_sales_units = sales_order.available_units or sales_order.units
+            remaining_purchase_units = purchase_order.available_units - total_selected_units
+            available_sales_units = sales_order.available_units
             requested_units = min(available_sales_units, remaining_purchase_units)
         
         # Validar límites
-        remaining_purchase_units = purchase_order.units - total_selected_units
-        available_sales_units = sales_order.available_units or sales_order.units
+        remaining_purchase_units = purchase_order.available_units - total_selected_units
+        available_sales_units = sales_order.available_units
         max_available = min(available_sales_units, remaining_purchase_units)
         
         if requested_units <= 0:

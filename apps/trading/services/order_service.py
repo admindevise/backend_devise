@@ -30,25 +30,65 @@ class OrderCreationService:
         fund = order_data['fund']
         quantity = order_data['units']
         
+        # Validar que el usuario tiene permisos para crear órdenes de venta
+        target_user = order_data.get('seller_user', user)
+        
+        # ✅ PRINTS DETALLADOS PARA DEBUGGING
+        print("=" * 50)
+        print("🔧 CREATING SALES ORDER")
+        print(f"Created by: {user.email} (is_staff: {user.is_staff})")
+        print(f"Target seller: {target_user.email}")
+        print(f"Fund: {fund.name} (ID: {fund.id})")
+        print(f"Quantity: {quantity}")
+        print("=" * 50)
+        
         try:
             # 1. Validar viabilidad completa de la orden
             feasibility = self.availability_service.validate_sales_order_feasibility(
-                user, fund.id, quantity=quantity
+                user, fund.id, quantity=quantity, target_user=target_user,
             )
             
+            # ✅ PRINTS DETALLADOS DE FEASIBILITY
+            print(f"📊 Feasibility result: {feasibility['feasible']}")
+            if feasibility.get('errors'):
+                print(f"❌ Feasibility errors: {feasibility['errors']}")
+            if feasibility.get('warnings'):
+                print(f"⚠️ Feasibility warnings: {feasibility['warnings']}")
+            
+            # ✅ PRINTS DE VALIDACIONES INDIVIDUALES
+            validations = feasibility.get('validations', {})
+            for validation_name, validation_result in validations.items():
+                print(f"🔍 Validation '{validation_name}': {validation_result.get('valid', False)}")
+                if not validation_result.get('valid', False):
+                    print(f"  └─ ❌ Error: {validation_result.get('error', 'Unknown error')}")
+            
             if not feasibility['feasible']:
-                raise ValueError(f"Orden no viable: {'; '.join(feasibility['errors'])}")
+                # ✅ ERROR MÁS DETALLADO
+                error_details = []
+                for error in feasibility['errors']:
+                    error_details.append(f"• {error}")
+                
+                error_msg = f"Orden no viable:\n" + "\n".join(error_details)
+                print(f"❌ ORDEN NO VIABLE:\n{error_msg}")
+                raise ValueError(error_msg)
             
             # 2. Obtener tokens seleccionados automáticamente
             selected_tokens = feasibility['validations']['auto_select']['token_ids']
+            print(f"🎯 Selected tokens: {selected_tokens}")
             
             # 3. Reservar tokens para la venta
+            print(f"🔒 Reserving {len(selected_tokens)} tokens for sale...")
             reservation_result = self.reservation_manager.reserve_tokens_for_sale(
-                user, selected_tokens, fund.id
+                target_user, selected_tokens, fund.id
             )
             
             if not reservation_result['success']:
+                print(f"❌ Reservation failed: {reservation_result['failed_reservations']}")
                 raise ValueError(f"Error reservando tokens: {reservation_result['failed_reservations']}")
+            
+            print(f"✅ Tokens reserved successfully")
+            
+            order_data['seller_user'] = target_user
             
             # 4. Crear la orden
             sales_order = SalesOrder.objects.create(
@@ -57,7 +97,7 @@ class OrderCreationService:
                 status='PENDING'
             )
             
-            print(f"Sales order created with ID: {sales_order.id}")
+            print(f"✅ Sales order created with ID: {sales_order.id}")
             
             # 5. Registrar metadatos de la reserva
             if hasattr(sales_order, 'metadata'):
@@ -67,6 +107,7 @@ class OrderCreationService:
                     'feasibility_validated': feasibility['feasible'],
                 }
                 sales_order.save(update_fields=['metadata'])
+                print(f"📝 Metadata saved for order {sales_order.id}")
                         
             # 6. Auditoría de éxito
             if request:
@@ -87,7 +128,7 @@ class OrderCreationService:
                     status='SUCCESS'
                 )
             
-            logger.info(f"Sales order {sales_order.id} created successfully for user {user.id}")
+            print(f"🎉 Sales order {sales_order.id} created successfully for user {user.id}")
             
             return {
                 'success': True,
@@ -97,8 +138,12 @@ class OrderCreationService:
             }
             
         except Exception as e:
+            print(f"💥 EXCEPTION in create_sales_order: {str(e)}")
+            print(f"Exception type: {type(e).__name__}")
+            
             # Liberar reservas en caso de error
             if 'selected_tokens' in locals():
+                print(f"🔓 Releasing {len(selected_tokens)} tokens due to error...")
                 self.reservation_manager.release_token_reservations(selected_tokens, fund.id)
             
             # Auditoría de error
@@ -118,9 +163,8 @@ class OrderCreationService:
                     status='ERROR'
                 )
             
-            logger.error(f"Error creating sales order for user {user.id}: {str(e)}")
             raise
-    
+
     @transaction.atomic
     def create_purchase_order(self, user, order_data: dict, request=None) -> dict:
         """
@@ -129,14 +173,18 @@ class OrderCreationService:
         fund = order_data['fund']
         quantity = order_data['units']
         
+        target_user = order_data.get('supplier_user', user)
+        
         try:
             # 1. Validar viabilidad de la orden de compra
             feasibility = self.availability_service.validate_purchase_order_feasibility(
-                user, fund.id, quantity
+                user, fund.id, quantity, target_user=target_user
             )
             
             if not feasibility['feasible']:
                 raise ValueError(f"Orden no viable: {'; '.join(feasibility['errors'])}")
+            
+            order_data['supplier_user'] = target_user
             
             # 2. Crear la orden (sin reservar tokens aún - se hace al pagar)
             purchase_order = PurchaseOrder.objects.create(
@@ -155,17 +203,40 @@ class OrderCreationService:
                         validations_serialized = {}
                         for val_key, val_value in value.items():
                             if val_key == 'investor_status' and 'application' in val_value:
-                                # Serializar FundApplication object
+                                # ✅ CORREGIR: Verificar el tipo de application antes de acceder
                                 app = val_value['application']
-                                validations_serialized[val_key] = {
-                                    'valid': val_value['valid'],
-                                    'is_staff': val_value.get('is_staff', False),
-                                    'application_id': app.id if app else None,
-                                    'application_status': app.status if app else None,
-                                    'fund_id': app.fund.id if app else None
-                                }
+                                
+                                # Caso 1: Es un objeto FundApplication real
+                                if hasattr(app, 'id') and hasattr(app, 'status'):
+                                    validations_serialized[val_key] = {
+                                        'valid': val_value['valid'],
+                                        'is_staff': val_value.get('is_staff', False),
+                                        'application_id': app.id,
+                                        'application_status': app.status,
+                                        'fund_id': app.fund.id if hasattr(app, 'fund') and app.fund else None
+                                    }
+                                # Caso 2: Es un boolean (staff bypass o validación simple)
+                                elif isinstance(app, bool):
+                                    validations_serialized[val_key] = {
+                                        'valid': val_value['valid'],
+                                        'is_staff': val_value.get('is_staff', False),
+                                        'application_id': None,
+                                        'application_status': 'staff_bypass' if app else 'no_application',
+                                        'fund_id': fund.id  # Usar el fund de la orden
+                                    }
+                                # Caso 3: Es None u otro tipo
+                                else:
+                                    validations_serialized[val_key] = {
+                                        'valid': val_value['valid'],
+                                        'is_staff': val_value.get('is_staff', False),
+                                        'application_id': None,
+                                        'application_status': None,
+                                        'fund_id': fund.id  # Usar el fund de la orden
+                                    }
                             else:
+                                # ✅ Para otros tipos de validación
                                 validations_serialized[val_key] = val_value
+                        
                         feasibility_serialized[key] = validations_serialized
                     else:
                         feasibility_serialized[key] = value

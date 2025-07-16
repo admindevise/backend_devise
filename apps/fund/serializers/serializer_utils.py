@@ -32,10 +32,24 @@ class TokenCounterUserSerializer(serializers.Serializer):
         if not user_id or not fund_id:
             return 0
         
-        # Contar tokens activos del usuario en el fondo específico
-        return FundToken.objects.filter(
-            owner_user_id=user_id,
-            fund_id=fund_id,
-            status=True,
+        tokens_available = FundToken.objects.filter(
+            owner_user=user_id, 
+            fund=fund_id, 
+            status=True, 
             reserved_for_sale=False
         ).count()
+        
+        tokens_total = FundToken.objects.filter(
+            owner_user=user_id, 
+            fund=fund_id, 
+            status=True
+        ).count()
+        
+        tokens_reserved = tokens_total - tokens_available
+        
+        # Contar tokens activos del usuario en el fondo específico
+        return {
+            'tokens_available': tokens_available,
+            'tokens_reserved': tokens_reserved,
+            'tokens_total': tokens_total
+        }

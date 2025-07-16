@@ -3,62 +3,98 @@ from django.db import models
 
 def check_trading_liquidity(fund_id, required_quantity):
     """
-    Verifica la liquidez del mercado secundario con lógica mejorada
+    Verifica la liquidez del mercado secundario - CORREGIDO
     """
     from apps.trading.models import SalesOrder, PurchaseOrder
     from apps.fund.models import FundToken
     
-    # 1. Contar unidades en SalesOrders PENDING
-    sales_orders_units = SalesOrder.objects.filter(
+    # 1. Contar unidades en órdenes de venta activas
+    active_sales_units = SalesOrder.objects.filter(
         fund_id=fund_id,
-        status='PENDING',
+        status__in=['PENDING', 'PARTIALLY_EXECUTED'],  # ✅ Incluir parcialmente ejecutadas
         expiration_date__gte=timezone.now().date()
     ).aggregate(
-        total_units=models.Sum('units')
+        total_units=models.Sum('available_units')  # ✅ Usar available_units
     )['total_units'] or 0
     
-    # 2. Verificar si es un mercado nuevo o con poca actividad
-    total_sales_orders = SalesOrder.objects.filter(fund_id=fund_id).count()
-    total_purchase_orders = PurchaseOrder.objects.filter(fund_id=fund_id).count()
-    
-    # 3. Contar tokens totales distribuidos entre usuarios (no staff)
-    user_owned_tokens = FundToken.objects.filter(
+    # 2. Contar tokens que usuarios PUEDEN vender (aunque no estén en órdenes)
+    potential_sellable_tokens = FundToken.objects.filter(
         fund_id=fund_id,
         status=True,
         owner_user__isnull=False,
-        owner_user__is_staff=False  # Solo usuarios regulares
+        owner_user__is_staff=False,  # Solo usuarios regulares
+        reserved_for_sale=False  # No reservados
     ).count()
     
-    # 4. Lógica de validación inteligente
+    # 3. Verificar historial de mercado
+    total_sales_orders = SalesOrder.objects.filter(fund_id=fund_id).count()
+    total_purchase_orders = PurchaseOrder.objects.filter(fund_id=fund_id).count()
+    
+    # 4. LÓGICA INTELIGENTE DE LIQUIDEZ
+    
+    # Caso A: Mercado completamente nuevo
     if total_sales_orders == 0 and total_purchase_orders == 0:
-        # Mercado completamente nuevo - siempre permitir la primera orden
+        print(f"🆕 New market: Allowing first purchase order")
         return {
             'available': True,
-            'available_count': user_owned_tokens,
+            'available_count': potential_sellable_tokens,
             'required_count': required_quantity,
             'shortage': 0,
             'source': 'new_market',
-            'message': 'First purchase order in new market'
+            'message': 'First order in new market - always allowed'
         }
     
-    elif sales_orders_units == 0 and user_owned_tokens > 0:
-        # Hay tokens en manos de usuarios pero ninguna orden de venta activa
-        # Permitir órdenes de compra (podrían motivar órdenes de venta)
+    # Caso B: Hay órdenes de venta activas suficientes
+    if active_sales_units >= required_quantity:
+        print(f"✅ Sufficient active sales orders: {active_sales_units} >= {required_quantity}")
         return {
             'available': True,
-            'available_count': user_owned_tokens,  # Potencial liquidez
+            'available_count': active_sales_units,
             'required_count': required_quantity,
             'shortage': 0,
-            'source': 'dormant_market',
-            'message': f'{user_owned_tokens} tokens owned by users, potential for sales orders'
+            'source': 'active_sales_orders'
         }
     
-    else:
-        # Mercado con actividad - validación normal
+    # Caso C: No hay suficientes órdenes activas, pero hay tokens vendibles
+    if potential_sellable_tokens >= required_quantity:
+        print(f"✅ Sufficient potential tokens: {potential_sellable_tokens} >= {required_quantity}")
         return {
-            'available': sales_orders_units >= required_quantity,
-            'available_count': sales_orders_units,
+            'available': True,
+            'available_count': potential_sellable_tokens,
             'required_count': required_quantity,
-            'shortage': max(0, required_quantity - sales_orders_units),
-            'source': 'active_market'
+            'shortage': 0,
+            'source': 'potential_sellers',
+            'message': f'Users own {potential_sellable_tokens} tokens that could be sold'
         }
+    
+    # Caso D: Mercado con actividad - permitir órdenes que motiven ventas
+    if total_sales_orders > 0 or total_purchase_orders > 0:
+        total_liquidity = active_sales_units + potential_sellable_tokens
+        
+        if total_liquidity >= required_quantity:
+            print(f"✅ Combined liquidity sufficient: {total_liquidity} >= {required_quantity}")
+            return {
+                'available': True,
+                'available_count': total_liquidity,
+                'required_count': required_quantity,
+                'shortage': 0,
+                'source': 'combined_liquidity'
+            }
+    
+    # Caso E: Realmente no hay liquidez suficiente
+    total_available = active_sales_units + potential_sellable_tokens
+    shortage = required_quantity - total_available
+    
+    print(f"❌ Insufficient liquidity: Available {total_available}, Required {required_quantity}")
+    
+    return {
+        'available': False,
+        'available_count': total_available,
+        'required_count': required_quantity,
+        'shortage': shortage,
+        'source': 'insufficient_liquidity',
+        'details': {
+            'active_sales_units': active_sales_units,
+            'potential_sellable_tokens': potential_sellable_tokens
+        }
+    }

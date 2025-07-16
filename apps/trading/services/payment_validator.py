@@ -106,16 +106,52 @@ class PaymentValidator:
     def _handle_expired_selection(self, purchase_order: PurchaseOrder) -> None:
         """Maneja la limpieza cuando una selección expira"""
         
+        # ✅ LOGGING DETALLADO PARA DEBUGGING
+        logger.warning(f"🔄 HANDLING EXPIRED SELECTION for order {purchase_order.order_number}")
+        logger.warning(f"  └─ Current status: {purchase_order.status}")
+        logger.warning(f"  └─ Current matched_at: {purchase_order.matched_at}")
+        
+        # ✅ GUARDAR ESTADO ANTERIOR PARA VERIFICACIÓN
+        old_status = purchase_order.status
+        old_matched_at = purchase_order.matched_at
+        
         # Limpiar estado y metadatos
         purchase_order.status = 'PENDING'
         purchase_order.matched_at = None
         
         # Limpiar metadatos de selección expirada
         if purchase_order.metadata:
+            # ✅ GUARDAR INFORMACIÓN DE EXPIRACIÓN PARA AUDITORÍA
+            expired_matches = purchase_order.metadata.get('selected_matches', [])
+            expired_summary = purchase_order.metadata.get('selection_summary', {})
+            
             purchase_order.metadata.pop('selected_matches', None)
             purchase_order.metadata.pop('selection_summary', None)
             purchase_order.metadata['selection_expired_at'] = timezone.now().isoformat()
+            purchase_order.metadata['last_expired_selection'] = {
+                'expired_at': timezone.now().isoformat(),
+                'previous_status': old_status,
+                'expired_matches_count': len(expired_matches),
+                'expired_summary': expired_summary
+            }
         
-        purchase_order.save(update_fields=['status', 'matched_at', 'metadata'])
+        # ✅ FORZAR SAVE COMPLETO EN LUGAR DE update_fields
+        try:
+            purchase_order.save()
+            logger.warning(f"✅ Order {purchase_order.order_number} status updated from {old_status} to {purchase_order.status}")
+        except Exception as e:
+            logger.error(f"❌ ERROR saving expired selection: {str(e)}")
+            raise
         
-        logger.warning(f"Selection expired for order {purchase_order.order_number}")
+        # ✅ VERIFICAR QUE SE GUARDÓ CORRECTAMENTE
+        purchase_order.refresh_from_db()
+        if purchase_order.status != 'PENDING':
+            logger.error(f"❌ CRITICAL: Order status not updated! Still: {purchase_order.status}")
+            # Intentar guardar de nuevo
+            purchase_order.status = 'PENDING'
+            purchase_order.matched_at = None
+            purchase_order.save(update_fields=['status', 'matched_at'])
+            purchase_order.refresh_from_db()
+            logger.warning(f"🔁 Retry save result: {purchase_order.status}")
+        else:
+            logger.warning(f"✅ Verified: Order {purchase_order.order_number} successfully reset to PENDING")

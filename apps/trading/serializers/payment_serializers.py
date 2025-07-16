@@ -48,7 +48,7 @@ class PaymentExecutionSerializer(serializers.Serializer):
             raise serializers.ValidationError("Orden de compra no encontrada")
         
         # Verificar permisos
-        if not user.is_staff and purchase_order.created_by != user:
+        if not user.is_staff and purchase_order.supplier_user != user:
             raise serializers.ValidationError("No tienes permisos para pagar esta orden")
         
         # Guardar la orden en el contexto para uso posterior

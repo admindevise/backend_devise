@@ -219,6 +219,7 @@ class TokenTransferService:
         # Actualizar orden de venta después de transferencias exitosas
         if successful_transfers:
             self.update_sales_order_after_transfer(sales_order, len(successful_transfers))
+            self.update_purchase_order_after_transfer(purchase_order, len(successful_transfers))
             
             # Liberar reservas de tokens transferidos exitosamente
             transferred_token_ids = [t['token_id'] for t in successful_transfers]
@@ -286,6 +287,7 @@ class TokenTransferService:
         # Actualizar orden de venta después de transferencias exitosas
         if successful_transfers:
             self.update_sales_order_after_transfer(sales_order, len(successful_transfers))
+            self.update_purchasr_order_after_transfer(purchase_order, len(successful_transfers))
             
             # Liberar reservas de tokens transferidos exitosamente
             transferred_token_ids = [t['token_id'] for t in successful_transfers]
@@ -504,13 +506,28 @@ class TokenTransferService:
             sales_order.status = 'FULLY_EXECUTED'
             sales_order.fully_executed_at = timezone.now()
             sales_order.save(update_fields=['available_units', 'status', 'fully_executed_at'])
-            logger.info(f"Sales order {sales_order.order_number} fully executed")
         else:
             sales_order.status = 'PARTIALLY_EXECUTED'
             sales_order.partially_executed_at = timezone.now()
             sales_order.save(update_fields=['available_units', 'status', 'partially_executed_at'])
-            logger.info(f"Sales order {sales_order.order_number} partially executed: {sales_order.available_units} units remaining")
     
+    def update_purchase_order_after_transfer(self, purchase_order: PurchaseOrder, units_transferred: int) -> None:
+        """ Actualiza el estado de la orden de compra después de transferencias"""
+        
+        original_available = purchase_order.available_units or purchase_order.units
+        purchase_order.available_units = original_available - units_transferred
+        
+        if purchase_order.available_units <= 0:
+            purchase_order.status = 'FULLY_EXECUTED'
+            purchase_order.fully_executed_at = timezone.now()
+            purchase_order.save(update_fields=['available_units', 'status', 'fully_executed_at'])
+            print(f"Purchase order {purchase_order.order_number} fully executed")
+        else:
+            purchase_order.status = 'PARTIALLY_EXECUTED'
+            purchase_order.partially_executed_at = timezone.now()
+            purchase_order.save(update_fields=['available_units', 'status', 'partially_executed_at'])
+            print(f"Purchase order {purchase_order.order_number} partially executed, remaining units: {purchase_order.available_units}")
+        
     def release_transferred_tokens(self, token_ids: List[str], sales_order: SalesOrder) -> None:
         """Libera las reservas de tokens después de transferencia exitosa"""
         

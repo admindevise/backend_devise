@@ -253,7 +253,7 @@ class PaymentFinalizerService:
         selected_matches = purchase_order.metadata.get('selected_matches', [])
         total_units_purchased = sum(match.get('units', 0) for match in selected_matches)
         
-        if total_units_purchased >= purchase_order.units:
+        if total_units_purchased >= purchase_order.available_units:
             purchase_order.status = 'FULLY_EXECUTED'
             purchase_order.fully_executed_at = timezone.now()
             status_field = 'fully_executed_at'

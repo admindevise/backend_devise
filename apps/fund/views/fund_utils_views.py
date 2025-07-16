@@ -39,7 +39,9 @@ def get_token_count(request):
         token_count = serializer.get_token_count(count_data)
         
         return response.Response({
-            'token_count': token_count,
+            'token_count': token_count['tokens_available'],
+            'tokens_reserved': token_count['tokens_reserved'],
+            'tokens_total': token_count['tokens_total'],
             'fund_id': fund_id,
             'user_id': target_user_id,
             'email': current_user.email,
