@@ -14,5 +14,3 @@ class UserBasicInfoSerializer(serializers.ModelSerializer):
                 'expedition_date', 'mail_delivery', 
                 ]
         model = User
-    
-

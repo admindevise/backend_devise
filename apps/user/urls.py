@@ -9,7 +9,7 @@ from .views.roles_views import (RoleApiListView, RoleViewSet, RoleListView, Role
 
 from .views.subrole_views import (SubRoleApiListView, SubroleViewSet, SubroleListView, SubroleCreateView, SubroleDetailView, SubroleUpdateView)
 
-from .views.api_user_views import ( VerifyReferredCode, UpdateReadUserBasicInfo)
+from .views.api_user_views import ( VerifyReferredCode, UpdateReadUserBasicInfo, AdminUpdateUserBasicInfo)
 
 from apps.user.views.backoffice_config_views import IdTypeCreateView, IdTypeDeleteView, IdTypeDetailView, IdTypeListView, IdTypeUpdateView, IdtypeDeactivateView
 from apps.user.views.backoffice_config_views import AccountTypeCreateView, AccountTypeDeleteView, AccountTypeDetailView, AccountTypeListView, AccountTypeUpdateView, AccountTypeDeactivateView
@@ -18,6 +18,13 @@ from apps.user.views.backoffice_config_views import BankCreateView, BankDeleteVi
 from apps.user.views.import_users import ImportUsersAPIView
 
 from apps.user.views.users_api import ListUsersAPIView
+
+from apps.user.views.grant_permission_view import (
+    GrantAdminPermissionView,
+    ListUserPermissionsView,
+    revoke_admin_permission,
+    revoke_all_permissions
+)
 
 
 router = routers.DefaultRouter()
@@ -79,6 +86,7 @@ urlpatterns = [
 
     # # ========================  Api User basic data  ===============================
     path('basicdata/update_read/', UpdateReadUserBasicInfo.as_view()), #same url Patch or Get
+    path('basicdata/admin/update/<int:pk>/', AdminUpdateUserBasicInfo.as_view()), #admin update user basic info by pk
     path('verify/referred/<slug:referred_code>/code/', VerifyReferredCode.as_view(), name='verify-referred-code'),
 
     # ============================= API Views IdTypes  ==================================
@@ -123,6 +131,11 @@ urlpatterns = [
     ## =================== API User
     path('api/list/', ListUsersAPIView.as_view(), name='user-apilist'),
 
+    # ======================== Gestión de Permisos para Admins ======================
+    path('api/permissions/grant/', GrantAdminPermissionView.as_view(), name='grant-admin-permission'),
+    path('api/permissions/list/', ListUserPermissionsView.as_view(), name='list-user-permissions'),
+    path('api/permissions/revoke/', revoke_admin_permission, name='revoke-admin-permission'),
+    path('api/permissions/revoke/all/', revoke_all_permissions, name='revoke-all-permissions'),
 ]
 
 urlpatterns += router.urls

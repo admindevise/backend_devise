@@ -70,6 +70,9 @@ class FundSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         secret = validated_data.get('secret')
         
+        if not user.is_staff:
+            raise ValidationError({"user": "Solo los administradores pueden crear fondos."})
+        
         promote_contract_id = validated_data.pop('promote_contract_id', None)
         
         if not secret:

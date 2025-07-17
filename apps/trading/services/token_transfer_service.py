@@ -470,9 +470,10 @@ class TokenTransferService:
                     # Remover el token transferido
                     if str(token_id) in [str(t) for t in reserved_tokens]:
                         updated_reserved = [t for t in reserved_tokens if str(t) != str(token_id)]
+                        
                         sales_order.metadata['reserved_tokens'] = updated_reserved
+                        sales_order.metadata['total_tokens_reserved'] = len(updated_reserved)
                         sales_order.save(update_fields=['metadata'])
-                        logger.info(f"✅ Removed token {token_id} from reserved list in metadata")
                 
             except Exception as e:
                 logger.error(f"Error updating metadata: {str(e)}")

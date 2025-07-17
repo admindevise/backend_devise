@@ -51,11 +51,8 @@ class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
         Filtra los fondos para mostrar solo los del usuario autenticado,
         a menos que el usuario sea admin (en cuyo caso muestra todos).
         """
-        user = self.request.user
+        #user = self.request.user
         queryset = Fund.objects.all()
-        
-        if not user.is_staff:
-            queryset = queryset.filter(user=user)
             
         queryset = self.apply_date_filters(queryset)
         return queryset
