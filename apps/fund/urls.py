@@ -18,7 +18,7 @@ from apps.kaleido.views.kaleido_fund import (
     batch_creation_progress_view
 )
 
-from apps.fund.views.fund_utils_views import get_token_count
+from apps.fund.views.fund_utils_views import get_token_count, ai_generate_content
 
 router = DefaultRouter()
 router.register(r'main', FundViewSet, basename='fund'),
@@ -52,4 +52,9 @@ urlpatterns = [
     #+ Fund Utils Views
     #============================
     path('api/tokens_count/', get_token_count, name='get-token-count'),
+    
+    #============================
+    #+ AI Generate Content
+    #============================
+    path('api/ai/generate_content/', ai_generate_content, name='ai-generate-content'),
 ]

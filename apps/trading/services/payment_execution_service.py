@@ -1,15 +1,11 @@
 from django.db import transaction
 from django.utils import timezone
-from datetime import datetime
-from decimal import Decimal
-from typing import Dict, List, Any, Optional
+
+from typing import Dict, List, Any
 import logging
 
-from apps.trading.models import PurchaseOrder, SalesOrder, Transaction
-from apps.fund.models import FundToken
-from apps.kaleido.utils import safe_transfer_721
+from apps.trading.models import PurchaseOrder
 from apps.trading.security.token_validators import TokenReservationManager
-from apps.audit.audit_service import AuditService
 
 # Nuevos servicios especializados
 from apps.trading.services.payment_validator import PaymentValidator, PaymentValidationError
@@ -80,7 +76,7 @@ class PaymentExecutionService:
             
             # Verificar nuevamente el estado después de validaciones
             purchase_order.refresh_from_db()
-            if purchase_order.status == 'PENDING':
+            if purchase_order.status == PurchaseOrder.PurchaseOrderStatus.PENDING:
                 raise PaymentExecutionError(
                     'La orden ha sido revertida a PENDING durante las validaciones. '
                     'Posiblemente la selección expiró.'
@@ -103,7 +99,6 @@ class PaymentExecutionService:
                 purchase_order, payment_result, transfer_result, user, request
             )
             
-            logger.info(f"Payment execution completed successfully for order {purchase_order.order_number}")
             return final_result
             
         except (PaymentValidationError, TokenTransferError) as e:
@@ -180,7 +175,6 @@ class PaymentExecutionService:
         OBSOLETO: Usar payment_processor.process_payment() directamente
         Mantenido solo para compatibilidad con código existente
         """
-        logger.warning("Using deprecated _process_payment method. Consider using payment_processor.process_payment() directly.")
         return self.payment_processor.process_payment(purchase_order, payment_data)
     
     def _validate_payment_execution(self, purchase_order: PurchaseOrder) -> None:
@@ -188,34 +182,7 @@ class PaymentExecutionService:
         OBSOLETO: Usar validator.validate_payment_execution() directamente
         Mantenido solo para compatibilidad con código existente
         """
-        logger.warning("Using deprecated _validate_payment_execution method. Consider using validator.validate_payment_execution() directly.")
         return self.validator.validate_payment_execution(purchase_order)
-    
-    # ========================================
-    # MÉTODOS COMPLETAMENTE OBSOLETOS
-    # ========================================
-    
-    # Los siguientes métodos ya NO se usan en el flujo principal
-    # y serán eliminados en futuras versiones
-    
-    def _finalize_purchase_order_simple(self, purchase_order: PurchaseOrder) -> None:
-        """OBSOLETO: Funcionalidad movida a PaymentFinalizerService"""
-        logger.warning("Method _finalize_purchase_order_simple is obsolete")
-        pass
-    
-    def _log_success_audit_simple(self, purchase_order: PurchaseOrder, payment_result: Dict[str, Any], user, request=None) -> None:
-        """OBSOLETO: Funcionalidad movida a PaymentFinalizerService"""
-        logger.warning("Method _log_success_audit_simple is obsolete")
-        pass
-    
-    def _build_success_response_simple(self, purchase_order: PurchaseOrder, payment_result: Dict[str, Any], selection_info: Dict[str, Any]) -> Dict[str, Any]:
-        """OBSOLETO: Funcionalidad movida a PaymentFinalizerService"""
-        logger.warning("Method _build_success_response_simple is obsolete")
-        return {
-            'success': True,
-            'message': 'Payment processed successfully (using deprecated method)',
-            'warning': 'This method is obsolete and will be removed'
-        }
     
     def _log_error_audit(self, purchase_order: PurchaseOrder, error_msg: str, user, request=None) -> None:
         """OBSOLETO: Funcionalidad movida a PaymentFinalizerService"""

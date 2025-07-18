@@ -53,3 +53,7 @@ class TokenCounterUserSerializer(serializers.Serializer):
             'tokens_reserved': tokens_reserved,
             'tokens_total': tokens_total
         }
+
+class AISerializer(serializers.Serializer):
+    prompt = serializers.CharField(required=True, allow_blank=False)
+    
