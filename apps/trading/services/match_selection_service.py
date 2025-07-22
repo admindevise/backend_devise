@@ -8,6 +8,8 @@ from typing import Dict, List, Any
 from apps.trading.models import PurchaseOrder, SalesOrder
 from apps.trading.order_matching import OrderMatch
 from apps.audit.audit_service import AuditService
+from apps.trading.models import OrderContract, SalesOrder
+import requests
 import logging
 
 logger = logging.getLogger('trading.match_selection')
@@ -485,6 +487,76 @@ class MatchSelectionService:
             }]
         })
         purchase_order.save(update_fields=['metadata'])
+        self._create_contracts_for_selection(purchase_order, validated_selections)
+        
+        
+    def _create_contracts_for_selection(
+        self,
+        purchase_order: PurchaseOrder,
+        validated_selections: List[Dict[str, Any]]
+    ) -> None:
+        """Crea contratos automáticamente para todos los matches seleccionados"""
+        
+        # URL del webhook de Power Automate
+        CONTRACT_WEBHOOK_URL = "https://default9e1ecd40015d4075a74499df58eb13.4a.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/22b5fe5748b74df988cf4544fe393fa3/triggers/manual/paths/invoke/?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=QLNPpiG_c_Y6SLdieFMPwXnecNtaZ4Y6g_ptVQ8EglQ"
+        
+        contracts_created = []
+        
+        for selection in validated_selections:
+            sales_order_id = selection.get('sales_order_id')
+            
+            try:
+                sales_order = SalesOrder.objects.get(id=sales_order_id)
+                
+                # Verificar si ya existe un contrato
+                existing_contract = OrderContract.objects.filter(
+                    purchase_order=purchase_order,
+                    sales_order=sales_order
+                ).first()
+                
+                if existing_contract:
+                    logger.info(f"Contract already exists: {existing_contract.id}")
+                    continue
+                
+                # Crear contrato
+                contract = OrderContract.objects.create(
+                    purchase_order=purchase_order,
+                    sales_order=sales_order,
+                    status='PENDING'
+                )
+                
+                contracts_created.append(contract)
+                
+                # ✅ ENVIAR DATOS AL WEBHOOK DE POWER AUTOMATE
+                contract_data = { "data": "example" }
+                
+                # Enviar al webhook
+                try:
+                    response = requests.post(
+                        CONTRACT_WEBHOOK_URL,
+                        json=contract_data,
+                        timeout=10,
+                        headers={'Content-Type': 'application/json'}
+                    )
+                    
+                    if response.status_code == 200:
+                        print("success")
+                    else:
+                        print(f"Webhook failed with status code: {response.status_code}")
+                        print(f"Response: {response.text}")
+                        
+                except requests.exceptions.RequestException as e:
+                    print(f"error: {str(e)}")
+                    # No fallar por esto, el contrato se creó correctamente
+                    
+            except SalesOrder.DoesNotExist:
+                print(f"Sales order {sales_order_id} not found for contract creation")
+                continue
+            except Exception as e:
+                print(f"Error creating contract for sales order {sales_order_id}: {str(e)}")
+                continue
+        
+        logger.info(f"Created {len(contracts_created)} contracts for purchase order {purchase_order.order_number}")
     
     def _update_purchase_order_status(self, purchase_order: PurchaseOrder) -> None:
         """Actualiza el estado de la orden a MATCHES_SELECTED"""

@@ -4,6 +4,7 @@ from typing import Dict, Any, List
 from django.utils import timezone
 
 from apps.trading.models import PurchaseOrder
+from apps.trading.models import OrderContract
 from apps.trading.services.match_selection_service import (
     MatchSelectionService, 
     MatchSelectionError,

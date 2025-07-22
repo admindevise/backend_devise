@@ -269,6 +269,50 @@ class OrderBook(base_model.BaseModel):
     def sell_orders(self):
         return SalesOrder.objects.filter(fund=self.fund, status='PENDING').order_by('price_per_unit')
     
+
+class OrderContract(models.Model):
+    """
+    Modelo básico para validación de contratos entre órdenes
+    """
     
+    class ContractStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pendiente de aprobación'
+        APPROVED = 'APPROVED', 'Aprobado por admin'
+        REJECTED = 'REJECTED', 'Rechazado'
+    
+    purchase_order = models.ForeignKey(
+        PurchaseOrder, 
+        on_delete=models.CASCADE,
+        related_name='contract'
+    )
+    sales_order = models.ForeignKey(
+        SalesOrder, 
+        on_delete=models.CASCADE,
+        related_name='contract'
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=ContractStatus.choices,
+        default=ContractStatus.PENDING
+    )
+    
+    approved_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='approved_contracts'
+    )
+    
+    approved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['purchase_order', 'sales_order']
+        verbose_name = "Contrato de Orden"
+        verbose_name_plural = "Contratos de Órdenes"
+    
+    def __str__(self):
+        return f"Contract {self.purchase_order.order_number} - {self.sales_order.order_number} ({self.status})"    
 
     

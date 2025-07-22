@@ -37,6 +37,47 @@ class PaymentValidator:
         
         # 4. Verificar que tenga selecciones
         self.validate_selected_matches(purchase_order)
+        
+        # 5. Verificar contratos aprobados
+        self.validate_contracts_approved(purchase_order)
+        
+    def validate_contracts_approved(self, purchase_order: PurchaseOrder) -> None:
+        """Valida que todos los contratos estén aprobados antes del pago"""
+        
+        from apps.trading.models import OrderContract
+        
+        # Obtener matches seleccionados
+        selected_matches = purchase_order.metadata.get('selected_matches', [])
+        
+        if not selected_matches:
+            raise PaymentValidationError('No hay matches seleccionados')
+        
+        # Verificar que cada match tenga un contrato aprobado
+        unapproved_contracts = []
+        
+        for match in selected_matches:
+            sales_order_id = match.get('sales_order_id')
+            
+            if not sales_order_id:
+                continue
+                
+            contract = OrderContract.objects.filter(
+                purchase_order=purchase_order,
+                sales_order_id=sales_order_id,
+                status='APPROVED'
+            ).first()
+            
+            if not contract:
+                unapproved_contracts.append({
+                    'sales_order_id': sales_order_id,
+                    'sales_order_number': match.get('sales_order_number', sales_order_id)
+                })
+        
+        if unapproved_contracts:
+            contract_list = ", ".join([c['sales_order_number'] for c in unapproved_contracts])
+            raise PaymentValidationError(
+                f'Los siguientes contratos deben ser aprobados por el administrador antes del pago: {contract_list}'
+            )    
     
     def validate_selection_expiry(self, purchase_order: PurchaseOrder) -> None:
         """Valida que la selección no haya expirado"""
