@@ -295,3 +295,193 @@ def reserve_oldest_tokens(fund_id, quantity, user):
         
         # Refresh objects to get updated data
         return list(FundToken.objects.filter(id__in=token_ids))
+
+
+#+ ========================================
+#+ Metodos para AI y Generación de Contenido
+#+ ========================================
+
+def _generate_cre_valuation_prompt(data):
+    """
+    Genera el prompt para valoración de bienes raíces usando los datos proporcionados
+    """
+    city_name = data['city_name']
+    latitude = data['latitude']
+    longitude = data['longitude']
+    asset_type = data['asset_type']
+    square_footage = data['square_footage']
+    year_built = data['year_built']
+    occupancy_rate = data['occupancy_rate']
+    net_operating_income = data['net_operating_income']
+    
+    return f"""Usted es un experto de clase mundial en valoración de bienes raíces comerciales (CRE) en Colombia con acceso a extensos datos de mercado. Un usuario ha proporcionado detalles de su activo y ha seleccionado una ubicación precisa en Google Maps. Su tarea es proporcionar un informe de valoración completo en formato JSON.
+
+**Contexto de Ubicación:**
+*   Ciudad: {city_name}, Colombia
+*   Coordenadas Geográficas (Lat/Lng): El usuario ha señalado una ubicación precisa en ({latitude:.6f}, {longitude:.6f}). Utilice estas coordenadas para inferir la calidad y el valor de la zona.
+
+**Detalles del Activo:**
+*   Tipo: {asset_type}
+*   Área: {square_footage} m²
+*   Año de Construcción: {year_built}
+*   Tasa de Ocupación: {occupancy_rate}%
+*   Ingreso Operativo Neto Anual (NOI): {net_operating_income:,} COP
+
+**Su Respuesta DEBE ser un único objeto JSON con la siguiente estructura. No incluya ningún otro texto o formato markdown fuera del propio objeto JSON:**
+
+```json
+{{
+  "estimatedValue": {{
+    "low": 15000000000,
+    "high": 18000000000,
+    "currency": "COP"
+  }},
+  "valuationBreakdown": {{
+    "capRate": 5.5,
+    "pricePerSqft": 3500000
+  }},
+  "marketAnalysis": {{
+    "summary": "string",
+    "opportunities": ["string"],
+    "risks": ["string"]
+  }},
+  "zonalMetrics": [
+    {{
+      "name": "string",
+      "value": "string",
+      "position": {{ "lat": 4.610, "lng": -74.082 }}
+    }}
+  ]
+}}
+```
+
+**Instrucciones y Restricciones:**
+1.  Todos los valores numéricos en el JSON deben ser números reales, no cadenas de texto.
+2.  Los valores "low" y "high" para estimatedValue deben ser representaciones enteras realistas en pesos colombianos (COP) (ej., 15000000000 para $15 mil millones COP).
+3.  Calcule 'capRate' como ({net_operating_income:,} / ((low + high) / 2)) * 100.
+4.  Calcule 'pricePerSqft' (que representa el precio por metro cuadrado) como (((low + high) / 2) / {square_footage}).
+5.  El resumen, las oportunidades y los riesgos del marketAnalysis deben ser perspicaces y específicos para el tipo de activo y el contexto de la ubicación ({city_name}, {latitude}, {longitude}).
+6.  Genere de 3 a 4 'zonalMetrics'. Su 'position' debe tener coordenadas 'lat' y 'lng' plausibles que estén cerca (en un radio de ~1-2 km) de la ubicación seleccionada por el usuario ({latitude}, {longitude}), pero sin superponerse. Las métricas deben ser relevantes para el tipo de activo (ej., 'Vacancia Comercial Promedio', 'Índice de Tráfico Peatonal', 'Ingreso Promedio del Hogar').
+
+Basándose en estos datos específicos del activo en {city_name}, proporcione una valoración profesional y detallada que refleje las condiciones del mercado inmobiliario colombiano."""
+
+def _generate_customer_support_prompt(data):
+    """
+    Genera el prompt para un agente de soporte al cliente para inversionistas
+    """
+    user_type = data.get('user_type', 'investor')
+    query_type = data.get('query_type', 'general')
+    user_data = data.get('user_data', {})
+    context = data.get('context', '')
+    
+    # ✅ FORMATEAR DATOS REALES DEL USUARIO
+    user_summary = _format_user_data_detailed(user_data)
+    investment_summary = _format_investment_details(user_data.get('investment_details', []))
+    application_summary = _format_application_details(user_data.get('application_details', []))
+    
+    return f"""Usted es un agente experto de soporte al cliente especializado en servicios de inversión y gestión de fondos. Tiene acceso completo a los datos del usuario en tiempo real.
+
+**Perfil del Usuario:**
+*   Tipo de Usuario: {user_type}
+*   Consulta Categoría: {query_type}
+*   Contexto: {context}
+
+**DATOS REALES DEL USUARIO EN TIEMPO REAL:**
+{user_summary}
+
+**INVERSIONES ACTIVAS DEL USUARIO:**
+{investment_summary}
+
+**APLICACIONES DEL USUARIO:**
+{application_summary}
+
+**Su Respuesta DEBE ser un único objeto JSON con la siguiente estructura:**
+
+```json
+{{
+  "response": {{
+    "message": "Respuesta basada en los datos REALES del usuario: {user_data.get('user_email', 'usuario')}",
+    "actionItems": [
+      {{
+        "type": "data_query",
+        "description": "Consulta específica basada en datos reales",
+        "model": "FundInvestment",
+        "query_params": {{"user_id": {user_data.get('user_id', 'N/A')}}}
+      }}
+    ],
+    "realTimeInsights": [
+      {{
+        "type": "portfolio_summary",
+        "data": "El usuario tiene {user_data.get('total_investments_count', 0)} inversiones activas por un total de ${user_data.get('total_investments', 0):,} COP",
+        "recommendation": "Recomendación basada en datos reales"
+      }}
+    ]
+  }},
+  "dataQueries": [
+    {{
+      "query": "FundInvestment.objects.filter(investor_id={user_data.get('user_id', 'N/A')})",
+      "purpose": "Obtener inversiones del usuario {user_data.get('user_email', 'N/A')}",
+      "results_count": {user_data.get('total_investments_count', 0)}
+    }}
+  ]
+}}
+```
+
+**Datos Específicos Disponibles:**
+- Usuario: {user_data.get('user_email', 'N/A')} (ID: {user_data.get('user_id', 'N/A')})
+- Inversiones Activas: {user_data.get('active_investments_count', 0)}
+- Total Invertido: ${user_data.get('total_investments', 0):,} COP
+- Última Actividad: {user_data.get('last_activity', 'Sin actividad')}
+
+**Contexto de la Consulta:** {context}
+
+**Objetivo:** Proporcionar respuestas precisas usando los datos REALES del usuario {user_data.get('user_email', 'usuario')}."""
+
+def _format_user_data_detailed(user_data):
+    """Formatea datos detallados del usuario con datos reales"""
+    if not user_data:
+        return "*   No hay datos del usuario disponibles"
+    
+    formatted = [
+        f"*   Usuario: {user_data.get('user_email', 'N/A')} (ID: {user_data.get('user_id', 'N/A')})",
+        f"*   Total Invertido: ${user_data.get('total_investments', 0):,} COP",
+        f"*   Inversiones Activas: {user_data.get('active_investments_count', 0)} de {user_data.get('total_investments_count', 0)} totales",
+        f"*   Órdenes Pendientes: {user_data.get('active_orders', 0)}",
+        f"*   Última Actividad: {user_data.get('last_activity', 'Sin actividad')}"
+    ]
+    
+    return '\n'.join(formatted)
+
+def _format_investment_details(investments):
+    """Formatea detalles de inversiones"""
+    if not investments:
+        return "*   No hay inversiones registradas"
+    
+    formatted = ["**Inversiones Recientes:**"]
+    for inv in investments[:3]:
+        formatted.append(
+            f"*   📊 {inv['fund_name']}: ${inv['invested_amount']:,} COP "
+            f"({inv['status']}) - {inv['investment_date']}"
+        )
+    
+    if len(investments) > 3:
+        formatted.append(f"*   ... y {len(investments) - 3} inversiones más")
+    
+    return '\n'.join(formatted)
+
+def _format_application_details(applications):
+    """Formatea detalles de aplicaciones"""
+    if not applications:
+        return "*   No hay aplicaciones registradas"
+    
+    formatted = ["**Aplicaciones Recientes:**"]
+    for app in applications[:3]:
+        formatted.append(
+            f"*   📝 {app['fund_name']}: ${app['requested_amount']:,} COP "
+            f"({app['status']}) - {app['application_date']}"
+        )
+    
+    if len(applications) > 3:
+        formatted.append(f"*   ... y {len(applications) - 3} aplicaciones más")
+    
+    return '\n'.join(formatted)
