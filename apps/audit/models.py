@@ -40,6 +40,12 @@ class AuditAction(base_model.BaseModel):
 
 class AuditLog(base_model.BaseModel):
     """Registro inmutable de eventos auditables"""
+    
+    class AuditStatus(models.TextChoices):
+        SUCCESS = 'SUCCESS', _('Éxito')
+        ERROR = 'ERROR', _('Error')
+        PENDING = 'PENDING', _('Pendiente')
+    
     user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="audit_logs")
     action = models.ForeignKey(AuditAction, on_delete=models.PROTECT, related_name="audit_logs")
     
@@ -51,14 +57,10 @@ class AuditLog(base_model.BaseModel):
     # Datos adicionales
     transaction_id = models.CharField(max_length=255, null=True, blank=True)
     #blockchain_tx_hash = models.CharField(max_length=255, null=True, blank=True)
-    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    ip_address = models.CharField(max_length=100, null=True, blank=True)
     user_agent = models.TextField(null=True, blank=True)
     details = models.JSONField(default=dict)
-    status = models.CharField(max_length=20, choices=[
-        ('SUCCESS', _('Éxito')),
-        ('ERROR', _('Error')),
-        ('PENDING', _('Pendiente'))
-    ], default='SUCCESS')
+    status = models.CharField(max_length=20, choices=AuditStatus.choices, default=AuditStatus.PENDING)
     
     class Meta:
         ordering = ['-created_at']
