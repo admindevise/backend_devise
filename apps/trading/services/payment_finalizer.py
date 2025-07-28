@@ -242,29 +242,43 @@ class PaymentFinalizerService:
         purchase_order.save(update_fields=['metadata'])
         
         logger.info(f"Updated metadata for purchase order {purchase_order.order_number}")
-    
+        
     def update_final_order_status(self, purchase_order: PurchaseOrder) -> None:
-        """Actualiza el estado final de la orden de compra"""
+        """Actualiza el estado final de la orden de compra basado en ejecución acumulativa"""
         
         if not purchase_order.metadata:
-            logger.warning(f"Cannot update final status for order {purchase_order.id}: no metadata")
+            logger.warning(f"Purchase order {purchase_order.id} has no metadata to update status")
             return
         
+        # Obtener unidades de esta ejecución
         selected_matches = purchase_order.metadata.get('selected_matches', [])
-        total_units_purchased = sum(match.get('units', 0) for match in selected_matches)
+        units_in_this_execution = sum(match.get('units', 0) for match in selected_matches)
         
-        if total_units_purchased >= purchase_order.available_units:
+        # Actualizar contador acumulativo
+        purchase_order.units_executed += units_in_this_execution
+        
+        # Determinar estado basado en ejecución total vs original
+        original_units = purchase_order.units
+        total_executed = purchase_order.units_executed
+        
+        print(f"Status calculation for order {purchase_order.order_number}: "
+                    f"executed_total={total_executed}, original={original_units}, "
+                    f"this_execution={units_in_this_execution}")
+        
+        if total_executed >= original_units:
             purchase_order.status = 'FULLY_EXECUTED'
             purchase_order.fully_executed_at = timezone.now()
             status_field = 'fully_executed_at'
-            logger.info(f"Purchase order {purchase_order.order_number} fully executed")
+            print(f"Purchase order {purchase_order.order_number} FULLY executed: "
+                    f"{total_executed}/{original_units} units")
         else:
             purchase_order.status = 'PARTIALLY_EXECUTED'
             purchase_order.partially_executed_at = timezone.now()
             status_field = 'partially_executed_at'
-            logger.info(f"Purchase order {purchase_order.order_number} partially executed: {total_units_purchased}/{purchase_order.units} units")
+            print(f"Purchase order {purchase_order.order_number} PARTIALLY executed: "
+                    f"{total_executed}/{original_units} units")
         
-        purchase_order.save(update_fields=['status', status_field])
+        purchase_order.save(update_fields=['status', status_field, 'units_executed'])
     
     def log_payment_success(
         self, 

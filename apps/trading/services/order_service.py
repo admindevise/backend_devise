@@ -2,12 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 from apps.trading.security.token_validators import TradingAvailabilityService, TokenReservationManager
 from apps.audit.audit_service import AuditService
-from apps.trading.models import PurchaseOrder, SalesOrder, Transaction
-from apps.fund.models import FundToken
-from apps.kaleido.utils import safe_transfer_721
-import logging
-
-logger = logging.getLogger('trading.services')
+from apps.trading.models import PurchaseOrder, SalesOrder
 
 class OrderCreationService:
     """
@@ -30,60 +25,30 @@ class OrderCreationService:
         # Validar que el usuario tiene permisos para crear órdenes de venta
         target_user = order_data.get('seller_user', user)
         
-        # ✅ PRINTS DETALLADOS PARA DEBUGGING
-        print("=" * 50)
-        print("🔧 CREATING SALES ORDER")
-        print(f"Created by: {user.email} (is_staff: {user.is_staff})")
-        print(f"Target seller: {target_user.email}")
-        print(f"Fund: {fund.name} (ID: {fund.id})")
-        print(f"Quantity: {quantity}")
-        print("=" * 50)
-        
         try:
             # 1. Validar viabilidad completa de la orden
             feasibility = self.availability_service.validate_sales_order_feasibility(
                 user, fund.id, quantity=quantity, target_user=target_user,
             )
             
-            # ✅ PRINTS DETALLADOS DE FEASIBILITY
-            print(f"📊 Feasibility result: {feasibility['feasible']}")
-            if feasibility.get('errors'):
-                print(f"❌ Feasibility errors: {feasibility['errors']}")
-            if feasibility.get('warnings'):
-                print(f"⚠️ Feasibility warnings: {feasibility['warnings']}")
-            
-            # ✅ PRINTS DE VALIDACIONES INDIVIDUALES
-            validations = feasibility.get('validations', {})
-            for validation_name, validation_result in validations.items():
-                print(f"🔍 Validation '{validation_name}': {validation_result.get('valid', False)}")
-                if not validation_result.get('valid', False):
-                    print(f"  └─ ❌ Error: {validation_result.get('error', 'Unknown error')}")
-            
             if not feasibility['feasible']:
-                # ✅ ERROR MÁS DETALLADO
                 error_details = []
                 for error in feasibility['errors']:
                     error_details.append(f"• {error}")
                 
                 error_msg = f"Orden no viable:\n" + "\n".join(error_details)
-                print(f"❌ ORDEN NO VIABLE:\n{error_msg}")
                 raise ValueError(error_msg)
             
             # 2. Obtener tokens seleccionados automáticamente
             selected_tokens = feasibility['validations']['auto_select']['token_ids']
-            print(f"🎯 Selected tokens: {selected_tokens}")
             
             # 3. Reservar tokens para la venta
-            print(f"🔒 Reserving {len(selected_tokens)} tokens for sale...")
             reservation_result = self.reservation_manager.reserve_tokens_for_sale(
                 target_user, selected_tokens, fund.id
             )
             
             if not reservation_result['success']:
-                print(f"❌ Reservation failed: {reservation_result['failed_reservations']}")
                 raise ValueError(f"Error reservando tokens: {reservation_result['failed_reservations']}")
-            
-            print(f"✅ Tokens reserved successfully")
             
             order_data['seller_user'] = target_user
             
@@ -94,8 +59,6 @@ class OrderCreationService:
                 status='PENDING'
             )
             
-            print(f"✅ Sales order created with ID: {sales_order.id}")
-            
             # 5. Registrar metadatos de la reserva
             if hasattr(sales_order, 'metadata'):
                 sales_order.metadata = {
@@ -104,7 +67,6 @@ class OrderCreationService:
                     'feasibility_validated': feasibility['feasible'],
                 }
                 sales_order.save(update_fields=['metadata'])
-                print(f"📝 Metadata saved for order {sales_order.id}")
                         
             # 6. Auditoría de éxito
             if request:
@@ -125,8 +87,6 @@ class OrderCreationService:
                     status='SUCCESS'
                 )
             
-            print(f"🎉 Sales order {sales_order.id} created successfully for user {user.id}")
-            
             return {
                 'success': True,
                 'sales_order': sales_order,
@@ -135,12 +95,8 @@ class OrderCreationService:
             }
             
         except Exception as e:
-            print(f"💥 EXCEPTION in create_sales_order: {str(e)}")
-            print(f"Exception type: {type(e).__name__}")
-            
             # Liberar reservas en caso de error
             if 'selected_tokens' in locals():
-                print(f"🔓 Releasing {len(selected_tokens)} tokens due to error...")
                 self.reservation_manager.release_token_reservations(selected_tokens, fund.id)
             
             # Auditoría de error
@@ -262,8 +218,6 @@ class OrderCreationService:
                     status='SUCCESS'
                 )
             
-            logger.info(f"Purchase order {purchase_order.id} created successfully for user {user.id}")
-            
             return {
                 'success': True,
                 'purchase_order': purchase_order,
@@ -287,8 +241,7 @@ class OrderCreationService:
                     },
                     status='ERROR'
                 )
-            
-            logger.error(f"Error creating purchase order for user {user.id}: {str(e)}")
+
             raise
 
 class OrderManagementService:
@@ -322,7 +275,7 @@ class OrderManagementService:
                 )
                 
                 if not release_result['success']:
-                    logger.warning(f"Some tokens could not be released: {release_result['errors']}")
+                    print('Error liberando reservas de tokens:', release_result['failed_releases'])
             
             # 4. Actualizar estado de la orden
             sales_order.status = 'CANCELLED'
@@ -344,9 +297,7 @@ class OrderManagementService:
                     },
                     status='SUCCESS'
                 )
-            
-            logger.info(f"Sales order {sales_order.id} cancelled successfully")
-            
+                
             return {
                 'success': True,
                 'released_tokens': len(reserved_tokens),
@@ -368,8 +319,6 @@ class OrderManagementService:
                     },
                     status='ERROR'
                 )
-            
-            logger.error(f"Error cancelling sales order {sales_order.id}: {str(e)}")
             raise
     
     @transaction.atomic
@@ -401,9 +350,7 @@ class OrderManagementService:
                     },
                     status='SUCCESS'
                 )
-            
-            logger.info(f"Purchase order {purchase_order.id} cancelled successfully")
-            
+
             return {
                 'success': True,
                 'order_status': purchase_order.status
@@ -425,152 +372,4 @@ class OrderManagementService:
                     },
                     status='ERROR'
                 )
-            
-            logger.error(f"Error cancelling purchase order {purchase_order.id}: {str(e)}")
             raise
-
-class TransactionExecutionService:
-    """
-    Servicio para ejecutar transacciones completas entre órdenes
-    """
-    
-    def __init__(self):
-        self.reservation_manager = TokenReservationManager()
-    
-    @transaction.atomic
-    def execute_trade(self, purchase_order, sales_order, units_to_trade: int, request=None) -> dict:
-        """
-        Ejecuta una transacción completa entre una orden de compra y venta
-        """
-        try:
-            # 1. Validaciones previas
-            if purchase_order.status != 'PAID':
-                raise ValueError(f"Purchase order must be PAID, current status: {purchase_order.status}")
-            
-            if sales_order.status not in ['APPROVED', 'PAID']:
-                raise ValueError(f"Sales order must be APPROVED or PAID, current status: {sales_order.status}")
-            
-            if units_to_trade > min(purchase_order.units, sales_order.units):
-                raise ValueError("Units to trade exceed available units in orders")
-            
-            # 2. Obtener tokens de ambas órdenes
-            purchase_tokens = self._get_reserved_tokens_from_order(purchase_order)[:units_to_trade]
-            sales_tokens = self._get_reserved_tokens_from_order(sales_order)[:units_to_trade]
-            
-            if len(purchase_tokens) != units_to_trade or len(sales_tokens) != units_to_trade:
-                raise ValueError("Insufficient reserved tokens for trade execution")
-            
-            # 3. Ejecutar transferencias en blockchain
-            transfer_results = []
-            for purchase_token, sales_token in zip(purchase_tokens, sales_tokens):
-                # Transferir token del vendedor al comprador
-                transfer_result, transfer_error = safe_transfer_721(
-                    sales_token.token_id,
-                    sales_order.fund.id,
-                    sales_order.created_by,  # from_user
-                    purchase_order.created_by  # to_user
-                )
-                
-                if transfer_error:
-                    raise ValueError(f"Transfer failed for token {sales_token.token_id}: {transfer_error}")
-                
-                transfer_results.append({
-                    'token_id': sales_token.token_id,
-                    'transfer_result': transfer_result
-                })
-            
-            # 4. Actualizar propiedad en base de datos
-            for sales_token in sales_tokens:
-                sales_token.owner_user = purchase_order.created_by
-                sales_token.save(update_fields=['owner_user'])
-            
-            # 5. Crear registro de transacción
-            trade_transaction = Transaction.objects.create(
-                purchase_order=purchase_order,
-                sales_order=sales_order,
-                buyer=purchase_order.created_by,
-                seller=sales_order.created_by,
-                fund=purchase_order.fund,
-                units=units_to_trade,
-                price_per_unit=purchase_order.price_per_unit,
-                total_amount=units_to_trade * purchase_order.price_per_unit
-            )
-            
-            # 6. Actualizar estados de órdenes
-            if purchase_order.units == units_to_trade:
-                purchase_order.status = 'COMPLETED'
-                purchase_order.completed_at = timezone.now()
-                purchase_order.save(update_fields=['status', 'completed_at'])
-            
-            if sales_order.units == units_to_trade:
-                sales_order.status = 'COMPLETED'
-                sales_order.completed_at = timezone.now()
-                sales_order.save(update_fields=['status', 'completed_at'])
-            
-            # 7. Auditoría de éxito
-            if request:
-                AuditService.log_action(
-                    request=request,
-                    action_code='TRADE_EXECUTION',
-                    obj=trade_transaction,
-                    details={
-                        'purchase_order_id': purchase_order.id,
-                        'sales_order_id': sales_order.id,
-                        'units_to_trade': units_to_trade,
-                        'buyer_id': purchase_order.created_by.id,
-                        'seller_id': sales_order.created_by.id,
-                        'transaction_id': trade_transaction.id,
-                        'transferred_tokens': [r['token_id'] for r in transfer_results],
-                        'units_traded': units_to_trade,
-                        'total_amount': trade_transaction.total_amount,
-                        'operation': 'execute_trade'
-                    },
-                    status='SUCCESS'
-                )
-            
-            logger.info(f"Trade executed successfully: Transaction {trade_transaction.id}")
-            
-            return {
-                'success': True,
-                'transaction': trade_transaction,
-                'transferred_tokens': transfer_results,
-                'purchase_order_status': purchase_order.status,
-                'sales_order_status': sales_order.status
-            }
-            
-        except Exception as e:
-            # Auditoría de error
-            if request:
-                AuditService.log_action(
-                    request=request,
-                    action_code='TRADE_EXECUTION_ERROR',
-                    obj=None,
-                    details={
-                        'purchase_order_id': purchase_order.id,
-                        'sales_order_id': sales_order.id,
-                        'units_to_trade': units_to_trade,
-                        'buyer_id': purchase_order.created_by.id,
-                        'seller_id': sales_order.created_by.id,
-                        'error': str(e),
-                        'error_type': type(e).__name__,
-                        'operation': 'execute_trade'
-                    },
-                    status='ERROR'
-                )
-            
-            logger.error(f"Error executing trade: {str(e)}")
-            raise
-    
-    def _get_reserved_tokens_from_order(self, order) -> list:
-        """
-        Obtiene los tokens reservados de una orden desde sus metadatos
-        """
-        if not hasattr(order, 'metadata') or not order.metadata:
-            return []
-        
-        reserved_token_ids = order.metadata.get('reserved_tokens', [])
-        
-        return list(FundToken.objects.filter(
-            token_id__in=reserved_token_ids,
-            fund=order.fund
-        ).order_by('created_at'))
