@@ -10,6 +10,8 @@ class OrderContractSerializer(serializers.ModelSerializer):
     sales_order_number = serializers.CharField(source='sales_order.order_number', read_only=True)
     buyer_email = serializers.CharField(source='purchase_order.supplier_user.email', read_only=True)
     seller_email = serializers.CharField(source='sales_order.seller_user.email', read_only=True)
+    approved_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
+    created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
     
     class Meta:
         model = OrderContract

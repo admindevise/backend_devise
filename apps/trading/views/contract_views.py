@@ -1,14 +1,43 @@
-# apps/trading/views/contract_views.py
-from rest_framework import status
+from rest_framework import status, viewsets, filters
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
+from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
+from apps.utils.views.Mixins import DateFilterMixin
+from django.db.models import Q
 
 from apps.trading.models import OrderContract
 from apps.trading.serializers.contract_serializers import (
     OrderContractSerializer, ContractApprovalSerializer
 )
+
+class OrderContractListView(DateFilterMixin,viewsets.ReadOnlyModelViewSet):
+    serializer_class = OrderContractSerializer
+    permission_classes = [IsAuthenticated]
+    
+    filter_backends = [filters.OrderingFilter, filters.SearchFilter, DjangoFilterBackend]
+    filterset_fields = ['status', 'approved_by', 'purchase_order__supplier_user', 'sales_order__seller_user']
+    search_fields = ['purchase_order__order_number', 'sales_order__order_number']
+    ordering_fields = ['created_at', 'approved_at']
+    ordering = ['-created_at']
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        queryset = OrderContract.objects.select_related(
+            'purchase_order__supplier_user',
+            'sales_order__seller_user',
+            'approved_by'
+        )
+        
+        if not user.is_staff:
+            queryset = queryset.filter(
+                Q(purchase_order__supplier_user=user) |
+                Q(sales_order__seller_user=user)
+            )
+        
+        return self.apply_date_filters(queryset)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

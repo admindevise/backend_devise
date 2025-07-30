@@ -3,7 +3,7 @@ from apps.trading.models import (
     PurchaseOrder,
     SalesOrder,
     Transaction,
-    OrderBook
+    OrderBook,
 )
 
 class PurchaseOrderAdmin(admin.ModelAdmin):
@@ -27,20 +27,6 @@ class PurchaseOrderAdmin(admin.ModelAdmin):
     list_filter = ('status',)
     ordering = ('-created_at',)
     readonly_fields = ('total_amount',)
-"""     fieldsets = (
-        (None, {
-            'fields': ('order_number', 'units', 'price_per_unit', 'total_amount', 'expiration_date', 'margin', 'status')
-        }),
-        ('User Info', {
-            'fields': ('supplier_user', 'created_by')
-        }),
-        ('Fund Info', {
-            'fields': ('fund',)
-        }),
-        ('Timestamps', {
-            'fields': ('approved_at', 'paid_at', 'cancelled_at', 'created_at')
-        })
-    ) """
 
 class SalesOrderAdmin(admin.ModelAdmin):
     list_display = (
@@ -62,20 +48,6 @@ class SalesOrderAdmin(admin.ModelAdmin):
     list_filter = ('status',)
     ordering = ('-created_at',)
     readonly_fields = ('total_amount',)
-"""     fieldsets = (
-        (None, {
-            'fields': ('order_number', 'units', 'price_per_unit', 'total_amount', 'expiration_date', 'margin', 'status')
-        }),
-        ('User Info', {
-            'fields': ('seller_user', 'created_by')
-        }),
-        ('Fund Info', {
-            'fields': ('fund',)
-        }),
-        ('Timestamps', {
-            'fields': ('approved_at', 'paid_at', 'cancelled_at', 'created_at')
-        })
-    ) """
 
 class TransactionAdmin(admin.ModelAdmin):
     list_display = (

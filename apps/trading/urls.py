@@ -12,13 +12,15 @@ from apps.trading.views.trading_views import (
 from apps.trading.views.find_matching_views import execute_match, find_matches
 from apps.trading.views.payment_execution_views import pay_selection, validate_payment
 from apps.trading.views.order_selection_views import select_matches, validate_match_selection, auto_select_matches
-from apps.trading.views.contract_views import list_pending_contracts, approve_contract
+from apps.trading.views.contract_views import list_pending_contracts, approve_contract, OrderContractListView
 
 
 router = DefaultRouter()
 router.register(r'purchase-orders', PurchaseOrderViewSet, basename='purchaseorder')
 router.register(r'sales-orders', SalesOrderViewSet, basename='salesorder')
 router.register(r'transactions', TransactionViewSet, basename='transaction')
+router.register(r'contracts', OrderContractListView, basename='ordercontract')
+
 
 urlpatterns = [
     # Router URLs
@@ -43,6 +45,6 @@ urlpatterns = [
     path('api/cleanup-reservations/', cleanup_expired_reservations, name='cleanup-reservations'),
     
     # Contract URLs
-    path('api/contracts/pending/', list_pending_contracts, name='list-pending-contracts'),
-    path('api/contracts/approve/<int:contract_id>/', approve_contract, name='approve-contract'),
+    path('api/contracts-pending/', list_pending_contracts, name='list-pending-contracts'),
+    path('api/contracts-approve/<int:contract_id>/', approve_contract, name='approve-contract'),
 ]
