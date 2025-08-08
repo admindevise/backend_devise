@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.decorators import api_view, permission_classes
 
-from apps.trading.models import PurchaseOrder, SalesOrder, Transaction
+from apps.trading.models.core_models import PurchaseOrder, SalesOrder, Transaction
 from apps.trading.order_matching import OrderMatch
 
 # DEPRECADO: execute_match ya no se usa en el nuevo flujo

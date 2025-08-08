@@ -1,9 +1,13 @@
 from django.contrib import admin
-from apps.trading.models import (
+from apps.trading.models.core_models import (
     PurchaseOrder,
     SalesOrder,
     Transaction,
     OrderBook,
+)
+
+from apps.trading.models.selection_models import (
+    MatchSelection
 )
 
 class PurchaseOrderAdmin(admin.ModelAdmin):
@@ -82,8 +86,14 @@ class OrderBookAdmin(admin.ModelAdmin):
     list_filter = ('status',)
     ordering = ('-created_at',)
     readonly_fields = ('created_at',)
+    
+class MatchSelectionAdmin(admin.ModelAdmin):
+    list_display = ('purchase_order', 'sales_order', 'total_units')
+    search_fields = ('created_by',)
+    list_filter = ('status',)
 
 admin.site.register(PurchaseOrder, PurchaseOrderAdmin)
 admin.site.register(SalesOrder, SalesOrderAdmin)
 admin.site.register(Transaction, TransactionAdmin)
 admin.site.register(OrderBook, OrderBookAdmin)
+admin.site.register(MatchSelection, MatchSelectionAdmin)

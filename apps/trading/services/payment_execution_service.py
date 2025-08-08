@@ -2,9 +2,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from typing import Dict, List, Any
-import logging
 
-from apps.trading.models import PurchaseOrder
+from apps.trading.models.core_models import PurchaseOrder
 from apps.trading.security.token_validators import TokenReservationManager
 
 # Nuevos servicios especializados
@@ -12,8 +11,6 @@ from apps.trading.services.payment_validator import PaymentValidator, PaymentVal
 from apps.trading.services.payment_processor import PaymentProcessingService
 from apps.trading.services.token_transfer_service import TokenTransferService, TokenTransferError
 from apps.trading.services.payment_finalizer import PaymentFinalizerService
-
-logger = logging.getLogger('trading.payment_execution')
 
 class PaymentExecutionError(Exception):
     """Excepción personalizada para errores de ejecución de pagos"""
@@ -69,18 +66,8 @@ class PaymentExecutionService:
             PaymentExecutionError: Si hay errores en la ejecución
         """
         try:
-            logger.info(f"Starting payment execution for order {purchase_order.order_number}")
-            
             # 1. VALIDACIÓN
             self.validator.validate_payment_execution(purchase_order)
-            
-            # Verificar nuevamente el estado después de validaciones
-            purchase_order.refresh_from_db()
-            if purchase_order.status == PurchaseOrder.PurchaseOrderStatus.PENDING:
-                raise PaymentExecutionError(
-                    'La orden ha sido revertida a PENDING durante las validaciones. '
-                    'Posiblemente la selección expiró.'
-                )
             
             # 2. ENRIQUECER DATOS DE PAGO
             enriched_payment_data = self._enrich_payment_data(purchase_order, payment_data)
@@ -101,14 +88,16 @@ class PaymentExecutionService:
             
             return final_result
             
-        except (PaymentValidationError, TokenTransferError) as e:
-            # Errores de validación y transferencia - no registrar como errores internos
-            logger.warning(f"Payment execution validation error for order {purchase_order.order_number}: {str(e)}")
-            raise PaymentExecutionError(str(e))
+        except PaymentValidationError as e:
+            # ✅ MANEJAR EXPIRACIÓN FUERA DE LA TRANSACCIÓN
+            if "expirado" in str(e).lower():
+                # Limpiar en transacción separada
+                cleanup_result = self.validator.handle_expired_selection_safely(purchase_order)
+                raise PaymentExecutionError(f"{str(e)} {cleanup_result['message'], cleanup_result['order_status']}")
             
+            raise PaymentExecutionError(str(e))
         except Exception as e:
             # Errores inesperados - registrar y manejar
-            logger.error(f"Unexpected error in payment execution for order {purchase_order.order_number}: {str(e)}")
             self.finalizer.handle_payment_error(purchase_order, str(e), user, request)
             raise PaymentExecutionError(f"Error en ejecución de pago: {str(e)}")
     
@@ -158,33 +147,3 @@ class PaymentExecutionService:
         except KeyError as e:
             raise PaymentExecutionError(f'Información de selección incompleta: {str(e)}')
     
-    # ========================================
-    # MÉTODOS DE COMPATIBILIDAD (OBSOLETOS)
-    # ========================================
-    
-    # Los siguientes métodos se mantienen temporalmente para compatibilidad
-    # pero deben ser reemplazados por los nuevos servicios especializados
-    
-    def _process_payment(
-        self, 
-        purchase_order: PurchaseOrder, 
-        payment_data: Dict[str, Any], 
-        request=None
-    ) -> Dict[str, Any]:
-        """
-        OBSOLETO: Usar payment_processor.process_payment() directamente
-        Mantenido solo para compatibilidad con código existente
-        """
-        return self.payment_processor.process_payment(purchase_order, payment_data)
-    
-    def _validate_payment_execution(self, purchase_order: PurchaseOrder) -> None:
-        """
-        OBSOLETO: Usar validator.validate_payment_execution() directamente
-        Mantenido solo para compatibilidad con código existente
-        """
-        return self.validator.validate_payment_execution(purchase_order)
-    
-    def _log_error_audit(self, purchase_order: PurchaseOrder, error_msg: str, user, request=None) -> None:
-        """OBSOLETO: Funcionalidad movida a PaymentFinalizerService"""
-        logger.warning("Method _log_error_audit is obsolete")
-        self.finalizer.handle_payment_error(purchase_order, error_msg, user, request)

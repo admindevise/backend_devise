@@ -9,7 +9,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Q
 
-from apps.trading.models import PurchaseOrder, SalesOrder, Transaction
+from apps.trading.models.core_models import PurchaseOrder, SalesOrder, Transaction
 from apps.trading.services.order_query_service import OrderQueryService
 from apps.trading.services.order_service import OrderManagementService
 from apps.trading.services.payment_execution_service import PaymentExecutionService

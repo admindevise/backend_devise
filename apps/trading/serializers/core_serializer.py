@@ -4,7 +4,7 @@ from django.db import transaction
 
 from apps.trading.services.order_service import OrderCreationService, OrderManagementService
 from apps.user.models import User
-from apps.trading.models import (
+from apps.trading.models.core_models import (
     PurchaseOrder,
     SalesOrder,
     Transaction,

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.utils import timezone
 
-from apps.trading.models import OrderContract
+from apps.trading.models.core_models import OrderContract
 
 class OrderContractSerializer(serializers.ModelSerializer):
     """Serializer básico para contratos"""

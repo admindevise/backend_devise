@@ -2,7 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 from apps.trading.security.token_validators import TradingAvailabilityService, TokenReservationManager
 from apps.audit.audit_service import AuditService
-from apps.trading.models import PurchaseOrder, SalesOrder
+from apps.trading.models.core_models import PurchaseOrder, SalesOrder
 
 class OrderCreationService:
     """

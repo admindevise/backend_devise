@@ -1,16 +1,12 @@
-# apps/trading/views/payment_execution_views.py
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
-import logging
 
 from apps.trading.serializers.payment_serializers import (
     PaymentExecutionSerializer, 
     PaymentValidationSerializer
 )
-
-logger = logging.getLogger('trading.payment')
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -46,7 +42,6 @@ def pay_selection(request):
         return Response(result, status=status.HTTP_200_OK)
         
     except Exception as e:
-        logger.error(f"Error in pay_selection: {str(e)}")
         return Response({
             'success': False,
             'error': str(e)

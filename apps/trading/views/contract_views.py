@@ -7,7 +7,7 @@ from django.utils import timezone
 from apps.utils.views.Mixins import DateFilterMixin
 from django.db.models import Q
 
-from apps.trading.models import OrderContract
+from apps.trading.models.core_models import OrderContract
 from apps.trading.serializers.contract_serializers import (
     OrderContractSerializer, ContractApprovalSerializer
 )

@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework.exceptions import ValidationError
-from apps.trading.models import PurchaseOrder, SalesOrder, Transaction, OrderBook
+from apps.trading.models.core_models import PurchaseOrder, SalesOrder, Transaction, OrderBook
 from apps.fund.models import Fund
 from apps.user.models import User
 

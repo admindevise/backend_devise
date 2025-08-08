@@ -5,7 +5,7 @@ def check_trading_liquidity(fund_id, required_quantity):
     """
     Verifica la liquidez del mercado secundario - CORREGIDO
     """
-    from apps.trading.models import SalesOrder, PurchaseOrder
+    from apps.trading.models.core_models import SalesOrder, PurchaseOrder
     from apps.fund.models import FundToken
     
     # 1. Contar unidades en órdenes de venta activas

@@ -1,17 +1,13 @@
-# apps/trading/views/order_selection_views.py
-from rest_framework import status
+from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
-import logging
 
 from apps.trading.serializers.match_selection_serializers import (
     MatchSelectionSerializer,
     AutoMatchSelectionSerializer,
     MatchSelectionValidationSerializer
 )
-
-logger = logging.getLogger('trading.match_selection')
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -39,7 +35,6 @@ def auto_select_matches(request):
         return Response(result, status=status.HTTP_200_OK)
         
     except Exception as e:
-        logger.error(f"Error in auto match selection: {str(e)}")
         return Response({
             'success': False,
             'error': str(e)
@@ -67,7 +62,6 @@ def select_matches(request):
         return Response(result, status=status.HTTP_200_OK)
         
     except Exception as e:
-        logger.error(f"Error processing match selection: {str(e)}")
         return Response({
             'success': False,
             'error': str(e)

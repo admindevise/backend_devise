@@ -158,6 +158,8 @@ class SalesOrder(BaseOrder):
         choices=SalesOrderStatus.choices,
         default=SalesOrderStatus.PENDING,
     )
+    
+    # Relaciones con otros modelos
     seller_user = models.ForeignKey(
         User, 
         on_delete=models.PROTECT, 
@@ -173,6 +175,8 @@ class SalesOrder(BaseOrder):
         on_delete=models.PROTECT, 
         related_name='sales_orders'
     )
+    
+    reserved_tokens_info = models.JSONField(null=True, blank=True)
     
     class Meta:
         ordering = ['-created_at']

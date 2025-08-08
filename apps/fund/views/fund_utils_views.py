@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from apps.fund.utils import _generate_cre_valuation_prompt, _generate_customer_support_prompt
 from apps.fund.serializers.serializer_utils import TokenCounterUserSerializer, AISerializer, CustomerSupportSerializer
 from apps.fund.models import FundInvestment, FundApplication, Fund
-from apps.trading.models import PurchaseOrder  # Si existe
+from apps.trading.models.core_models import PurchaseOrder  # Si existe
 from django.db.models import Sum, Count, Q
 
 import requests
@@ -214,7 +214,7 @@ def _enrich_user_data(self, user, serializer_data):
         
         # ✅ OBTENER ÓRDENES ACTIVAS (si existe el modelo)
         try:
-            from apps.trading.models import PurchaseOrder
+            from apps.trading.models.core_models import PurchaseOrder
             active_orders = PurchaseOrder.objects.filter(
                 supplier_user=user, 
                 status__in=['pending', 'processing']

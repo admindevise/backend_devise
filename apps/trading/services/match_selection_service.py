@@ -1,18 +1,14 @@
-# apps/trading/services/match_selection_service.py
 from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 from typing import Dict, List, Any
 
-from apps.trading.models import PurchaseOrder, SalesOrder
+from apps.trading.models.core_models import PurchaseOrder, SalesOrder
 from apps.trading.order_matching import OrderMatch
 from apps.audit.audit_service import AuditService
-from apps.trading.models import OrderContract, SalesOrder
+from apps.trading.models.core_models import OrderContract, SalesOrder
 import requests
-import logging
-
-logger = logging.getLogger('trading.match_selection')
 
 class MatchSelectionError(Exception):
     """Excepción personalizada para errores de selección de matches"""
@@ -515,7 +511,7 @@ class MatchSelectionService:
                 ).first()
                 
                 if existing_contract:
-                    logger.info(f"Contract already exists: {existing_contract.id}")
+                    print(f"Contract already exists: {existing_contract.id}")
                     continue
                 
                 # Crear contrato
@@ -556,7 +552,7 @@ class MatchSelectionService:
                 print(f"Error creating contract for sales order {sales_order_id}: {str(e)}")
                 continue
         
-        logger.info(f"Created {len(contracts_created)} contracts for purchase order {purchase_order.order_number}")
+        print(f"Created {len(contracts_created)} contracts for purchase order {purchase_order.order_number}")
     
     def _update_purchase_order_status(self, purchase_order: PurchaseOrder) -> None:
         """Actualiza el estado de la orden a MATCHES_SELECTED"""
@@ -801,7 +797,7 @@ class MatchSelectionService:
         if request:
             AuditService.log_action(
                 request=request,
-                action_code='MATCH_SELECTION_ERROR',
+                action_code='AUTO_MATCH_SELECTION',
                 obj=purchase_order,
                 details={
                     'order_number': purchase_order.order_number,

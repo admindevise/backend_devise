@@ -1,13 +1,13 @@
 from django.db.models import Q, Count
 from django.contrib.auth.models import User
-from apps.trading.models import PurchaseOrder, SalesOrder
+from apps.trading.models.core_models import PurchaseOrder, SalesOrder
 
 class OrderQueryService:
     """
     Servicio para consultas complejas de órdenes
     Separación de responsabilidades: lógica de negocio fuera de views
     """
-    
+    # comentarios mejorados y docstrings añadidos
     def __init__(self):
         self.active_statuses = ['PENDING', 'PAID', 'MATCHES_SELECTED', 'MATCHED']
     

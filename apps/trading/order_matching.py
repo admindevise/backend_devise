@@ -4,7 +4,7 @@ from django.utils import timezone
 from decimal import Decimal
 from datetime import timedelta
 
-from apps.trading.models import PurchaseOrder, SalesOrder, Transaction
+from apps.trading.models.core_models import PurchaseOrder, SalesOrder, Transaction
 from apps.fund.models import Fund
 
 class OrderMatch:
