@@ -88,7 +88,7 @@ class OrderBookAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at',)
     
 class MatchSelectionAdmin(admin.ModelAdmin):
-    list_display = ('purchase_order', 'sales_order', 'total_units')
+    list_display = ('id', 'purchase_order', 'sales_order', 'total_units')
     search_fields = ('created_by',)
     list_filter = ('status',)
 

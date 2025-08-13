@@ -35,8 +35,8 @@ class PaymentExecutionService:
         self.finalizer = PaymentFinalizerService()
         
         # Mantener compatibilidad con código existente
-        self.reservation_manager = TokenReservationManager()
-        self.payment_methods = self.payment_processor.payment_methods
+        #self.reservation_manager = TokenReservationManager()
+        #self.payment_methods = self.payment_processor.payment_methods
     
     # ========================================
     # MÉTODO PRINCIPAL SIMPLIFICADO

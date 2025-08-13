@@ -66,7 +66,7 @@ class MatchSelection(models.Model):
         ]
     
     def __str__(self):
-        return f"MatchSelection {self.id} - {self.status} for PO {self.purchase_order.order_number} and SO {self.sales_order.order_number}"
+        return f"MatchSelection {self.id} - {self.status}"
     
     @property
     def is_expired(self):

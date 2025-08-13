@@ -372,7 +372,6 @@ class TradingTokenValidator(BaseTokenValidator):
             }
             
         except Exception as e:
-            logger.error(f"Error checking trading liquidity for fund {fund_id}: {str(e)}")
             return {
                 'valid': False,
                 'error': str(e),
@@ -411,7 +410,6 @@ class TradingTokenValidator(BaseTokenValidator):
             }
             
         except Exception as e:
-            logger.error(f"Error auto-selecting tokens for user {user.id}: {str(e)}")
             return {
                 'valid': False,
                 'error': str(e),
@@ -539,8 +537,6 @@ class TokenReservationManager:
                         reserved_at=None,
                         reservation_expires_at=None
                     )
-                    logger.info(f"Cleaned up {count} expired token reservations")
-                
                 return {
                     'success': True,
                     'cleaned_count': count
@@ -553,7 +549,6 @@ class TokenReservationManager:
                 }
                 
         except Exception as e:
-            logger.error(f"Error cleaning up expired reservations: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)

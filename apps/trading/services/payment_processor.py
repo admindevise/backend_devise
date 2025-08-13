@@ -89,44 +89,45 @@ class PaymentProcessingService:
             'order_status': purchase_order.status
         }
 
-
     # =========================
     # Helpers internos
     # =========================
 
     def prepare_payment_data(self, payment_data: Dict[str, Any], purchase_order: PurchaseOrder) -> Dict[str, Any]:
         """
-        Enrich: method, reference, amount y metadata mínima.
-        - amount: prioritiza payment_data.amount; fallback a metadata.selection_summary.total_amount; por último, 0.
+        Prepara datos para procesamiento usando modelos como fuente de verdad.
+        Ya NO usa metadata de órdenes.
         """
-        data = dict(payment_data or {})
-
-        # Método por defecto
-        data.setdefault('method', 'automatic')
-
-        # Referencia por defecto
-        default_ref_base = getattr(purchase_order, 'order_number', str(purchase_order.id))
-        data.setdefault('reference', f"PAY-{default_ref_base}-{int(time.time())}")
-
-        # Metadata base
-        meta = data.get('metadata') or {}
-        if not isinstance(meta, dict):
-            meta = {'raw_metadata': str(meta)}
-        meta.setdefault('requested_at', timezone.now().isoformat())
-        data['metadata'] = meta
-
-        # Amount
+        data = dict(payment_data)
+        
+        # ✅ AMOUNT YA VIENE DESDE SELECTION - no necesita cálculo desde metadata
         amount = data.get('amount')
-        if amount is None:
-            # Intentar desde metadata de la orden (selection_summary.total_amount)
-            try:
-                if purchase_order.metadata and purchase_order.metadata.get('selection_summary'):
-                    amount = purchase_order.metadata['selection_summary'].get('total_amount')
-            except Exception:
-                amount = None
-        # Normalizar a Decimal en el caller (process_payment) para persistencia
+        if not amount:
+            raise ValueError("Amount es requerido y debe venir desde la selección")
+        
+        # Validar que sea numérico
+        try:
+            amount = float(amount)
+            if amount <= 0:
+                raise ValueError("El monto debe ser mayor a 0")
+        except (ValueError, TypeError):
+            raise ValueError(f"Monto inválido: {amount}")
+        
+        # Defaults
+        data.setdefault('method', 'CREDIT_CARD')
+        data.setdefault('currency', 'COP')
+        data.setdefault('reference', f'PAY-{purchase_order.order_number}-{timezone.now().strftime("%Y%m%d%H%M%S")}')
+        data.setdefault('metadata', {})
+        
+        # ✅ METADATA DE PAGO: Información para auditoría (no fuente de verdad)
+        data['metadata'].update({
+            'purchase_order_id': str(purchase_order.id),
+            'purchase_order_number': purchase_order.order_number,
+            'prepared_at': timezone.now().isoformat(),
+            'data_source': 'selection_model'  # Indicar fuente
+        })
+        
         data['amount'] = amount
-
         return data
 
     def simulate_bank_processing(self, purchase_order: PurchaseOrder, payment_data: Dict[str, Any]) -> None:

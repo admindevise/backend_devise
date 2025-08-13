@@ -1,170 +1,135 @@
-from django.db import transaction
-from django.utils import timezone
-from typing import Dict, List, Any
-from decimal import Decimal
-
-from apps.trading.models.selection_models import MatchSelection, MatchSelectionItem
+from typing import Dict, List, Any, Union
 from apps.trading.models.core_models import PurchaseOrder, SalesOrder
-
-from apps.trading.order_matching import OrderMatch
-
-class SelectionServiceError(Exception):
-    """Excepción personalizada para errores en SelectionService"""
-    pass
+from .purchase_selection_service import PurchaseMatchSelectionService
+from .sales_selection_service import SalesMatchSelectionService
+from .match_selection_core import SelectionServiceError
 
 class MatchSelectionService:
-    """Servicio dedicado para manejo de selecciones de matches"""
+    """
+    Servicio unificado que orquesta la selección de matches
+    Delega a servicios específicos según el tipo de orden
+    """
     
     def __init__(self):
-        self.matcher = OrderMatch()
+        self.purchase_service = PurchaseMatchSelectionService()
+        self.sales_service = SalesMatchSelectionService()
     
-    @transaction.atomic
-    def create_selection(
+    # ========================================
+    # MÉTODOS UNIFICADOS
+    # ========================================
+    
+    def process_manual_selection(
         self,
-        purchase_order: PurchaseOrder,
-        sales_order: SalesOrder,
-        validated_matches: List[Dict],
+        order: Union[PurchaseOrder, SalesOrder],
+        selected_matches: List[Dict[str, Any]],
         user,
-        expires_in_minutes: int = 15
-    ) -> MatchSelection:
-        """Crea una nueva seleccion de matches"""
-
-        # 1. Limpiar seleccion anterior si existe
-        self._clean_existing_selection(purchase_order, sales_order)
-        
-        # 2. Obtener matches disponibles
-        available_matches = self._get_available_matches(purchase_order)    
-        
-        # 3. Calcular totales
-        total_amount = sum(Decimal(str(match['total_amount'])) for match in validated_matches)
-        total_units = sum(match['units'] for match in validated_matches)
-        total_savings = sum(Decimal(str(match.get('buyer_savings', 0))) for match in validated_matches)
-        
-        # 4. Crear la selección principal
-        selection = MatchSelection.objects.create(
-            purchase_order=purchase_order,
-            sales_order=sales_order,
-            total_amount=total_amount,
-            total_units=total_units,
-            expected_savings=total_savings,
-            expires_at=timezone.now() + timezone.timedelta(minutes=expires_in_minutes),
-            created_by=user,
-            metadata={
-                'validated_matches': validated_matches,
-                'original_matches_count': len(validated_matches)
-            }
-        )
-        
-        # 5. Crear items individuales
-        for match in validated_matches:
-            sales_order = SalesOrder.objects.get(id=match['sales_order_id'])
-            purchase_order = PurchaseOrder.objects.get(id=match['purchase_order_id'])
-            
-            MatchSelectionItem.objects.create(
-                selection=selection,
-                sales_order=sales_order,
-                purchase_order=purchase_order,
-                units=match['units'],
-                price_per_unit=Decimal(str(match['price_per_unit'])),
-                buyer_savings=Decimal(str(match.get('buyer_savings', 0))),
-                seller_gain=Decimal(str(match.get('seller_gain', 0))),
-                metadata={
-                    'match_quality': match.get('quality_score'),
-                    'original_match_data': match
-                }
+        request=None
+    ) -> Dict[str, Any]:
+        """
+        Procesa selección manual para cualquier tipo de orden
+        """
+        if isinstance(order, PurchaseOrder):
+            return self.purchase_service.process_manual_selection(
+                order, selected_matches, user, request
             )
-        
-        # 6. Actualizar estado de purchase order
-        purchase_order.status = PurchaseOrder.PurchaseOrderStatus.MATCHES_SELECTED
-        purchase_order.matched_at = timezone.now()
-        
-        # 7. Mantener metadata como backup/cache
-        purchase_order.metadata = purchase_order.metadata or {}
-        purchase_order.metadata.update({
-            'selection_id': selection.id,
-            'selection_summary': {
-                'total_amount': str(total_amount),
-                'expires_at': selection.expires_at.isoformat(),
-                'items_count': len(validated_matches)
-            }
-        })
-        purchase_order.save(update_fields=['status', 'matched_at', 'metadata'])
-        
-        return selection
+        elif isinstance(order, SalesOrder):
+            return self.sales_service.process_manual_selection(
+                order, selected_matches, user, request
+            )
+        else:
+            raise SelectionServiceError("Tipo de orden no soportado")
     
+    def process_auto_selection(
+        self,
+        order: Union[PurchaseOrder, SalesOrder],
+        user,
+        force_partial=False,
+        request=None
+    ) -> Dict[str, Any]:
+        """
+        Procesa selección automática para cualquier tipo de orden
+        """
+        if isinstance(order, PurchaseOrder):
+            return self.purchase_service.process_auto_selection(
+                order, user, force_partial, request
+            )
+        elif isinstance(order, SalesOrder):
+            return self.sales_service.process_auto_selection(
+                order, user, force_partial, request
+            )
+        else:
+            raise SelectionServiceError("Tipo de orden no soportado")
     
-    # =========================================
-    # Métodos privados
-    # =========================================
-    
-    def get_active_selection(self, purchase_order: PurchaseOrder) -> MatchSelection:
-        """Obtiene la selección activa de una orden"""
-        
-        try:
-            selection = purchase_order.match_selection
-            if selection.is_expired:
-                self._mark_selection_as_expired(selection)
-                return None
-            return selection
-        except MatchSelection.DoesNotExist:
-            return None
+    def get_active_selection(self, order: Union[PurchaseOrder, SalesOrder]):
+        """Obtiene la selección activa para cualquier tipo de orden"""
+        if isinstance(order, PurchaseOrder):
+            return self.purchase_service.get_active_selection(order)
+        elif isinstance(order, SalesOrder):
+            return self.sales_service.get_active_selection(order)
+        else:
+            raise SelectionServiceError("Tipo de orden no soportado")
     
     def check_and_clean_expired_selections(self) -> Dict[str, int]:
-        """Limpia todas las selecciones expiradas del sistema"""
-        
-        expired_selections = MatchSelection.objects.filter(
-            expires_at__lt=timezone.now(),
-            status='ACTIVE'
-        ).select_related('purchase_order')
-        
-        cleaned_count = 0
-        for selection in expired_selections:
-            self._mark_selection_as_expired(selection)
-            cleaned_count += 1
+        """Limpia selecciones expiradas de ambos tipos"""
+        purchase_results = self.purchase_service.check_and_clean_expired_selections()
+        sales_results = self.sales_service.check_and_clean_expired_selections()
         
         return {
-            'cleaned_selections': cleaned_count,
-            'cleaned_at': timezone.now().isoformat()
+            'total_cleaned_selections': purchase_results['cleaned_selections'] + sales_results['cleaned_selections'],
+            'purchase_selections_cleaned': purchase_results['cleaned_selections'],
+            'sales_selections_cleaned': sales_results['cleaned_selections'],
+            'cleaned_at': purchase_results['cleaned_at']
         }
-        
     
-    def _get_available_matches(self, purchase_order: PurchaseOrder) -> List[Dict[str, Any]]:
-        """Obtiene matches disponibles para la orden"""
-        
-        try:
-            available_matches = self.matcher.find_matches_for_order(purchase_order)
-            
-            if not available_matches:
-                raise SelectionServiceError('No hay matches disponibles para esta orden')
-            
-            return available_matches
-            
-        except Exception as e:
-            raise SelectionServiceError(f'Error obteniendo matches disponibles: {str(e)}')
-        
-    @transaction.atomic
-    def _clean_existing_selection(self, purchase_order: PurchaseOrder) -> None:
-        """Limpia selección existente si hay una"""
-        
-        try:
-            existing_selection = purchase_order.match_selection
-            existing_selection.delete()  # Cascade elimina items
-        except MatchSelection.DoesNotExist:
-            pass
+    # ========================================
+    # MÉTODOS ESPECÍFICOS POR TIPO
+    # ========================================
     
-    @transaction.atomic
-    def _mark_selection_as_expired(self, selection: MatchSelection) -> None:
-        """Marca una selección como expirada y limpia el estado"""
-        
-        selection.status = 'EXPIRED'
-        selection.save(update_fields=['status'])
-        
-        # Limpiar estado de purchase order
-        purchase_order = selection.purchase_order
-        purchase_order.status = 'PENDING'
-        purchase_order.matched_at = None
-        purchase_order.metadata = {
-            'selection_expired_at': timezone.now().isoformat(),
-            'expired_selection_id': selection.id
-        }
-        purchase_order.save(update_fields=['status', 'matched_at', 'metadata'])
+    # Para mantener compatibilidad con código existente
+    def process_match_selection(
+        self,
+        purchase_order: PurchaseOrder,
+        selected_matches: List[Dict[str, Any]],
+        user,
+        request=None
+    ) -> Dict[str, Any]:
+        """Método específico para órdenes de compra (compatibilidad)"""
+        return self.purchase_service.process_manual_selection(
+            purchase_order, selected_matches, user, request
+        )
+    
+    def process_auto_match_selection(
+        self,
+        purchase_order: PurchaseOrder,
+        user,
+        force_partial=False,
+        request=None
+    ) -> Dict[str, Any]:
+        """Método específico para selección automática de compra (compatibilidad)"""
+        return self.purchase_service.process_auto_selection(
+            purchase_order, user, force_partial, request
+        )
+    
+    def process_sales_match_selection(
+        self,
+        sales_order: SalesOrder,
+        selected_matches: List[Dict[str, Any]],
+        user,
+        request=None
+    ) -> Dict[str, Any]:
+        """Método específico para órdenes de venta"""
+        return self.sales_service.process_manual_selection(
+            sales_order, selected_matches, user, request
+        )
+    
+    def process_auto_sales_match_selection(
+        self,
+        sales_order: SalesOrder,
+        user,
+        force_partial=False,
+        request=None
+    ) -> Dict[str, Any]:
+        """Método específico para selección automática de venta"""
+        return self.sales_service.process_auto_selection(
+            sales_order, user, force_partial, request
+        )

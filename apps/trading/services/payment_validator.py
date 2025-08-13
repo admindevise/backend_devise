@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Dict, Any
 
 from apps.trading.models.core_models import PurchaseOrder
+from apps.trading.models.selection_models import MatchSelection
 
 class PaymentValidationError(Exception):
     """Excepción para errores de validación de pagos"""
@@ -73,7 +74,7 @@ class PaymentValidator:
     def validate_order_status(self, purchase_order: PurchaseOrder) -> None:
         """Valida que el estado de la orden sea correcto"""
         
-        if purchase_order.status != 'MATCHES_SELECTED':
+        if not purchase_order.status in ['MATCHES_SELECTED', 'PARTIALLY_EXECUTED']:
             raise PaymentValidationError(
                 f'La orden debe estar en estado MATCHES_SELECTED. Estado actual: {purchase_order.status}'
             )
@@ -85,32 +86,48 @@ class PaymentValidator:
             raise PaymentValidationError(
                 'No se encontraron matches seleccionados en la orden'
             )
-    
-    #def validate_payment_preconditions(self, purchase_order: PurchaseOrder, payment_data: dict) -> None:
-        """Valida condiciones previas para el procesamiento de pago"""
+
+
+    def validate_payment_preconditions_from_selection(
+        self,
+        purchase_order: PurchaseOrder,
+        selection: MatchSelection,
+        payment_data: Dict[str, Any]
+    ) -> None:
+        """
+        Validación usando MatchSelection como fuente de verdad.
+        Reemplaza validaciones basadas en metadata.
+        """
+        # 1. Validar que la selección tenga items
+        items_count = selection.items.count()
+        if items_count == 0:
+            raise PaymentValidationError("La selección no tiene items válidos para pago")
         
-        # Validar estado de la orden
-        """ if purchase_order.status != 'MATCHES_SELECTED':
-            raise ValueError(f"Cannot process payment for order with status: {purchase_order.status}")
+        # 2. Validar monto
+        expected_amount = float(selection.total_amount)
+        provided_amount = payment_data.get('amount', 0)
         
-        # Validar monto del pago
-        expected_amount, units_to_purchase = self.extract_payment_amount(purchase_order)
-        paid_amount = Decimal(str(payment_data.get('amount', 0)))
+        if abs(expected_amount - provided_amount) > 0.01:  # Tolerancia por decimales
+            raise PaymentValidationError(
+                f"El monto del pago ({provided_amount}) no coincide con el total de la selección ({expected_amount})"
+            )
         
-        if abs(paid_amount - expected_amount) > Decimal('0.01'):
-            raise ValueError(f"Payment amount mismatch. Expected: {expected_amount}, Received: {paid_amount}")
-    
-    def extract_payment_amount(self, purchase_order: PurchaseOrder) -> tuple[Decimal, int]: """
-        """Extrae el monto esperado del pago desde metadatos o orden"""
+        # 3. Validar que la selección no esté expirada
+        if selection.is_expired:
+            raise PaymentValidationError("La selección de matches ha expirado")
         
-"""         if hasattr(purchase_order, 'metadata') and purchase_order.metadata:
-            selection_summary = purchase_order.metadata.get('selection_summary', {})
-            if 'total_amount' in selection_summary:
-                expected_amount = Decimal(str(selection_summary['total_amount']))
-                selected_matches = purchase_order.metadata.get('selected_matches', [])
-                units_to_purchase = sum(match.get('units', 0) for match in selected_matches)
-                return expected_amount, units_to_purchase
+        # 4. Validar estado de la selección
+        if selection.status != 'ACTIVE':
+            raise PaymentValidationError(f"La selección debe estar ACTIVE. Estado actual: {selection.status}")
         
-        # Fallback a valores de la orden
-        return purchase_order.total_amount, purchase_order.units """
-    
+        # 5. Validar que todas las órdenes relacionadas estén en estado válido
+        invalid_orders = []
+        for item in selection.items.select_related('purchase_order', 'sales_order'):
+            if item.purchase_order.status not in ['PENDING', 'MATCHES_SELECTED', 'PARTIALLY_EXECUTED']:
+                invalid_orders.append(f"PO {item.purchase_order.order_number}: {item.purchase_order.status}")
+            
+            if item.sales_order.status not in ['PENDING', 'PARTIALLY_EXECUTED']:
+                invalid_orders.append(f"SO {item.sales_order.order_number}: {item.sales_order.status}")
+        
+        if invalid_orders:
+            raise PaymentValidationError(f"Órdenes en estado inválido: {', '.join(invalid_orders)}")
