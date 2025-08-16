@@ -83,27 +83,37 @@ class PaymentExecutionSerializer(serializers.Serializer):
                 f"La orden debe estar en estado MATCHES_SELECTED, PENDING o PARTIALLY_EXECUTED. Estado actual: {purchase_order.status}"
             )
         
-        # Verificar que tenga selección activa
-        selection = MatchSelection.objects.filter(
-            items__purchase_order=purchase_order,  # ← Buscar en items
-            status='ACTIVE'
-        ).select_related('sales_order').prefetch_related(
-            'items__purchase_order',
-            'items__sales_order'
-        ).first()
-        
-        if not selection:
-            raise serializers.ValidationError(
-                "No hay una selección de matches activa que incluya esta orden de compra. "
-                "La selección debe crearse desde la orden de venta correspondiente."
-            )
-        
-        # Verificar que la selección no esté expirada
-        if selection.is_expired:
-            raise serializers.ValidationError(
-                "La selección de matches ha expirado. "
-                "Debes crear una nueva selección antes de proceder al pago."
-            )
+        # ✅ CORREGIDO: Buscar selección activa que tenga esta PO como main order
+        try:
+            selection = purchase_order.match_selection  # Relación directa OneToOne
+            if selection.status != 'ACTIVE':
+                raise MatchSelection.DoesNotExist()
+            if selection.is_expired:
+                raise serializers.ValidationError(
+                    "La selección de matches ha expirado. "
+                    "Debes crear una nueva selección antes de proceder al pago."
+                )
+        except MatchSelection.DoesNotExist:
+            # ✅ ALTERNATIVA: Buscar selecciones donde esta PO esté como item
+            selection = MatchSelection.objects.filter(
+                items__purchase_order=purchase_order,
+                status='ACTIVE'
+            ).select_related('sales_order').prefetch_related(
+                'items__sales_order',
+                'items__purchase_order'
+            ).first()
+            
+            if not selection:
+                raise serializers.ValidationError(
+                    "No hay una selección de matches activa para esta orden de compra. "
+                    "Debes crear una selección antes de proceder al pago."
+                )
+            
+            if selection.is_expired:
+                raise serializers.ValidationError(
+                    "La selección de matches ha expirado. "
+                    "Debes crear una nueva selección antes de proceder al pago."
+                )
         
         # Verificar que tenga items
         if not selection.items.exists():
@@ -315,13 +325,22 @@ class PaymentStatusSerializer(serializers.Serializer):
             # Obtener registros de pago
             payment_records = PaymentRecord.objects.filter(
                 purchase_order=purchase_order
-            ).order_by('-created_at')
+            ).order_by('-initiated_at')  # ✅ CORREGIDO: initiated_at existe, created_at no
             
-            # Obtener selección activa si existe
-            active_selection = MatchSelection.objects.filter(
-                purchase_order=purchase_order,
-                status='ACTIVE'
-            ).first()
+            # ✅ CORREGIDO: Buscar selección activa
+            active_selection = None
+            try:
+                active_selection = purchase_order.match_selection
+                if active_selection.status != 'ACTIVE' or active_selection.is_expired:
+                    active_selection = None
+            except MatchSelection.DoesNotExist:
+                # Buscar como item en otras selecciones
+                active_selection = MatchSelection.objects.filter(
+                    items__purchase_order=purchase_order,
+                    status='ACTIVE'
+                ).first()
+                if active_selection and active_selection.is_expired:
+                    active_selection = None
             
             # Construir respuesta
             payment_history = []
@@ -332,7 +351,7 @@ class PaymentStatusSerializer(serializers.Serializer):
                     'payment_method': record.payment_method,
                     'reference': record.reference,
                     'status': record.status,
-                    'created_at': record.created_at.isoformat(),
+                    'initiated_at': record.initiated_at.isoformat(),  # ✅ CORREGIDO
                     'processed_at': record.processed_at.isoformat() if record.processed_at else None,
                     'completed_at': record.completed_at.isoformat() if record.completed_at else None,
                     'failed_at': record.failed_at.isoformat() if record.failed_at else None,
@@ -347,8 +366,8 @@ class PaymentStatusSerializer(serializers.Serializer):
                     'order_status': purchase_order.status,
                     'buyer_email': purchase_order.supplier_user.email,
                     'fund_name': purchase_order.fund.name,
-                    'paid_at': purchase_order.paid_at.isoformat() if purchase_order.paid_at else None,
-                    'processing_payment_at': purchase_order.processing_payment_at.isoformat() if purchase_order.processing_payment_at else None
+                    'paid_at': purchase_order.paid_at.isoformat() if hasattr(purchase_order, 'paid_at') and purchase_order.paid_at else None,
+                    'processing_payment_at': purchase_order.processing_payment_at.isoformat() if hasattr(purchase_order, 'processing_payment_at') and purchase_order.processing_payment_at else None
                 },
                 'active_selection': {
                     'has_active_selection': active_selection is not None,

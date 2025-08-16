@@ -23,7 +23,7 @@ from apps.trading.views.order_selection_views import (
 )
 
 from apps.trading.views.contract_views import list_pending_contracts, approve_contract, OrderContractListView
-
+from apps.trading.views import permission_views
 
 from apps.trading.views.selection_management_views import (
     MatchSelectionViewSet,
@@ -85,4 +85,20 @@ urlpatterns = [
     
     path('api/execute-payment/', execute_payment, name='execute-payment'),
     
+    # Endpoints con permisos
+    path('api/create-purchase-order-with-permissions/', 
+         permission_views.create_purchase_order_with_permissions, 
+         name='create-purchase-order-permissions'),
+    
+    path('api/create-sales-order-with-permissions/', 
+         permission_views.create_sales_order_with_permissions, 
+         name='create-sales-order-permissions'),
+    
+    path('api/grant-trading-permission/', 
+         permission_views.grant_trading_permission, 
+         name='grant-trading-permission'),
+    
+    path('api/list-user-permissions/', 
+         permission_views.list_user_permissions, 
+         name='list-user-permissions'),
 ]

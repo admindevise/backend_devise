@@ -14,6 +14,7 @@ from apps.trading.services.order_query_service import OrderQueryService
 from apps.trading.services.order_service import OrderManagementService
 from apps.trading.services.payment_execution_service import PaymentExecutionService
 from apps.utils.views.Mixins import DateFilterMixin
+from apps.user.decorators.permissions import TradingPermissionMixin
 from apps.trading.serializers.core_serializer import (
     PurchaseOrderSerializer,
     SalesOrderSerializer,
@@ -22,17 +23,19 @@ from apps.trading.serializers.core_serializer import (
     OrderCancellationSerializer
 )
 
-class PurchaseOrderViewSet(DateFilterMixin,
-                           mixins.CreateModelMixin,
-                           mixins.RetrieveModelMixin,
-                           mixins.DestroyModelMixin,
-                           mixins.ListModelMixin,
-                           viewsets.GenericViewSet):
+class PurchaseOrderViewSet(TradingPermissionMixin,
+                            DateFilterMixin,
+                            mixins.CreateModelMixin,
+                            mixins.RetrieveModelMixin,
+                            mixins.DestroyModelMixin,
+                            mixins.ListModelMixin,
+                            viewsets.GenericViewSet):
     """
     API endpoint para gestionar órdenes de compra de unidades de fondos.
     """
     serializer_class = PurchaseOrderSerializer
     permission_classes = [IsAuthenticated]
+    permission_action_type = 'CREATE_PURCHASE_ORDER'  # ✅ Agregar validación automática
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     filterset_fields = ['created_by', 'supplier_user']
     search_fields = ['order_number', 'fund__name']
@@ -43,6 +46,16 @@ class PurchaseOrderViewSet(DateFilterMixin,
         super().__init__(*args, **kwargs)
         self.order_management_service = OrderManagementService()
         self.payment_execution_service = PaymentExecutionService()
+
+    def get_target_user(self, request):
+        """Override para extraer usuario objetivo de PurchaseOrder"""
+        if hasattr(request, 'data') and 'supplier_user' in request.data:
+            from apps.user.models import User
+            try:
+                return User.objects.get(id=request.data['supplier_user'])
+            except User.DoesNotExist:
+                pass
+        return request.user
 
     def perform_create(self, serializer):
         """Override para usar el contexto de request"""
@@ -114,7 +127,8 @@ class PurchaseOrderViewSet(DateFilterMixin,
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
-class SalesOrderViewSet(DateFilterMixin,
+class SalesOrderViewSet(TradingPermissionMixin,
+                        DateFilterMixin,
                         mixins.CreateModelMixin,
                         mixins.RetrieveModelMixin,
                         mixins.DestroyModelMixin,
@@ -125,6 +139,7 @@ class SalesOrderViewSet(DateFilterMixin,
     """
     serializer_class = SalesOrderSerializer
     permission_classes = [IsAuthenticated]
+    permission_action_type = 'CREATE_SALES_ORDER'  # ✅ Agregar validación automática
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     filterset_fields = ['created_by', 'seller_user']
     search_fields = ['order_number', 'fund__name']
@@ -134,6 +149,16 @@ class SalesOrderViewSet(DateFilterMixin,
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.order_management_service = OrderManagementService()
+
+    def get_target_user(self, request):
+        """Override para extraer usuario objetivo de SalesOrder"""
+        if hasattr(request, 'data') and 'seller_user' in request.data:
+            from apps.user.models import User
+            try:
+                return User.objects.get(id=request.data['seller_user'])
+            except User.DoesNotExist:
+                pass
+        return request.user
 
     def perform_create(self, serializer):
         """Override para usar el contexto de request"""

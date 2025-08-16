@@ -36,57 +36,11 @@ class TradingTokenValidator(BaseTokenValidator):
         print(f"🔍 Validating ownership for user {user.email} on {len(token_ids)} tokens for fund {fund_id}")
         
         # ✅ BYPASS TOTAL PARA ADMIN/STAFF
-        if user.is_staff:
-            return self._create_admin_bypass_result(user, token_ids, fund_id, target_user)
+        #if user.is_staff:
+        #    return self._create_admin_bypass_result(user, token_ids, fund_id, target_user)
         
-        # ✅ VALIDACIÓN NORMAL PARA USUARIOS NO-ADMIN
+        #owner_user = target_user if target_user else user
         return self._validate_user_ownership(user, token_ids, fund_id)
-
-    def _create_admin_bypass_result(self, user, token_ids: list, fund_id: int = None ,target_user=None) -> dict:
-        """Crea resultado de bypass para usuarios admin"""
-        print(f"🔑 Admin/Staff bypass: User {user.email} granted full ownership validation bypass")
-        
-        owner_user = target_user if target_user else user
-        print(f"👤 Bypassing ownership validation for user {owner_user.email}")
-        
-        # Intentar obtener información básica de tokens si existen
-        owned_tokens = []
-        for token_id in token_ids:
-            if fund_id and owner_user:
-                local_token = FundToken.objects.filter(
-                    token_id=token_id,
-                    fund_id=fund_id,
-                    owner_user=owner_user,
-                    status=True,
-                    
-                ).first()
-            else:
-                # Fallback si no hay información suficiente
-                local_token = FundToken.objects.filter(
-                    token_id=token_id,
-                    status=True
-                ).first()
-            
-            if local_token:
-                print(f"✅ Found token {token_id} owned by {local_token.owner_user.email}")
-            else:
-                print(f"❌ Token {token_id} not found or not owned by {owner_user.email}")
-            
-            owned_tokens.append({
-                'token_id': token_id,
-                'fund_token': local_token,
-                'verification_method': 'admin_bypass',
-                'blockchain_owner': 'admin_bypass',
-                'expected_owner': owner_user.email,
-                'actual_owner': local_token.owner_user.email if local_token else None
-            })
-        
-        return {
-            'valid': True,
-            'owned_tokens': owned_tokens,
-            'invalid_tokens': [],
-            'errors': []
-        }
 
     def _validate_user_ownership(self, user, token_ids: list, fund_id: int) -> dict:
         """Valida ownership para usuarios no-admin con optimizaciones"""
@@ -331,12 +285,11 @@ class TradingTokenValidator(BaseTokenValidator):
         user_to_validate = target_user if target_user else user
         
         # ✅ Si el usuario que hace la request es admin, permitir bypass
-        if user.is_staff and target_user:
+        #if user.is_staff and target_user:
             # Admin creando orden para otro usuario - validar el target_user
-            application, error = is_investor_valid(user_to_validate, fund_id)
-        else:
-            # Usuario normal creando su propia orden
-            application, error = is_investor_valid(user_to_validate, fund_id)
+        #    application, error = is_investor_valid(user_to_validate, fund_id)
+
+        application, error = is_investor_valid(user_to_validate, fund_id)
         
         if error:
             return {
@@ -597,13 +550,13 @@ class TradingAvailabilityService:
             print(f"📊 Investor validation result: {investor_validation.get('valid', False)}")
             
             if not investor_validation['valid']:
-                if not (user.is_staff and target_user):
-                    validation_results['feasible'] = False
-                    validation_results['errors'].append(f"Invalid investor: {investor_validation['error']}")
-                    print(f"❌ Investor validation failed: {investor_validation['error']}")
-                else:
-                    validation_results['warnings'].append(f"Admin bypass: {investor_validation['error']}")
-                    print(f"⚠️ Admin bypass for investor validation: {investor_validation['error']}")
+                #if not (user.is_staff and target_user):
+                validation_results['feasible'] = False
+                validation_results['errors'].append(f"Invalid investor: {investor_validation['error']}")
+                print(f"❌ Investor validation failed: {investor_validation['error']}")
+                #else:
+                #    validation_results['warnings'].append(f"Admin bypass: {investor_validation['error']}")
+                #    print(f"⚠️ Admin bypass for investor validation: {investor_validation['error']}")
             else:
                 print("✅ Investor validation passed")
             

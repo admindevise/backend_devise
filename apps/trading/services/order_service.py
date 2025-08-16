@@ -1,8 +1,12 @@
 from django.db import transaction
 from django.utils import timezone
-from apps.trading.security.token_validators import TradingAvailabilityService, TokenReservationManager
+
 from apps.audit.audit_service import AuditService
 from apps.trading.models.core_models import PurchaseOrder, SalesOrder
+from apps.trading.security.token_validators import (
+    TradingAvailabilityService,
+    TokenReservationManager
+)
 
 class OrderCreationService:
     """
@@ -23,12 +27,12 @@ class OrderCreationService:
         quantity = order_data['units']
         
         # Validar que el usuario tiene permisos para crear órdenes de venta
-        target_user = order_data.get('seller_user', user)
+        seller_user = order_data['seller_user']
         
         try:
             # 1. Validar viabilidad completa de la orden
             feasibility = self.availability_service.validate_sales_order_feasibility(
-                user, fund.id, quantity=quantity, target_user=target_user,
+                user, fund.id, quantity=quantity, target_user=seller_user,
             )
             
             if not feasibility['feasible']:
@@ -44,29 +48,32 @@ class OrderCreationService:
             
             # 3. Reservar tokens para la venta
             reservation_result = self.reservation_manager.reserve_tokens_for_sale(
-                target_user, selected_tokens, fund.id
+                seller_user, selected_tokens, fund.id
             )
             
             if not reservation_result['success']:
                 raise ValueError(f"Error reservando tokens: {reservation_result['failed_reservations']}")
             
-            order_data['seller_user'] = target_user
-            
             # 4. Crear la orden
             sales_order = SalesOrder.objects.create(
                 **order_data,
                 created_by=user,
-                status='PENDING'
+                status='PENDING',
+                reserved_tokens_info={
+                    'token_ids':  selected_tokens,
+                    'total_tokens_reserved': len(selected_tokens),
+                    'reserved_at': timezone.now().isoformat()
+                }
             )
             
             # 5. Registrar metadatos de la reserva
-            if hasattr(sales_order, 'metadata'):
+            """ if hasattr(sales_order, 'metadata'):
                 sales_order.metadata = {
                     'total_tokens_reserved': len(selected_tokens),
                     'reserved_tokens': selected_tokens,
                     'feasibility_validated': feasibility['feasible'],
                 }
-                sales_order.save(update_fields=['metadata'])
+                sales_order.save(update_fields=['metadata']) """
                         
             # 6. Auditoría de éxito
             if request:
@@ -126,18 +133,16 @@ class OrderCreationService:
         fund = order_data['fund']
         quantity = order_data['units']
         
-        target_user = order_data.get('supplier_user', user)
+        supplier_user = order_data['supplier_user']
         
         try:
             # 1. Validar viabilidad de la orden de compra
             feasibility = self.availability_service.validate_purchase_order_feasibility(
-                user, fund.id, quantity, target_user=target_user
+                user, fund.id, quantity, target_user=supplier_user
             )
             
             if not feasibility['feasible']:
                 raise ValueError(f"Orden no viable: {'; '.join(feasibility['errors'])}")
-            
-            order_data['supplier_user'] = target_user
             
             # 2. Crear la orden (sin reservar tokens aún - se hace al pagar)
             purchase_order = PurchaseOrder.objects.create(
@@ -265,9 +270,11 @@ class OrderManagementService:
             
             # 2. Obtener tokens reservados de los metadatos
             reserved_tokens = []
-            if hasattr(sales_order, 'metadata') and sales_order.metadata:
-                reserved_tokens = sales_order.metadata.get('reserved_tokens', [])
+            if hasattr(sales_order, 'reserved_tokens_info') and sales_order.reserved_tokens_info:
+                reserved_tokens = sales_order.reserved_tokens_info.get('token_ids', [])
             
+                print(f'Tokens encontrados en reserved_tokens_info: {len(reserved_tokens)}')
+        
             # 3. Liberar reservas de tokens
             if reserved_tokens:
                 release_result = self.reservation_manager.release_token_reservations(
@@ -275,7 +282,7 @@ class OrderManagementService:
                 )
                 
                 if not release_result['success']:
-                    print('Error liberando reservas de tokens:', release_result['failed_releases'])
+                    raise ValueError(f"Error liberando tokens: {reserved_tokens}")
             
             # 4. Actualizar estado de la orden
             sales_order.status = 'CANCELLED'

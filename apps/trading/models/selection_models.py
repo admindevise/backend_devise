@@ -120,17 +120,52 @@ class TokenTransferRecord(models.Model):
         REVERTED = 'REVERTED', 'Revertido'
     
     # Relations with other models
-    purchase_order = models.ForeignKey('PurchaseOrder', on_delete=models.CASCADE, related_name='token_transfers')
-    sales_order = models.ForeignKey('SalesOrder', on_delete=models.CASCADE, related_name='token_transfers')
-    match_item = models.ForeignKey(MatchSelectionItem, on_delete=models.CASCADE, related_name='token_transfers')
+    selection = models.ForeignKey(
+        MatchSelection,
+        on_delete=models.CASCADE,
+        related_name='token_transfers',
+        null=True, blank=True
+    )
+    selection_item = models.ForeignKey(
+        MatchSelectionItem,
+        on_delete=models.CASCADE,
+        related_name='token_transfer_records',
+        null=True, blank=True
+    )
+    purchase_order = models.ForeignKey(
+        'PurchaseOrder', 
+        on_delete=models.CASCADE, 
+        related_name='token_transfers',
+        null=False, blank=False    
+    )
+    sales_order = models.ForeignKey(
+        'SalesOrder', 
+        on_delete=models.CASCADE, 
+        related_name='token_transfers',
+        null=False, blank=False
+    )
     
     # Token data
     token_id = models.CharField(max_length=100, unique=True)
-    from_user = models.ForeignKey('user.User', on_delete=models.CASCADE, related_name='token_transfers_from')
-    to_user = models.ForeignKey('user.User', on_delete=models.CASCADE, related_name='token_transfers_to')
+    from_user = models.ForeignKey(
+        'user.User', 
+        on_delete=models.CASCADE, 
+        related_name='token_transfers_from',
+        null=False, blank=False    
+    )
+    to_user = models.ForeignKey(
+        'user.User', 
+        on_delete=models.CASCADE, 
+        related_name='token_transfers_to',
+        null=False, blank=False    
+    )
     
     # Status and timestamps
-    status = models.CharField(max_length=20, choices=TokenTransferStatus.choices, default=TokenTransferStatus.PENDING)
+    status = models.CharField(
+        max_length=20, 
+        choices=TokenTransferStatus.choices, 
+        default=TokenTransferStatus.PENDING
+    )
     
     initiated_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)

@@ -253,55 +253,110 @@ def get_owner_of(token_id, fund_id):
     except Fund.DoesNotExist:
         return None, "Fund not found"
 
-def get_wallet_index(user, fund_id):
+def get_wallet_index(user, fund_id, max_retries=3):
     """
-    This function queries the FundInvestment model to verify the user's investment
-    in the specified fund, then makes an API call to an external wallet service
-    to retrieve the wallet index information.
-    
-    Parameters:
-        user: User object
-            The user whose wallet index is being retrieved
-        fund_id: int or str
-            The ID of the fund to check for user's investment
-            
-        tuple: A tuple containing two elements:
-            - data (dict or None): The JSON response from the external service if successful
-            - error (str or None): An error message if the operation failed
-            
-    Raises:
-        No explicit exceptions are raised as they are caught internally
+    ✅ MEJORADO: Obtiene wallet index con reintentos para problemas de conectividad
     """
     try:
-        # Try to get a FundInvestment for the user and use its associated Fund's hd_wallet if available
-        investment = FundApplication.objects.filter(applicant=user, fund_id=fund_id).first()
-        if not investment:
-            return None, "No investment found for this user in the specified fund"
-
-        if investment.fund.hd_wallet:
-            wallet_id_value = investment.fund.hd_wallet.id_wallet
-        else:
-            return None, "No hd_wallet found for the specified fund"
-
-    except FundApplication.DoesNotExist:
-        return None, "No investment found for this user in the specified fund"
-    except Wallet.DoesNotExist:
-        return None, "No wallet found for this user"
-
-    url = f"https://{SERVICE_WALLET}/api/v1/wallets/{wallet_id_value}/accounts/{user.id}"
-    headers = {
-        'accept': 'application/json',
-        'Content-Type': 'application/json'
-    }
-
-    try:
-        response = requests.get(url, headers=headers, auth=HTTPBasicAuth(USERNAME, PASSWORD))
-        if response.status_code == 200:
-            return response.json(), None
-        else:
-            return None, f"Error from service: {response.json()}"
-    except requests.exceptions.RequestException as e:
-        return None, f"Request failed: {str(e)}"
+        # 1. Verificar si el usuario está asociado al fondo
+        investment, error = is_investor_valid(user, fund_id)
+        if error is not None:
+            return None, error
+        
+        fund = investment.fund
+        
+        # 2. Verificar que el fondo tenga un wallet asociado
+        if not fund.hd_wallet:
+            return None, f"El fondo {fund.name} no tiene un wallet asociado"
+        
+        wallet_id_value = fund.hd_wallet.id_wallet
+        
+        # 3. ✅ CONSTRUIR URL CON MANEJO DE REINTENTOS
+        retry_delay = 1
+        
+        for attempt in range(max_retries):
+            try:
+                # URL para obtener wallet index
+                url = f"https://{SERVICE_WALLET}/api/v1/wallets/{wallet_id_value}/accounts/{user.id}"
+                
+                headers = {
+                    'accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+                
+                print(f"🔍 Attempt {attempt + 1}/{max_retries} - Getting wallet for user {user.id}")
+                print(f"🔍 URL: {url}")
+                
+                # ✅ AGREGAR TIMEOUT Y REINTENTOS
+                response = requests.get(
+                    url, 
+                    headers=headers, 
+                    auth=HTTPBasicAuth(USERNAME, PASSWORD),
+                    timeout=30  # ✅ Timeout de 30 segundos
+                )
+                
+                if response.status_code == 200:
+                    wallet_data = response.json()
+                    print(f"✅ Wallet obtained successfully: {wallet_data.get('address', 'No address')}")
+                    return wallet_data, None
+                else:
+                    error_response = response.text
+                    try:
+                        error_json = response.json()
+                        error_response = error_json
+                    except:
+                        pass
+                    
+                    # Si es un error 4xx, no reintentar
+                    if 400 <= response.status_code < 500:
+                        return None, f"Client error {response.status_code}: {error_response}"
+                    
+                    # Si es un error 5xx, reintentar
+                    if attempt < max_retries - 1:
+                        print(f"🔄 Server error {response.status_code}, retrying in {retry_delay * (attempt + 1)} seconds...")
+                        time.sleep(retry_delay * (attempt + 1))
+                        continue
+                    
+                    return None, f"Server error {response.status_code} after {max_retries} attempts: {error_response}"
+                    
+            except requests.exceptions.ConnectionError as e:
+                error_msg = str(e)
+                print(f"❌ Connection error on attempt {attempt + 1}: {error_msg}")
+                
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (attempt + 1)
+                    print(f"🔄 Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                
+                return None, f"Connection failed after {max_retries} attempts: {error_msg}"
+                
+            except requests.exceptions.Timeout as e:
+                error_msg = str(e)
+                print(f"❌ Timeout error on attempt {attempt + 1}: {error_msg}")
+                
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (attempt + 1)
+                    print(f"🔄 Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                
+                return None, f"Request timeout after {max_retries} attempts: {error_msg}"
+                
+            except requests.exceptions.RequestException as e:
+                error_msg = str(e)
+                print(f"❌ Request error on attempt {attempt + 1}: {error_msg}")
+                
+                # Para otros errores de requests, no reintentar
+                return None, f"Request failed: {error_msg}"
+        
+        # Si llegamos aquí, se agotaron todos los reintentos
+        return None, f"Failed to get wallet after {max_retries} attempts"
+        
+    except Exception as e:
+        error_msg = f"Unexpected error in get_wallet_index: {str(e)}"
+        print(f"💥 {error_msg}")
+        return None, error_msg
 
 #! ================ Funciones de utilidad ================ #
 def mint_721_token(token_id, fund_id, contract_address_id):

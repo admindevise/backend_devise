@@ -7,7 +7,10 @@ from apps.trading.models.core_models import (
 )
 
 from apps.trading.models.selection_models import (
-    MatchSelection
+    MatchSelection,
+    MatchSelectionItem,
+    TokenTransferRecord,
+    PaymentRecord
 )
 
 class PurchaseOrderAdmin(admin.ModelAdmin):
@@ -88,12 +91,24 @@ class OrderBookAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at',)
     
 class MatchSelectionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'purchase_order', 'sales_order', 'total_units')
+    list_display = ('id', 'purchase_order', 'sales_order', 'total_units', 'created_at')
     search_fields = ('created_by',)
     list_filter = ('status',)
+
+class MatchSelectionItemAdmin(admin.ModelAdmin):
+    list_display = ('id',)
+
+class TokenTransferRecordAdmin(admin.ModelAdmin):
+    list_display = ('id',)
+
+class PaymentRecordAdmin(admin.ModelAdmin):
+    list_display = ('id',)
 
 admin.site.register(PurchaseOrder, PurchaseOrderAdmin)
 admin.site.register(SalesOrder, SalesOrderAdmin)
 admin.site.register(Transaction, TransactionAdmin)
 admin.site.register(OrderBook, OrderBookAdmin)
 admin.site.register(MatchSelection, MatchSelectionAdmin)
+admin.site.register(MatchSelectionItem, MatchSelectionItemAdmin)
+admin.site.register(TokenTransferRecord, TokenTransferRecordAdmin)
+admin.site.register(PaymentRecord, PaymentRecordAdmin)

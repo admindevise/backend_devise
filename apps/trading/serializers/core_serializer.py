@@ -142,20 +142,14 @@ class PurchaseOrderSerializer(BaseOrderSerializer):
         read_only_fields = BaseOrderSerializer.common_read_only
     
     def validate(self, data):
-        """Validaciones específicas para órdenes de compra"""
+        """✅ SIMPLIFICADO: Solo validaciones de negocio, NO permisos"""
         data = super().validate(data)
         
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
-            # ✅ NUEVO: Solo asignar automáticamente si NO se especificó supplier_user
+            # ✅ SIMPLE: Solo asignar supplier_user si no se especificó
             if 'supplier_user' not in data or data['supplier_user'] is None:
                 data['supplier_user'] = request.user
-            else:
-                # ✅ VERIFICAR PERMISOS: Solo admin puede especificar supplier_user diferente
-                if data['supplier_user'] != request.user and not request.user.is_staff:
-                    raise serializers.ValidationError(
-                        "Solo usuarios admin pueden crear órdenes para otros usuarios"
-                    )
         
         return data
     
@@ -238,25 +232,18 @@ class SalesOrderSerializer(BaseOrderSerializer):
     
     class Meta:
         model = SalesOrder
-        fields = BaseOrderSerializer.common_fields + ['seller_user', 'token_ids']
+        fields = BaseOrderSerializer.common_fields + ['seller_user', 'reserved_tokens_info' , 'token_ids']
         read_only_fields = BaseOrderSerializer.common_read_only
     
     def validate(self, data):
-        """Validaciones adicionales y asignacion automatica de seller_user"""
-        
+        """✅ SIMPLIFICADO: Solo validaciones de negocio, NO permisos"""
         data = super().validate(data)
         
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
-            # ✅ NUEVO: Solo asignar automáticamente si NO se especificó seller_user
+            # ✅ SIMPLE: Solo asignar seller_user si no se especificó
             if 'seller_user' not in data or data['seller_user'] is None:
                 data['seller_user'] = request.user
-            else:
-                # ✅ VERIFICAR PERMISOS: Solo admin puede especificar seller_user diferente
-                if data['seller_user'] != request.user and not request.user.is_staff:
-                    raise serializers.ValidationError(
-                        "Solo usuarios admin pueden crear órdenes para otros usuarios"
-                    )
     
         return data
     

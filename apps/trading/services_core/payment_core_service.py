@@ -41,23 +41,19 @@ class PaymentCoreService:
     ) -> Dict[str, Any]:
         """
         Ejecuta el flujo de pago completo usando la selección activa del PurchaseOrder.
-        - Falla si no hay selección activa o si está expirada
-        - Verifica que los contratos estén aprobados antes de proceder
-        - Usa modelos como fuente de verdad (NO metadata)
         """
-        # 1. Obtener selección activa (limpia expiradas automáticamente)
+        # 1) Obtener selección activa (limpia expiradas automáticamente)
         selection = self._get_active_selection_for_purchase_order(purchase_order)
         if not selection:
             raise PaymentCoreError("No hay una selección de matches activa para esta orden")
 
-        # 2. Verificar que los contratos estén aprobados
+        # 2) Verificar que los contratos estén aprobados
         self._verify_contracts_approved(selection)
 
-        # 3. Validaciones mínimas usando datos de modelos
+        # 3) Validaciones mínimas usando datos de modelos
         try:
             self.validator.validate_payment_execution(purchase_order)
             
-            # ✅ USAR DATOS DE MODELO: preparar payment_data desde selection
             prepared_payment_data = self._prepare_payment_data_from_selection(selection, payment_data)
             
             self.validator.validate_payment_preconditions_from_selection(
@@ -67,28 +63,97 @@ class PaymentCoreService:
         except PaymentValidationError as e:
             raise PaymentCoreError(str(e))
 
+        # Variables para tracking
+        payment_result = None
+        transfer_result = None
+
         try:
-            # 4. Pago bancario (ficticio) - usando datos de modelo
+            # 4) Pago bancario (ficticio) - usando datos de modelo
             payment_result = self.processor.process_payment(purchase_order, prepared_payment_data)
 
-            # 5. Transferencias reales de tokens (basadas en selección activa)
+            # 5) Transferencias reales de tokens (basadas en selección activa)
             transfer_result = self.transfer.execute_selection_transfers(purchase_order)
 
-            # 6. Finalización, estados y auditoría
-            return self.finalizer.finalize_payment(
-                purchase_order=purchase_order,
-                payment_result=payment_result,
-                transfer_result=transfer_result,
-                user=user,
-                request=request
-            )
+            # 6) ✅ EVALUAR RESULTADO DE TRANSFERENCIAS CORRECTAMENTE
+            total_transferred = transfer_result.get('total_transferred', 0)
+            total_errors = transfer_result.get('total_errors', 0)
+            selection_status = transfer_result.get('selection_final_status')
+            
+            print(f"🔍 Transfer result analysis:")
+            print(f"   - Total transferred: {total_transferred}")
+            print(f"   - Total errors: {total_errors}")
+            print(f"   - Selection final status: {selection_status}")
+            
+            # ✅ PARTIALLY_COMPLETED es un ÉXITO PARCIAL, no un error
+            if total_transferred > 0:
+                # 7) Finalización exitosa (total o parcial)
+                final_result = self.finalizer.finalize_payment(
+                    purchase_order=purchase_order,
+                    payment_result=payment_result,
+                    transfer_result=transfer_result,
+                    user=user,
+                    request=request
+                )
+                
+                # ✅ INDICAR ESTADO EN LA RESPUESTA
+                if selection_status == 'PARTIALLY_COMPLETED' or total_errors > 0:
+                    final_result['payment_status'] = 'partial_success'
+                    final_result['warning'] = f'Pago completado parcialmente: {total_transferred} tokens transferidos, {total_errors} errores'
+                    final_result['partial_completion'] = True
+                else:
+                    final_result['payment_status'] = 'success'
+                    final_result['partial_completion'] = False
+                
+                return final_result
+            else:
+                # Sin transferencias exitosas - fallo total
+                raise PaymentCoreError(f"No se pudieron transferir tokens: {transfer_result.get('errors', [])}")
 
+        except PaymentCoreError:
+            # Re-lanzar errores de core sin modificar
+            raise
+            
         except Exception as e:
-            # Registrar error y propagar como CoreError
+            # ✅ MANEJO MEJORADO: No tratar estados de selección como errores
+            error_message = str(e)
+            
+            print(f"🔍 Exception caught: {error_message}")
+            print(f"🔍 Transfer result when exception: {transfer_result}")
+            
+            # Si el error es solo un estado de selección válido, verificar si hubo transferencias
+            if error_message in ['PARTIALLY_COMPLETED', 'COMPLETED', 'PROCESSING'] and transfer_result:
+                total_transferred = transfer_result.get('total_transferred', 0)
+                
+                if total_transferred > 0:
+                    # Hubo transferencias exitosas - considerar éxito parcial
+                    try:
+                        final_result = self.finalizer.finalize_payment(
+                            purchase_order=purchase_order,
+                            payment_result=payment_result or {
+                                'success': True, 
+                                'method': 'automatic',
+                                'reference': f'PAY-{purchase_order.order_number}'
+                            },
+                            transfer_result=transfer_result,
+                            user=user,
+                            request=request
+                        )
+                        final_result['payment_status'] = 'partial_success'
+                        final_result['warning'] = f'Algunos tokens no se pudieron transferir. Estado de selección: {error_message}'
+                        final_result['partial_completion'] = True
+                        return final_result
+                        
+                    except Exception as finalize_error:
+                        error_message = f"Error en finalización después de transferencias parciales: {str(finalize_error)}"
+            
+            # Registrar error y limpiar estado solo para errores reales
             try:
-                self.finalizer.handle_payment_error(purchase_order, str(e), user, request)
-            finally:
-                raise PaymentCoreError(f"Error ejecutando pago y transferencias: {str(e)}")
+                self.finalizer.handle_payment_error(purchase_order, error_message, user, request)
+            except Exception:
+                pass  # No fallar por problemas de auditoría
+            
+            raise PaymentCoreError(f"Error ejecutando pago y transferencias: {error_message}")
+
 
     def _verify_contracts_approved(self, selection: MatchSelection) -> None:
         """
@@ -239,6 +304,95 @@ class PaymentCoreService:
             'contracts_status': contracts_status
         }
 
+    def get_payment_validation_info(self, purchase_order: PurchaseOrder) -> Dict[str, Any]:
+        """
+        ✅ NUEVO: Obtiene información completa de validación de pago
+        """
+        try:
+            # 1. Buscar selección activa
+            selection = self._get_active_selection_for_purchase_order(purchase_order)
+            
+            if not selection:
+                return {
+                    'can_pay': False,
+                    'reason': 'no_selection',
+                    'message': 'No hay selección de matches activa',
+                    'order_number': purchase_order.order_number,
+                    'order_id': str(purchase_order.id),
+                    'status': purchase_order.status,
+                    'ready_for_payment': False,
+                    'has_active_selection': False,
+                    'warning': 'No hay selección de matches activa.',
+                    'action_required': 'select_matches'
+                }
+            
+            # 2. Verificar expiración
+            if selection.is_expired:
+                return {
+                    'can_pay': False,
+                    'reason': 'expired',
+                    'message': 'La selección de matches ha expirado',
+                    'order_number': purchase_order.order_number,
+                    'order_id': str(purchase_order.id),
+                    'status': purchase_order.status,
+                    'ready_for_payment': False,
+                    'has_active_selection': False,
+                    'warning': 'La selección ha expirado.',
+                    'action_required': 'select_new_matches',
+                    'selection_id': str(selection.id),
+                    'expired_at': selection.expires_at.isoformat()
+                }
+            
+            # 3. Verificar contratos aprobados
+            try:
+                self._verify_contracts_approved(selection)
+                contracts_approved = True
+                contracts_message = None
+            except PaymentCoreError as e:
+                contracts_approved = False
+                contracts_message = str(e)
+            
+            # 4. Información completa para selección válida
+            po_items = selection.items.filter(purchase_order=purchase_order)
+            po_total_amount = sum(item.total_amount for item in po_items)
+            po_total_units = sum(item.units for item in po_items)
+            
+            return {
+                'can_pay': contracts_approved,
+                'reason': 'pending_contracts' if not contracts_approved else 'ready',
+                'message': contracts_message if not contracts_approved else 'Listo para pagar',
+                'order_number': purchase_order.order_number,
+                'order_id': str(purchase_order.id),
+                'status': purchase_order.status,
+                'ready_for_payment': contracts_approved,
+                'has_active_selection': True,
+                'selection_id': str(selection.id),
+                'total_amount': float(po_total_amount),
+                'total_units': po_total_units,
+                'matches_count': po_items.count(),
+                'expires_at': selection.expires_at.isoformat(),
+                'is_expired': False,
+                'fund_name': purchase_order.fund.name,
+                'selection_created_by': selection.sales_order.seller_user.email if selection.sales_order else 'Unknown',
+                'contracts_status': 'approved' if contracts_approved else 'pending',
+                'warning': contracts_message if not contracts_approved else None,
+                'action_required': 'approve_contracts' if not contracts_approved else 'proceed_payment'
+            }
+            
+        except Exception as e:
+            return {
+                'can_pay': False,
+                'reason': 'validation_error',
+                'message': f'Error en validación: {str(e)}',
+                'order_number': purchase_order.order_number,
+                'order_id': str(purchase_order.id),
+                'status': purchase_order.status,
+                'ready_for_payment': False,
+                'has_active_selection': False,
+                'warning': f'Error en validación: {str(e)}',
+                'action_required': 'check_error'
+            }
+
     # =========================
     # Métodos legacy (compatibilidad)
     # =========================
@@ -257,27 +411,30 @@ class PaymentCoreService:
         data.setdefault('metadata', data.get('metadata', {}))
         return data
     
-# En apps/trading/services_core/payment_core_service.py
-# Agregar este método después de get_payment_validation_info:
 
     def _get_active_selection_for_purchase_order(self, purchase_order: PurchaseOrder) -> MatchSelection:
         """
         Busca selecciones activas que incluyan esta purchase order en sus items.
-        Para el nuevo flujo donde las selecciones se crean desde sales orders.
         """
         try:
+            from apps.trading.models.selection_models import MatchSelection
+            
             # Buscar selecciones que incluyan esta purchase order en sus items
             selection = MatchSelection.objects.filter(
                 items__purchase_order=purchase_order,
-                status='ACTIVE'
+                status__in=['ACTIVE', 'PROCESSING']  # ✅ Permitir PROCESSING también
             ).select_related('sales_order').prefetch_related(
                 'items__purchase_order',
                 'items__sales_order'
             ).first()
             
+            print(f"🔍 Selection found: {selection.id if selection else 'None'}")
+            if selection:
+                print(f"🔍 Selection status: {selection.status}")
+                print(f"🔍 Selection items count: {selection.items.count()}")
+            
             # Verificar que no esté expirada
             if selection and selection.is_expired:
-                # Marcar como expirada automáticamente
                 selection.status = 'EXPIRED'
                 selection.save(update_fields=['status'])
                 return None
