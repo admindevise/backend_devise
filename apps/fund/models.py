@@ -1094,7 +1094,8 @@ class FundInvestment(models.Model):
     )
     
     created_at = models.DateTimeField(
-        auto_now_add=True, 
+        auto_now_add=True,
+        null=True,
         verbose_name="Fecha de creación"
     )
     updated_at = models.DateTimeField(
@@ -1447,6 +1448,16 @@ class FundInvestment(models.Model):
     def __str__(self):
         return f"{self.investor.email} → {self.fund.name} (${self.invested_amount})"
     
+    
+class TransferReceipt(base_model.BaseModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="transfer_receipts")
+    transaction_id = models.CharField(max_length=255)
+    fund = models.ForeignKey('Fund', on_delete=models.CASCADE, related_name="transfer_receipts", null=True, blank=True)
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.transaction_id} - {self.fund.name if self.fund else 'N/A'}"
+
     
 class FundPriceHistory(base_model.BaseModel):
     """
