@@ -28,34 +28,44 @@ class FundSerializer(serializers.ModelSerializer):
     class Meta:
         model = Fund
         fields = [
-            # Campos comunes
+            # Campos comunes existentes
             'id', 'user', 'hd_wallet', 'name', 'description',
             'amount_units', 'amount_tokens', 'nickname_tokens',
             'token_contract_721', 'secret', 'price_per_unit', 'status', 
-            'promote_contract_id', 'image', 'created_at',
+            'promote_contract_id', 'image', 'description_admin',
+            'image_admin', 'created_at',
             
             # Información Regulatoria
             'superintendency_registry', 'tax_id', 'fund_type', 'management_company',
             
-            # Parámetros Financieros
-            'annual_return', 'initial_unit_value', 'total_assets',
+            # Parámetros Financieros existentes
+            'initial_unit_value', 'total_assets',
             'management_fee', 'success_fee', 'risk_rating',
+            'current_annual_yield', 'current_return_rate', 'expected_return', 'tir',
             
-            # Políticas de Inversión
+            # Políticas de Inversión existentes
             'risk_profile', 'investment_horizon', 'asset_composition',
-            'dividend_distribution',
+            'dividend_distribution', 'performance_payment_frequency', 'suggested_trend',
             
-            # Operaciones
+            # Operaciones existentes
             'minimum_investment', 'permanence_period', 'early_withdrawal_penalty',
             'trading_hours', 'operations_closing_date',
             
             # Otros Campos Relevantes
             'main_manager', 'operations_start_date',
             
+            # Documentos y politicas
+            'terms_and_conditions', 'data_processing_policy', 'accountability', 
+            'tax_certificate', 'operator_report',
+            
             # Funciones
             'amount_total', 'current_price', 'total_investors'
         ]
-        read_only_fields = ['hd_wallet', 'token_contract_721', 'created_at', 'user']
+        read_only_fields = [
+            'hd_wallet', 'token_contract_721', 'created_at', 'user',
+            'terms_and_conditions', 'data_processing_policy', 'accountability',
+            'tax_certificate', 'operator_report'
+        ]
         
     def get_amount_total(self, obj):
         return obj.amount_total

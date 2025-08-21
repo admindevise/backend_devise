@@ -41,7 +41,7 @@ class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
     serializer_class = FundSerializer
     authentication_classes = [JWTAuthentication]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['user', 'status']
+    #filterset_fields = ['user', 'status']
     search_fields = ['name', 'description']
     ordering_fields = ['created_at', 'name']
     ordering = ['-created_at']
