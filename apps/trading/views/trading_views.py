@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Q
+from decimal import Decimal
 
 from apps.trading.models.core_models import PurchaseOrder, SalesOrder, Transaction
 from apps.trading.services.order_query_service import OrderQueryService
@@ -22,6 +23,7 @@ from apps.trading.serializers.core_serializer import (
     OrderBookSerializer,
     OrderCancellationSerializer
 )
+from apps.user.models import User
 
 class PurchaseOrderViewSet(TradingPermissionMixin,
                             DateFilterMixin,
@@ -35,7 +37,7 @@ class PurchaseOrderViewSet(TradingPermissionMixin,
     """
     serializer_class = PurchaseOrderSerializer
     permission_classes = [IsAuthenticated]
-    permission_action_type = 'CREATE_PURCHASE_ORDER'  # ✅ Agregar validación automática
+    permission_action_type = 'CREATE_PURCHASE_ORDER'
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     filterset_fields = ['created_by', 'supplier_user']
     search_fields = ['order_number', 'fund__name']
@@ -48,14 +50,23 @@ class PurchaseOrderViewSet(TradingPermissionMixin,
         self.payment_execution_service = PaymentExecutionService()
 
     def get_target_user(self, request):
-        """Override para extraer usuario objetivo de PurchaseOrder"""
+        """Extrae el usuario objetivo para validación de permisos"""
         if hasattr(request, 'data') and 'supplier_user' in request.data:
-            from apps.user.models import User
-            try:
-                return User.objects.get(id=request.data['supplier_user'])
-            except User.DoesNotExist:
-                pass
+            return User.objects.get(id=request.data['supplier_user'])
         return request.user
+    
+    def get_amount(self, request):
+        """Extrae el monto para validación de límites"""
+        if hasattr(request, 'data') and 'total_amount' in request.data:
+            return Decimal(str(request.data['total_amount']))
+        return None
+
+    def get_serializer_class(self):
+        """Usar serializer con validación de permisos"""
+        if self.action == 'create':
+            from apps.trading.serializers_flow.permission_aware_serializers import PermissionAwarePurchaseOrderSerializer
+            return PermissionAwarePurchaseOrderSerializer
+        return PurchaseOrderSerializer
 
     def perform_create(self, serializer):
         """Override para usar el contexto de request"""
@@ -151,14 +162,16 @@ class SalesOrderViewSet(TradingPermissionMixin,
         self.order_management_service = OrderManagementService()
 
     def get_target_user(self, request):
-        """Override para extraer usuario objetivo de SalesOrder"""
+        """Extrae el usuario objetivo para validación de permisos"""
         if hasattr(request, 'data') and 'seller_user' in request.data:
-            from apps.user.models import User
-            try:
-                return User.objects.get(id=request.data['seller_user'])
-            except User.DoesNotExist:
-                pass
+            return User.objects.get(id=request.data['seller_user'])
         return request.user
+    
+    def get_amount(self, request):
+        """Extrae el monto para validación de límites"""
+        if hasattr(request, 'data') and 'total_amount' in request.data:
+            return Decimal(str(request.data['total_amount']))
+        return None
 
     def perform_create(self, serializer):
         """Override para usar el contexto de request"""

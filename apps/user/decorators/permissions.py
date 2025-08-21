@@ -137,21 +137,57 @@ def extract_amount_from_data(request, view, *args, **kwargs):
 
 
 class TradingPermissionMixin:
-    """
-    Mixin para vistas que requieren permisos de trading
-    Uso: class MyView(TradingPermissionMixin, CreateAPIView):
-            permission_action_type = 'CREATE_SALES_ORDER'
-    """
+    """Mixin para vistas que requieren permisos de trading"""
     permission_action_type = None
     
-    def dispatch(self, request, *args, **kwargs):
-        """Intercepta la request para validar permisos antes de procesarla"""
+    def initial(self, request, *args, **kwargs):
+        """Validar permisos antes de procesar la request"""
         
-        if self.permission_action_type and not isinstance(request.user, AnonymousUser):
-            # Extraer datos para validación
+        # ✅ AGREGAR: Debug completo
+        print(f"\n🔍 TradingPermissionMixin DEBUG:")
+        print(f"  - Action: {getattr(self, 'action', 'NO_ACTION')}")
+        print(f"  - Permission Type: {getattr(self, 'permission_action_type', 'NO_PERMISSION_TYPE')}")
+        print(f"  - User: {request.user.email if hasattr(request.user, 'email') else 'ANONYMOUS'}")
+        print(f"  - Is Staff: {getattr(request.user, 'is_staff', False)}")
+        print(f"  - Request Data: {getattr(request, 'data', 'NO_DATA')}")
+        
+        # Ejecutar inicialización del padre PRIMERO
+        super().initial(request, *args, **kwargs)
+        
+        # Solo validar en CREATE con permission_action_type configurado
+        if (hasattr(self, 'permission_action_type') and 
+            self.permission_action_type and 
+            hasattr(self, 'action') and
+            self.action == 'create' and 
+            hasattr(request.user, 'is_authenticated') and
+            request.user.is_authenticated):
+            
+            print(f"🎯 Validando permisos para acción: {self.action}")
+            
+            # Extraer datos
             target_user = self.get_target_user(request)
             amount = self.get_amount(request)
             fund_id = self.get_fund_id(request)
+            
+            print(f"  - Target User: {target_user.email if target_user else 'None'}")
+            print(f"  - Amount: {amount}")
+            print(f"  - Fund ID: {fund_id}")
+            
+            # CASO 1: Usuario creando para sí mismo
+            if target_user == request.user:
+                print("✅ Usuario creando orden para sí mismo - PERMITIDO")
+                return
+            
+            # CASO 2: Admin creando para otro usuario
+            if not request.user.is_staff:
+                print("❌ Usuario no-admin intentando crear para otro")
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('Solo administradores pueden crear órdenes para otros usuarios')
+            
+            print("🔍 Verificando permisos de admin...")
+            
+            # Importar el servicio
+            from apps.user.services.permission_service import TradingPermissionService
             
             # Verificar permisos
             permission_check = TradingPermissionService.check_permission(
@@ -162,49 +198,50 @@ class TradingPermissionMixin:
                 amount=amount
             )
             
-            if not permission_check['allowed']:
-                return Response({
-                    'error': permission_check['reason'],
-                    'requires_permission': True,
-                    'action_type': self.permission_action_type
-                }, status=status.HTTP_403_FORBIDDEN)
+            print(f"📊 Resultado de check_permission: {permission_check}")
             
-            # Guardar permiso en request
+            if not permission_check['allowed']:
+                print(f"❌ Permiso DENEGADO: {permission_check['reason']}")
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied(permission_check['reason'])
+            
+            print("✅ Permiso APROBADO")
             request.permission_used = permission_check['permission']
-        
-        return super().dispatch(request, *args, **kwargs)
+        else:
+            print("⏭️ No se requiere validación de permisos")
     
     def get_target_user(self, request):
-        """Override en subclases para extraer usuario objetivo"""
-        return getattr(request, 'target_user', request.user)
+        """Extrae el usuario objetivo"""
+        if hasattr(request, 'data'):
+            if 'supplier_user' in request.data:
+                from apps.user.models import User
+                return User.objects.get(id=request.data['supplier_user'])
+            elif 'seller_user' in request.data:
+                from apps.user.models import User  
+                return User.objects.get(id=request.data['seller_user'])
+        return request.user
     
     def get_amount(self, request):
-        """Override en subclases para extraer monto"""
-        if hasattr(request, 'data') and 'total_amount' in request.data:
-            return Decimal(str(request.data['total_amount']))
+        """Extrae el monto calculado correctamente"""
+        if hasattr(request, 'data'):
+            # Si existe total_amount, usarlo
+            if 'total_amount' in request.data:
+                from decimal import Decimal
+                return Decimal(str(request.data['total_amount']))
+            
+            # ✅ CALCULAR: units * price_per_unit
+            elif 'units' in request.data and 'price_per_unit' in request.data:
+                from decimal import Decimal
+                units = Decimal(str(request.data['units']))
+                price = Decimal(str(request.data['price_per_unit']))
+                total = units * price
+                print(f"🧮 Calculated amount: {units} × {price} = {total}")
+                return total
+        
         return None
     
     def get_fund_id(self, request):
-        """Override en subclases para extraer fund_id"""
+        """Extrae el fund_id"""
         if hasattr(request, 'data') and 'fund' in request.data:
             return request.data['fund']
         return None
-    
-    def perform_create(self, serializer):
-        """Hook para log después de crear exitosamente"""
-        result = super().perform_create(serializer)
-        
-        # Log uso exitoso del permiso
-        if hasattr(self.request, 'permission_used'):
-            TradingPermissionService.log_permission_usage(
-                permission=self.request.permission_used,
-                action_type=self.permission_action_type,
-                action_data={
-                    'created_object_id': str(serializer.instance.id),
-                    'amount': self.get_amount(self.request),
-                    'fund_id': self.get_fund_id(self.request),
-                },
-                success=True
-            )
-        
-        return result

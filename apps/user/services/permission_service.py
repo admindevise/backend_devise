@@ -30,19 +30,30 @@ class TradingPermissionService:
         
         expires_at = timezone.now() + timedelta(hours=duration_hours)
         
+        # Obtener objeto Fund si fund_id es proporcionado
+        fund = None
+        if fund_id:
+            from apps.fund.models import Fund
+            try:
+                fund = Fund.objects.get(id=fund_id)
+            except Fund.DoesNotExist:
+                raise ValueError(f"Fund with id {fund_id} does not exist")
+        
         permission = UserAdminPermission.objects.create(
             user=user,
             admin_user=admin_user,
             permission_type=permission_type,
-            fund_id=fund_id,
+            fund=fund,
             expires_at=expires_at,
             max_order_amount=max_order_amount,
             max_daily_amount=max_daily_amount,
             auto_approve_under_amount=auto_approve_under,
             require_confirmation=require_confirmation,
-            reason=reason
+            reason=reason,
+            status='ACTIVE'
         )
         
+        print(f"✅ Permission created: ID {permission.id}, Type: {permission.permission_type}")
         return permission
     
     @staticmethod
@@ -55,77 +66,114 @@ class TradingPermissionService:
     ) -> Dict[str, Any]:
         """Verifica si el admin tiene permiso para ejecutar una acción"""
         
+        print(f"\n🔍 TradingPermissionService.check_permission:")
+        print(f"  - Admin: {admin_user.email}")
+        print(f"  - Target: {target_user.email}")
+        print(f"  - Action: {action_type}")
+        print(f"  - Fund ID: {fund_id}")
+        print(f"  - Amount: {amount}")
+        
         # Buscar permisos válidos
-        permissions = UserAdminPermission.objects.filter(
+        permissions_query = UserAdminPermission.objects.filter(
             user=target_user,
             admin_user=admin_user,
-            is_active=True,
+            status='ACTIVE',
             expires_at__gt=timezone.now()
         )
         
-        # Filtrar por tipo de acción
-        valid_permissions = []
-        for permission in permissions:
-            if TradingPermissionService._action_matches_permission(action_type, permission.permission_type):
-                # Filtrar por fund si se especifica
-                if fund_id and permission.fund_id and permission.fund_id != fund_id:
-                    continue
-                
-                # Validar límites
-                validation = TradingPermissionService._validate_limits(permission, amount)
-                if validation['allowed']:
-                    valid_permissions.append(permission)
+        print(f"📋 Query: {permissions_query.query}")
+        print(f"📋 Found {permissions_query.count()} permissions")
         
-        if not valid_permissions:
+        for p in permissions_query:
+            print(f"  - ID: {p.id}, Type: {p.permission_type}, Fund: {p.fund.id if p.fund else 'ALL'}")
+        
+        # Filtrar por tipo de acción
+        relevant_permissions = []
+        for perm in permissions_query:
+            matches = TradingPermissionService._action_matches_permission(action_type, perm.permission_type)
+            print(f"🔍 Permission {perm.id} ({perm.permission_type}) matches {action_type}: {matches}")
+            
+            if matches:
+                fund_matches = not fund_id or not perm.fund or perm.fund.id == fund_id
+                print(f"🔍 Fund matches: {fund_matches} (perm.fund: {perm.fund.id if perm.fund else 'ALL'})")
+                
+                if fund_matches:
+                    relevant_permissions.append(perm)
+                    print(f"✅ Permission {perm.id} added to relevant list")
+        
+        print(f"📊 Relevant permissions: {len(relevant_permissions)}")
+        
+        if not relevant_permissions:
             return {
                 'allowed': False,
-                'reason': 'No tiene permisos válidos para esta acción',
-                'permission': None
+                'reason': 'No tienes permisos para esta acción',
+                'requires_permission': True
             }
         
-        # Usar el permiso más restrictivo (menor límite)
-        best_permission = min(valid_permissions, 
-                            key=lambda p: p.max_order_amount or Decimal('999999999'))
+        # Verificar límites para cada permiso relevante
+        for perm in relevant_permissions:
+            validation = TradingPermissionService._validate_limits(perm, amount)
+            if validation['allowed']:
+                return {
+                    'allowed': True,
+                    'permission': perm,
+                    'requires_confirmation': perm.require_confirmation and (
+                        not perm.auto_approve_under_amount or 
+                        not amount or 
+                        amount > perm.auto_approve_under_amount
+                    )
+                }
         
         return {
-            'allowed': True,
-            'permission': best_permission,
-            'reason': 'Permiso válido encontrado'
+            'allowed': False,
+            'reason': 'Acción excede los límites permitidos',
+            'limits_exceeded': True
         }
-    
-    @staticmethod
-    def log_permission_usage(permission: UserAdminPermission, action_type: str, action_data: Dict[str, Any], success: bool = True):
-        """Registra el uso de un permiso para auditoría"""
-        
-        # Incrementar contador de uso
-        permission.usage_count += 1
-        permission.save(update_fields=['usage_count'])
-        
-        # Crear registro de ejecución
-        PermissionExecution.objects.create(
-            permission=permission,
-            action_type=action_type,
-            action_data=action_data,
-            success=success,
-            executed_at=timezone.now()
-        )
     
     @staticmethod
     def _action_matches_permission(action_type: str, permission_type: str) -> bool:
         """Verifica si un tipo de acción coincide con un tipo de permiso"""
         
+        # ✅ MAPEO CORRECTO Y COMPLETO
         action_mapping = {
-            'CREATE_PURCHASE_ORDER': ['PURCHASE_ORDERS', 'ALL_TRADING'],
-            'CREATE_SALES_ORDER': ['SALES_ORDERS', 'ALL_TRADING'],
-            'EXECUTE_PAYMENT': ['EXECUTE_PAYMENTS', 'ALL_TRADING'],
-            'CANCEL_ORDER': ['CANCEL_ORDERS', 'ALL_TRADING'],
+            'CREATE_PURCHASE_ORDER': [
+                'CREATE_PURCHASE_ORDER',  # ✅ Mapeo directo
+                'PURCHASE_ORDERS', 
+                'ALL_TRADING',
+                'TRADING_FULL_ACCESS'
+            ],
+            'CREATE_SALES_ORDER': [
+                'CREATE_SALES_ORDER',     # ✅ Mapeo directo
+                'SALES_ORDERS', 
+                'ALL_TRADING',
+                'TRADING_FULL_ACCESS'
+            ],
+            'EXECUTE_PAYMENT': [
+                'EXECUTE_PAYMENT',
+                'EXECUTE_PAYMENTS', 
+                'ALL_TRADING',
+                'TRADING_FULL_ACCESS'
+            ],
+            'CANCEL_ORDER': [
+                'CANCEL_ORDER',
+                'CANCEL_ORDERS', 
+                'ALL_TRADING',
+                'TRADING_FULL_ACCESS'
+            ],
         }
         
-        return permission_type in action_mapping.get(action_type, [])
+        matches = permission_type in action_mapping.get(action_type, [])
+        print(f"🔍 _action_matches_permission({action_type}, {permission_type}) = {matches}")
+        
+        return matches
     
     @staticmethod
     def _validate_limits(permission: UserAdminPermission, amount: Optional[Decimal]) -> Dict[str, Any]:
         """Valida los límites del permiso"""
+        
+        print(f"🔍 Validating limits for permission {permission.id}")
+        print(f"  - Amount: {amount}")
+        print(f"  - Max order: {permission.max_order_amount}")
         
         # Verificar límite por orden
         if amount and permission.max_order_amount and amount > permission.max_order_amount:
@@ -157,59 +205,25 @@ class TradingPermissionService:
                 'reason': 'Permiso agotado por número de usos'
             }
         
+        print(f"✅ Limits validation passed")
         return {'allowed': True}
     
     @staticmethod
-    def check_permission(
-        admin_user,
-        target_user, 
-        action_type: str,
-        fund_id: Optional[int] = None,
-        amount: Optional[Decimal] = None
-    ) -> Dict[str, Any]:
-        """Verifica si el admin tiene permiso para ejecutar una acción"""
+    def log_permission_usage(permission: UserAdminPermission, action_type: str, action_data: Dict[str, Any], success: bool = True):
+        """Registra el uso de un permiso para auditoría"""
         
-        # Buscar permisos válidos
-        permissions = UserAdminPermission.objects.filter(
-            user=target_user,
-            admin_user=admin_user,
-            status='ACTIVE',
-            expires_at__gt=timezone.now()
+        # Incrementar contador de uso
+        permission.usage_count += 1
+        permission.save(update_fields=['usage_count'])
+        
+        # Crear registro de ejecución
+        PermissionExecution.objects.create(
+            permission=permission,
+            action_type=action_type,
+            action_data=action_data,
+            success=success,
+            executed_at=timezone.now()
         )
-        
-        # Filtrar por tipo de acción
-        relevant_permissions = []
-        for perm in permissions:
-            if TradingPermissionService._action_matches_permission(action_type, perm.permission_type):
-                if not fund_id or not perm.fund or perm.fund.id == fund_id:
-                    relevant_permissions.append(perm)
-        
-        if not relevant_permissions:
-            return {
-                'allowed': False,
-                'reason': 'No tienes permisos para esta acción',
-                'requires_permission': True
-            }
-        
-        # Verificar límites
-        for perm in relevant_permissions:
-            validation = TradingPermissionService._validate_limits(perm, amount)
-            if validation['allowed']:
-                return {
-                    'allowed': True,
-                    'permission': perm,
-                    'requires_confirmation': perm.require_confirmation and (
-                        not perm.auto_approve_under_amount or 
-                        not amount or 
-                        amount > perm.auto_approve_under_amount
-                    )
-                }
-        
-        return {
-            'allowed': False,
-            'reason': 'Acción excede los límites permitidos',
-            'limits_exceeded': True
-        }
     
     @staticmethod
     def request_approval(
@@ -234,54 +248,6 @@ class TradingPermissionService:
             expires_at=expires_at
         )
         
-        # TODO: Enviar notificación al usuario
-        
         return pending_action
-    @staticmethod
-    def _action_matches_permission(action_type: str, permission_type: str) -> bool:
-        """Verifica si un tipo de acción coincide con un tipo de permiso"""
-        
-        action_mapping = {
-            'CREATE_PURCHASE_ORDER': ['PURCHASE_ORDERS', 'ALL_TRADING'],
-            'CREATE_SALES_ORDER': ['SALES_ORDERS', 'ALL_TRADING'],
-            'EXECUTE_PAYMENT': ['EXECUTE_PAYMENTS', 'ALL_TRADING'],
-            'CANCEL_ORDER': ['CANCEL_ORDERS', 'ALL_TRADING'],
-        }
-        
-        return permission_type in action_mapping.get(action_type, [])
-    
-    @staticmethod
-    def _validate_limits(permission: UserAdminPermission, amount: Optional[Decimal]) -> Dict[str, Any]:
-        """Valida los límites del permiso"""
-        
-        # Verificar límite por orden
-        if amount and permission.max_order_amount and amount > permission.max_order_amount:
-            return {
-                'allowed': False,
-                'reason': f'Monto {amount} excede el límite por orden {permission.max_order_amount}'
-            }
-        
-        # Verificar límite diario
-        if amount and permission.max_daily_amount:
-            today_usage = PermissionExecution.objects.filter(
-                permission=permission,
-                executed_at__date=timezone.now().date(),
-                success=True
-            ).aggregate(
-                total=models.Sum('action_data__total_amount')
-            )['total'] or Decimal('0')
-            
-            if (today_usage + amount) > permission.max_daily_amount:
-                return {
-                    'allowed': False,
-                    'reason': f'Límite diario excedido. Usado: {today_usage}, Límite: {permission.max_daily_amount}'
-                }
-        
-        # Verificar número máximo de usos
-        if permission.max_uses and permission.usage_count >= permission.max_uses:
-            return {
-                'allowed': False,
-                'reason': 'Permiso agotado por número de usos'
-            }
-        
-        return {'allowed': True}
+
+# ❌ ELIMINAR: Todo el código duplicado de las líneas 253+ hacia abajo

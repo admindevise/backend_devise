@@ -1,5 +1,6 @@
 from django.contrib import admin
 from apps.user.models import User, Role, PasswordReset, IdType
+from apps.user.models_permission import UserAdminPermission
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -15,6 +16,9 @@ class IdTypeAdmin(admin.ModelAdmin):
     list_display = ['pk', 'name']
 admin.site.register(IdType, IdTypeAdmin)
 
+class UserAdminPermissionAdmin(admin.ModelAdmin):
+    list_display = ['id',]
+admin.site.register(UserAdminPermission, UserAdminPermissionAdmin)
 
 @admin.register(PasswordReset)
 class PasswordResetAdmin(admin.ModelAdmin):
