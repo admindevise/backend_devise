@@ -35,6 +35,11 @@ from apps.trading.views.selection_management_views import (
     create_sales_selection
 )
 
+from apps.trading.views.negotiation_dashboard_views import (
+    NegotiationOrdersListAPIView,
+    NegotiationStatusOptionsAPIView
+)
+
 
 router = DefaultRouter()
 router.register(r'purchase-orders', PurchaseOrderViewSet, basename='purchaseorder')
@@ -101,4 +106,8 @@ urlpatterns = [
     path('api/list-user-permissions/', 
          permission_views.list_user_permissions, 
          name='list-user-permissions'),
+    
+    # Negotiation Dashboard
+    path('api/negotiations/dashboard/', NegotiationOrdersListAPIView.as_view(), name='negotiation-dashboard'),
+    path('api/negotiations/metrics/', NegotiationStatusOptionsAPIView.as_view(), name='negotiation-metrics'),
 ]
