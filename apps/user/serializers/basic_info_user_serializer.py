@@ -14,3 +14,11 @@ class UserBasicInfoSerializer(serializers.ModelSerializer):
                 'expedition_date', 'mail_delivery', 
                 ]
         model = User
+
+class UserShortInfoSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        fields = [
+                'id', 'email', 'first_name', 'last_name',
+                ]
+        model = User

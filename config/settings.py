@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     'apps.fund.apps.FundConfig',
     'apps.audit.apps.AuditConfig',
     'apps.trading.apps.TradingConfig',
+    'apps.financial_institution.apps.FinancialInstitutionConfig',
 
 ]
 

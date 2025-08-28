@@ -23,6 +23,7 @@ from apps.kaleido import urls as kaleido_urls
 from apps.fund import urls as fund_urls
 from apps.audit import urls as audit_urls
 from apps.trading import urls as trading_urls
+from apps.financial_institution import urls as financial_institution_urls
 
 from rest_framework_simplejwt.views import ( TokenObtainPairView, TokenRefreshView )
 
@@ -95,6 +96,9 @@ urlpatterns = [
     
     #Trading Urls
     path('trading/', include(trading_urls)),
+    
+    #Financial Institution Urls
+    path('financial-institution/', include(financial_institution_urls)),
 
     # #wee trust
     # path('weetrust/', include(weetrust_urls)),
