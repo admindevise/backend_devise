@@ -1,0 +1,7 @@
+{
+  "github.copilot.chat.welcomeMessage": "disabled",
+  "github.copilot.advanced": {
+    "temperature": 0.1,
+    "systemMessage": "Actúa como desarrollador senior. SIEMPRE prioriza: 1) Seguridad 2) Optimización 3) Escalabilidad. Aplica estándares de industria."
+  }
+}

@@ -12,7 +12,7 @@ from apps.utils.views.Mixins import DateFilterMixin
 
 from apps.fund.models import Fund, FundInvestment
 
-from apps.fund.serializers.serializer_fund_investment import (
+from apps.fund.serializers.fund_investment_serializers import (
     FundInvestmentSerializer
 )
 from apps.fund.services.application_service import FundApplicationService

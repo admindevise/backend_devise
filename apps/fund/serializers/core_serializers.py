@@ -1,22 +1,105 @@
+from django.db import transaction
 from rest_framework import serializers
-from rest_framework.validators import UniqueTogetherValidator
-from rest_framework.exceptions import ValidationError
 from django.core.validators import RegexValidator
+from rest_framework.exceptions import ValidationError
 
-from apps.fund.models import Fund, FundInvestment, TransferReceipt, FundToken
-from apps.kaleido.models import InstanceOfTokenContract721, PromoteContract
+from apps.fund.models import(
+    Fund,
+    FundToken,
+    TransferReceipt,
+    FundSemestralDocument,
+)
+from apps.kaleido.models import PromoteContract
+
 from apps.kaleido.serializers.serializer_token_instance import InstanceOfTokenContract721Serializer
 from apps.kaleido.serializers.serializer_wallet import WalletFundSerializer
 
 from apps.kaleido.utils import create_wallet_for_fund, create_instance_token_contract_721
 
-from django.db import transaction
+
+class FundSemestralDocumentSerializer(serializers.ModelSerializer):
+    uploaded_date = serializers.DateField(format="%Y-%m-%d", read_only=True)
+    period_start_date = serializers.DateField(read_only=False)
+    period_end_date = serializers.DateField(read_only=False)
+    document_type = serializers.ChoiceField(
+        choices=FundSemestralDocument.DocumentType.choices,
+        required=True
+    )
+    semester = serializers.ChoiceField(
+        choices=[
+            (1, 'Primer Semestre'),
+            (2, 'Segundo Semestre')
+            ],
+        required=True
+    )
+    year = serializers.IntegerField(required=True)
+    
+    class Meta:
+        model = FundSemestralDocument
+        fields = '__all__'
+        read_only_fields = ['id', 'fund', 'uploaded_date', 'uploaded_by']
+    
+    def validate(self, attrs):
+        user = self.context['request'].user
+        
+        try:
+            fund = Fund.objects.get(user=user)
+        except Fund.DoesNotExist:
+            raise ValidationError({
+                "fund": "El usuario no tiene un fondo asociado."
+            }
+            )
+        except Fund.MultipleObjectsReturned:
+            raise ValidationError({
+                "fund": "El usuario está asociado a múltiples fondos."
+            })
+        
+        # Validar que no exista ya un documento para el mismo semestre y tipo
+        existing_doc = FundSemestralDocument.objects.select_related('fund').filter(
+            fund=fund,
+            document_type=attrs['document_type'],
+            year=attrs['year'],
+            semester=attrs['semester'],
+        ).exists()
+        
+        if existing_doc:
+            raise ValidationError({
+                "document": "Ya existe un documento para el mismo semestre y tipo."
+                })
+        
+        attrs['_fund'] = fund
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """
+        Crear un nuevo documento semestral y actualizar los campos de periodo automáticamente.
+        """
+        user = self.context['request'].user
+        fund = validated_data.pop('_fund')
+        
+        # Crear el documento semestral con el fondo automático
+        document = FundSemestralDocument.objects.create(
+            fund=fund,
+            document_type=validated_data['document_type'],
+            year=validated_data['year'],
+            semester=validated_data['semester'],
+            title=validated_data.get('title', ''),
+            description=validated_data.get('description', ''),
+            document=validated_data['document'],
+            period_start_date=validated_data['period_start_date'],
+            period_end_date=validated_data['period_end_date'],
+            uploaded_by=user
+        )
+        
+        return document
 
 class FundSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     hd_wallet = WalletFundSerializer(read_only=True)
     token_contract_721 = InstanceOfTokenContract721Serializer(read_only=True)
     promote_contract_id = serializers.IntegerField(write_only=True)
+    semestral_documents = FundSemestralDocumentSerializer(many=True, read_only=True)
     
     # Validacion para nickname solo numeros y letas
     nickname_tokens = RegexValidator(r'^[a-zA-Z0-9_]+$', 'El nickname solo puede contener letras, números y guiones bajos')
@@ -52,19 +135,17 @@ class FundSerializer(serializers.ModelSerializer):
             'trading_hours', 'operations_closing_date',
             
             # Otros Campos Relevantes
-            'main_manager', 'operations_start_date',
+            'main_manager', 'operations_start_date', 'semestral_documents',
             
             # Documentos y politicas
-            'terms_and_conditions', 'data_processing_policy', 'accountability', 
-            'tax_certificate', 'operator_report',
+            'terms_and_conditions', 'data_processing_policy',
             
             # Funciones
             'amount_total', 'current_price', 'total_investors'
         ]
         read_only_fields = [
             'hd_wallet', 'token_contract_721', 'created_at', 'user',
-            'terms_and_conditions', 'data_processing_policy', 'accountability',
-            'tax_certificate', 'operator_report'
+            'terms_and_conditions', 'data_processing_policy', 'semestral_documents'
         ]
         
     def get_amount_total(self, obj):
@@ -123,6 +204,7 @@ class FundSerializer(serializers.ModelSerializer):
             fund.token_contract_721 = token_instance
             fund.save(update_fields=['token_contract_721'])
             return fund
+
 
 class TransferReceiptSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)

@@ -1,32 +1,28 @@
-from rest_framework import viewsets, filters, status
-from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework import viewsets, filters
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.decorators import permission_classes, authentication_classes, api_view, action
-
-from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.contenttypes.models import ContentType
+from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.audit.audit_service import AuditService
-from apps.fund.models import Fund, TransferReceipt, FundToken, TokenTransaction
-
-from apps.fund.serializers.serializer_fund_core import FundSerializer, TransferReceiptSerializer, FundTokenSerializer
-
-from apps.fund.serializers.serializer_transaction import TokenTransactionSerializer
-
 from apps.utils.views.Mixins import DateFilterMixin
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def test(request):
-    # obtener el valor del atributo del valor de notes en el modelo FundPriceHistory del campo notes
-    # y devolverlo como respuesta
-    """ try:
-        fund_price_history = FundPriceHistory.objects.first()
-        notes = fund_price_history.notes if fund_price_history else "No hay notas disponibles"
-        return Response({"notes": notes}, status=status.HTTP_200_OK)
-    except FundPriceHistory.DoesNotExist:
-        return Response({"error": "No se encontró el historial de precios"}, status=status.HTTP_404_NOT_FOUND) """
+from apps.fund.models import(
+    Fund,
+    FundToken,
+    TransferReceipt,
+    TokenTransaction,
+    FundSemestralDocument
+)
+from apps.fund.serializers.core_serializers import(
+    FundSerializer,
+    FundTokenSerializer,
+    TransferReceiptSerializer,
+    FundSemestralDocumentSerializer,
+)
+from apps.fund.serializers.transaction_serializers import TokenTransactionSerializer
+
 
 class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
     """
@@ -197,6 +193,33 @@ class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
                 initial_audit.save(update_fields=['status', 'details'])
             
             raise  # Re-lanzar la excepción para que DRF la maneje
+        
+class FundSemestralDocumentViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint que permite gestionar documentos semestrales de fondos.
+    Proporciona acciones `list`, `create`, `retrieve`, `update` y `destroy`.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = FundSemestralDocumentSerializer
+    authentication_classes = [JWTAuthentication]
+    parser_classes = [MultiPartParser, FormParser]
+    http_method_names = ['get', 'post', 'delete']
+    
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['fund']
+    search_fields = ['document']
+    ordering_fields = ['uploaded_date']
+    ordering = ['-uploaded_date']
+
+    def get_queryset(self):
+        """
+        Filtra los documentos para mostrar solo los del usuario autenticado,
+        a menos que el usuario sea admin (en cuyo caso muestra todos).
+        """
+        user = self.request.user
+        queryset = FundSemestralDocument.objects.select_related('fund').filter(fund__user=user)
+            
+        return queryset
         
 class TransferReceiptViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     """

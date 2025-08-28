@@ -52,6 +52,12 @@ class Fund(models.Model):
         null=True,
         verbose_name="Descripción administrativa"
     )
+    evolution_description = models.TextField(
+        max_length=500,
+        blank=True, 
+        null=True,
+        verbose_name="Evolución del fondo"
+    )
     
     # Imágenes
     image = models.ImageField(
@@ -376,27 +382,6 @@ class Fund(models.Model):
         help_text="Documento de política de tratamiento de datos",
         verbose_name="Política de tratamiento de datos"
     )
-    accountability = models.FileField(
-        upload_to='funds/accountability/', 
-        blank=True, 
-        null=True, 
-        help_text="Documento de rendición de cuentas",
-        verbose_name="Rendición de cuentas"
-    )
-    tax_certificate = models.FileField(
-        upload_to='funds/tax_certificates/', 
-        blank=True, 
-        null=True, 
-        help_text="Documento de certificado tributario",
-        verbose_name="Certificado tributario"
-    )
-    operator_report = models.FileField(
-        upload_to='funds/reports/', 
-        blank=True, 
-        null=True, 
-        help_text="Reporte del operador",
-        verbose_name="Reporte del operador"
-    )
     
     # ========================================
     # META CONFIGURACIÓN
@@ -582,6 +567,88 @@ class Fund(models.Model):
         """Override del método save para validaciones adicionales"""
         self.clean()
         super().save(*args, **kwargs)
+
+class FundSemestralDocument(models.Model):
+    """
+    Modelo para manejar documentos semestrales asociados a un fondo
+    """
+    
+    class DocumentType(models.TextChoices):
+        ACCOUNTTABILITY = 'accountability', 'Rendición de cuentas'
+        TAX_CERTIFICATE = 'tax_certificate', 'Certificado tributario'
+        OPERATOR_REPORT = 'operator_report', 'Reporte del operador'
+    
+    fund = models.ForeignKey(
+        Fund, 
+        on_delete=models.CASCADE, 
+        related_name="semestral_documents",
+        verbose_name="Fondo"
+    )
+    document_type = models.CharField(
+        max_length=50,
+        choices=DocumentType.choices,
+        verbose_name="Tipo de documento"
+    )
+    
+    # Información temporal
+    year = models.PositiveSmallIntegerField(
+        verbose_name="Año del documento"
+    )
+    semester = models.PositiveSmallIntegerField(
+        choices=[(1, 'Primer semestre'), (2, 'Segundo semestre')],
+        verbose_name="Semestre del documento"
+    )
+    
+    # Documento y metadatos
+    document = models.FileField(
+        upload_to='funds/semestral_documents/', 
+        verbose_name="Documento semestral"
+    )
+    title = models.CharField(
+        max_length=255, 
+        verbose_name="Título del documento"
+    )
+    description = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True,
+        verbose_name="Descripción del documento"
+    )
+    
+    # Fechas
+    period_start_date = models.DateField(
+        verbose_name="Fecha de inicio del período"
+    )
+    period_end_date = models.DateField(
+        verbose_name="Fecha de fin del período"
+    )
+    uploaded_date = models.DateField(
+        auto_now_add=True,
+        verbose_name="Fecha de subida"
+    )
+    uploaded_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name="Subido por"
+    )
+    
+    class Meta:
+        verbose_name = "Documento Semestral"
+        verbose_name_plural = "Documentos Semestrales"
+        ordering = ['-uploaded_date']
+        indexes = [
+            models.Index(fields=['fund', 'uploaded_date']),
+        ]
+    
+    def __str__(self):
+        return f"Documento Semestral - {self.fund.name} ({self.uploaded_date.date()})"
+
+    @property
+    def period_display(self):
+        """Retorna una representación legible del período"""
+        return f"{self.year} - Semestre {self.semester}"
 
 
 class FundApplication(models.Model):
