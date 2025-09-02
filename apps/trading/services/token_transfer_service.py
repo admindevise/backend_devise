@@ -1,9 +1,9 @@
 from django.db import transaction
 from django.utils import timezone
-from typing import Dict, Any, List
+from typing import List
 
 from apps.trading.models.core_models import PurchaseOrder, SalesOrder
-from apps.fund.models import FundToken
+from apps.fund.models.tokens import FundToken
 from apps.trading.security.token_validators import TokenReservationManager
 
 class TokenTransferError(Exception):

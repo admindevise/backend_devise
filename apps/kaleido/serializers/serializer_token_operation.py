@@ -2,11 +2,12 @@ from rest_framework import serializers
 from django.db import models, transaction
 from django.core.validators import RegexValidator
 from datetime import datetime
-from django.utils import timezone
 import pytz
 import time
 
-from apps.fund.models import Fund, FundToken, TransferReceipt, TokenTransaction
+from apps.fund.models.core import Fund
+from apps.fund.models.tokens import FundToken, TokenTransaction
+from apps.fund.models.receipts import TransferReceipt
 from apps.audit.audit_service import AuditService
 
 from apps.kaleido.utils import (

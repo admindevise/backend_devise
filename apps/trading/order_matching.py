@@ -1,11 +1,9 @@
 from django.db.models import F, ExpressionWrapper, fields
 from django.db import transaction as db_transaction
 from django.utils import timezone
-from decimal import Decimal
-from datetime import timedelta
 
 from apps.trading.models.core_models import PurchaseOrder, SalesOrder, Transaction
-from apps.fund.models import Fund
+
 
 class OrderMatch:
     """

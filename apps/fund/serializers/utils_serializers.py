@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.fund.models import FundToken
+from apps.fund.models.tokens import FundToken
 
 class TokenCounterUserSerializer(serializers.Serializer):
     """

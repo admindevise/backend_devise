@@ -1,10 +1,13 @@
-from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
-from django.core.validators import RegexValidator
 from decimal import Decimal
-from django.utils import timezone
+from rest_framework import serializers
+from django.core.validators import RegexValidator
+from rest_framework.exceptions import ValidationError
 
-from apps.fund.models import Fund, FundInvestment, FundApplication
+from apps.fund.models.membership import (
+    FundApplication,
+    FundInvestment
+)
+from apps.fund.models.core import Fund
 from apps.fund.services.application_service import FundApplicationService
 
 class FundApplicationSerializer(serializers.ModelSerializer):

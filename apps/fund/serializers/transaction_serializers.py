@@ -1,11 +1,5 @@
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
-from django.core.validators import RegexValidator
-from decimal import Decimal
-from django.utils import timezone
-
-from apps.fund.models import TokenTransaction
-from apps.fund.services.application_service import FundApplicationService
+from apps.fund.models.tokens import TokenTransaction
 
 class TokenTransactionSerializer(serializers.ModelSerializer):
     """

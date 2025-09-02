@@ -9,7 +9,7 @@ from apps.trading.models.selection_models import (
     PaymentRecord,
 )
 from apps.audit.audit_service import AuditService
-from apps.fund.models import TransferReceipt
+from apps.fund.models.receipts import TransferReceipt
 
 
 class PaymentFinalizerService:

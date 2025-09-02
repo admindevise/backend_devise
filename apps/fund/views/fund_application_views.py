@@ -1,28 +1,29 @@
 from rest_framework import viewsets, filters, status
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import ListAPIView
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.decorators import permission_classes, authentication_classes, action
+from rest_framework.decorators import action
 
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from apps.utils.views.Mixins import DateFilterMixin
 
-from apps.fund.models import Fund, FundInvestment, FundApplication
-
 from apps.fund.serializers.fund_investment_serializers import (
-    FundApplicationSerializer, FundApplicationReviewSerializer, FundApplicationRejectionSerializer, FundApplicationStatusSerializer,
-    FundInvestmentSerializer
+    FundInvestmentSerializer,
+    FundApplicationSerializer,
+    FundApplicationStatusSerializer,
+    FundApplicationReviewSerializer,
+    FundApplicationRejectionSerializer
 )
+from apps.fund.models.membership import FundApplication
 from apps.fund.services.application_service import FundApplicationService
 
 class FundApplicationViewSet(DateFilterMixin, viewsets.ModelViewSet):
     serializer_class = FundApplicationSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
-    queryset = FundApplication.objects.all()
+    http_methods_names = ['get', 'post']
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['fund', 'applicant']
@@ -30,17 +31,6 @@ class FundApplicationViewSet(DateFilterMixin, viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'status']
     ordering = ['-created_at']
     
-    def update(self, request, *args, **kwargs):
-        """Bloquear actualizaciones PUT"""
-        return Response({
-            "error": "Update operations are not allowed for fund applications"
-        }, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-    
-    def partial_update(self, request, *args, **kwargs):
-        """Bloquear actualizaciones PATCH"""
-        return Response({
-            "error": "Partial update operations are not allowed for fund applications"
-        }, status=status.HTTP_405_METHOD_NOT_ALLOWED)    
     
     def get_serializer_class(self):
         """
@@ -53,16 +43,12 @@ class FundApplicationViewSet(DateFilterMixin, viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
+        queryset = FundApplication.objects.select_related('fund', 'applicant')
         
-        if user.is_staff:
-            queryset = FundApplication.objects.all()
-        else:
-            queryset = FundApplication.objects.filter(applicant=user)
-            
-        queryset = self.filter_queryset(queryset)
-        queryset = self.apply_date_filters(queryset)
+        if not user.is_staff:
+            queryset = queryset.filter(applicant=user)
         
-        return queryset
+        return self.apply_date_filters(queryset)
     
     @action(detail=True, methods=['patch'], url_path='approve')
     def approve_application(self, request, pk=None):

@@ -1,10 +1,8 @@
-from django.db import models
-from decimal import Decimal
 import uuid
+from decimal import Decimal
+from django.db import models
 from django.utils import timezone
 
-from apps.user.models import User
-from apps.fund.models import Fund
 from apps.utils.models import base_model
 
 class BaseOrder(base_model.BaseModel):
@@ -28,8 +26,8 @@ class BaseOrder(base_model.BaseModel):
         default=0
     )    
     
-    fund = models.ForeignKey(Fund, on_delete=models.PROTECT)
-    created_by = models.ForeignKey(User, on_delete=models.PROTECT)
+    fund = models.ForeignKey('fund.Fund', on_delete=models.PROTECT)
+    created_by = models.ForeignKey('user.User', on_delete=models.PROTECT)
     
     # Campos de seguimiento temporal
     fully_executed_at = models.DateTimeField(null=True, blank=True)
@@ -86,18 +84,18 @@ class PurchaseOrder(BaseOrder):
         default=PurchaseOrderStatus.PENDING,
     )
     supplier_user = models.ForeignKey(
-        User, 
+        'user.User', 
         on_delete=models.PROTECT, 
         related_name='purchase_orders'
     )
     
     created_by = models.ForeignKey(
-        User, 
+        'user.User', 
         on_delete=models.PROTECT, 
         related_name='created_purchase_orders'
     )
     fund = models.ForeignKey(
-        Fund, 
+        'fund.Fund', 
         on_delete=models.PROTECT, 
         related_name='purchase_orders'
     )
@@ -161,17 +159,17 @@ class SalesOrder(BaseOrder):
     
     # Relaciones con otros modelos
     seller_user = models.ForeignKey(
-        User, 
+        'user.User', 
         on_delete=models.PROTECT, 
         related_name='sales_orders_seller'
     )
     created_by = models.ForeignKey(
-        User, 
+        'user.User', 
         on_delete=models.PROTECT, 
         related_name='created_sales_orders'
     )
     fund = models.ForeignKey(
-        Fund, 
+        'fund.Fund', 
         on_delete=models.PROTECT, 
         related_name='sales_orders'
     )
@@ -220,9 +218,9 @@ class Transaction(base_model.BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.PROTECT, related_name='transactions')
     sales_order = models.ForeignKey(SalesOrder, on_delete=models.PROTECT, related_name='transactions')
-    buyer = models.ForeignKey(User, on_delete=models.PROTECT, related_name='buyer_transactions')
-    seller = models.ForeignKey(User, on_delete=models.PROTECT, related_name='seller_transactions')
-    fund = models.ForeignKey(Fund, on_delete=models.PROTECT, related_name='transactions')
+    buyer = models.ForeignKey('user.User', on_delete=models.PROTECT, related_name='buyer_transactions')
+    seller = models.ForeignKey('user.User', on_delete=models.PROTECT, related_name='seller_transactions')
+    fund = models.ForeignKey('fund.Fund', on_delete=models.PROTECT, related_name='transactions')
     units = models.PositiveIntegerField()
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -259,7 +257,7 @@ class OrderBook(base_model.BaseModel):
             sell_orders (QuerySet): All pending sales orders for the fund, ordered by lowest price first.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    fund = models.ForeignKey(Fund, on_delete=models.PROTECT, related_name='order_books')
+    fund = models.ForeignKey('fund.Fund', on_delete=models.PROTECT, related_name='order_books')
     last_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     daily_high = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     daily_low = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -303,7 +301,7 @@ class OrderContract(models.Model):
     )
     
     approved_by = models.ForeignKey(
-        User, 
+        'user.User', 
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='approved_contracts'

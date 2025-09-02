@@ -3,12 +3,12 @@ from rest_framework import serializers
 from django.core.validators import RegexValidator
 from rest_framework.exceptions import ValidationError
 
-from apps.fund.models import(
+from apps.fund.models.core import (
     Fund,
-    FundToken,
-    TransferReceipt,
-    FundSemestralDocument,
+    FundSemestralDocument
 )
+from apps.fund.models.tokens import FundToken
+from apps.fund.models.receipts import TransferReceipt
 from apps.kaleido.models import PromoteContract
 
 from apps.kaleido.serializers.serializer_token_instance import InstanceOfTokenContract721Serializer
@@ -211,8 +211,8 @@ class TransferReceiptSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = TransferReceipt
-        fields = ['id','user', 'transaction_id', 'fund', 'description', 'created_at']
-        read_only_fields = ['created_at']
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'user', 'fund', 'status']
 
 class FundTokenSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
@@ -221,5 +221,5 @@ class FundTokenSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = FundToken
-        fields = ['id', 'fund', 'token_id', 'nickname', 'status', 'created_by', 'owner_user', 'reserved_for_sale', 'reserved_for_purchase', 'reserved_at', 'reservation_expires_at' , 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'fund', 'owner_user', 'status', 'reserved_at', 'reservation_expires_at']

@@ -1,16 +1,23 @@
-from rest_framework import response, status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-
-from apps.fund.utils import _generate_cre_valuation_prompt, _generate_customer_support_prompt
-from apps.fund.serializers.utils_serializers import TokenCounterUserSerializer, AISerializer, CustomerSupportSerializer
-from apps.fund.models import FundInvestment, FundApplication, Fund
-from apps.trading.models.core_models import PurchaseOrder  # Si existe
+import re
+import json
+import requests
 from django.db.models import Sum, Count, Q
 
-import requests
-import json
-import re
+from rest_framework import response, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
+
+from apps.fund.utils import _generate_customer_support_prompt
+from apps.fund.serializers.utils_serializers import (
+    AISerializer,
+    CustomerSupportSerializer,
+    TokenCounterUserSerializer
+)
+from apps.fund.models.membership import (
+    FundInvestment,
+    FundApplication
+)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

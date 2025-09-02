@@ -1,20 +1,23 @@
 from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
 from django.contrib.contenttypes.models import ContentType
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.audit.audit_service import AuditService
 from apps.utils.views.Mixins import DateFilterMixin
 
-from apps.fund.models import(
+from apps.fund.models.core import (
     Fund,
-    FundToken,
-    TransferReceipt,
-    TokenTransaction,
     FundSemestralDocument
 )
+from apps.fund.models.tokens import (
+    FundToken,
+    TokenTransaction
+)
+from apps.fund.models.receipts import TransferReceipt
 from apps.fund.serializers.core_serializers import(
     FundSerializer,
     FundTokenSerializer,

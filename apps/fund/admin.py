@@ -1,5 +1,8 @@
 from django.contrib import admin
-from apps.fund.models import Fund, FundInvestment, TransferReceipt, FundToken, FundApplication, TokenTransaction
+from apps.fund.models.core import Fund
+from apps.fund.models.membership import FundApplication, FundInvestment
+from apps.fund.models.receipts import TransferReceipt
+from apps.fund.models.tokens import FundToken, TokenTransaction
 
 class FundAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'amount_units', 'amount_tokens', 'created_at')

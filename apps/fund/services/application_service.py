@@ -5,7 +5,8 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework import serializers
 
-from apps.fund.models import Fund, FundApplication, FundInvestment
+from apps.fund.models.core import Fund
+from apps.fund.models.membership import FundApplication, FundInvestment
 from apps.audit.audit_service import AuditService
 from apps.fund.services.investment_service import FundInvestmentService
 

@@ -3,7 +3,7 @@ Utility functions for Fund operations
 """
 
 from django.db.models import Q
-from .models import FundToken
+from apps.fund.models.tokens import FundToken
 from django.db import transaction
 
 def get_next_available_token(fund_id, user=None):

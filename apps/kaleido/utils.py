@@ -5,7 +5,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, BEARER, SERVICE_WALLET, SERVICE_HOST, ZONE_DOMAIN, USER_ACCOUNTS, SERVICE
 
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
-from apps.fund.models import Fund, FundInvestment, FundApplication
+
+from apps.fund.models.core import Fund
+from apps.fund.models.membership import FundApplication
 
 from requests.auth import HTTPBasicAuth
 from django.db import transaction

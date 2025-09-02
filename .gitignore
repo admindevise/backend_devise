@@ -17,3 +17,8 @@ secret_key.txt
 /cron_logs/druo/*
 # excel #
 *.ods#
+#vscode #
+.vscode/*
+# md #
+.copilot-instructions.md
+.copilot-rules.md

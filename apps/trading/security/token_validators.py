@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from apps.fund.models import FundToken
+from apps.fund.models.tokens import FundToken
 from apps.kaleido.utils import get_owner_of, is_investor_valid
 from django.utils import timezone
 from django.db import transaction
