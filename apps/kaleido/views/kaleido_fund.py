@@ -16,6 +16,7 @@ from config.const_kaleido import USERNAME, PASSWORD, BEARER, SERVICE_HOST, USER_
 from apps.kaleido.utils import is_investor_valid, get_owner_of, get_wallet_index
 from apps.fund.models.core import Fund
 from apps.fund.models.membership import FundInvestment
+from apps.fund.models.receipts import TransferReceipt
 from apps.audit.audit_service import AuditService
 from apps.kaleido.serializers.serializer_token_operation import (
     TokenMintSerializer, 

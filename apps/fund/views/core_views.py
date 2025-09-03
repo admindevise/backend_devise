@@ -39,164 +39,19 @@ class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = FundSerializer
     authentication_classes = [JWTAuthentication]
+    http_method_names = ['get', 'post']
+    
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    #filterset_fields = ['user', 'status']
+    filterset_fields = ['user']
     search_fields = ['name', 'description']
     ordering_fields = ['created_at', 'name']
     ordering = ['-created_at']
 
     def get_queryset(self):
-        """
-        Filtra los fondos para mostrar solo los del usuario autenticado,
-        a menos que el usuario sea admin (en cuyo caso muestra todos).
-        """
-        #user = self.request.user
-        queryset = Fund.objects.all()
-            
-        queryset = self.apply_date_filters(queryset)
-        return queryset
-
-    def perform_create(self, serializer):
-        """
-        Asigna el usuario autenticado al fondo y crea registro de auditoría.
-        """
-        user = self.request.user
-        
-        # Registrar inicio de creación
-        initial_audit = AuditService.log_action(
-            request=self.request,
-            action_code="FUND_CREATE",
-            obj=user,  # Usamos el usuario como referencia hasta crear el fondo
-            details={
-                'name': serializer.validated_data.get('name'),
-                'amount': serializer.validated_data.get('amount'),
-                'operation': 'create_fund'
-            },
-            status='PENDING'
+        return self.apply_date_filters(
+            Fund.objects.select_related('user').all()
         )
-        
-        try:
-            # Crear el fondo
-            fund = serializer.save(user=user)
-            
-            # Actualizar estado de auditoría a SUCCESS
-            if initial_audit:
-                initial_audit.status = 'SUCCESS'
-                initial_audit.save(update_fields=['status'])
-                
-                # Actualizar también el objeto de referencia para que quede asociado al fondo
-                if hasattr(initial_audit, 'content_type'):
-                    fund_content_type = ContentType.objects.get_for_model(Fund)
-                    initial_audit.content_type = fund_content_type
-                    initial_audit.object_id = fund.id
-                    initial_audit.save(update_fields=['content_type', 'object_id'])
-            
-            return fund
-            
-        except Exception as e:
-            # Actualizar estado de auditoría a ERROR
-            if initial_audit:
-                initial_audit.status = 'ERROR'
-                initial_audit.details.update({'error': str(e)})
-                initial_audit.save(update_fields=['status', 'details'])
-            
-            raise  # Re-lanzar la excepción para que DRF la maneje
-
-    def perform_update(self, serializer):
-        """
-        Actualiza un fondo y crea registro de auditoría.
-        """
-        # Obtener el fondo antes de la actualización
-        fund = self.get_object()
-        old_data = {
-            'name': fund.name,
-            'description': fund.description,
-            'amount': str(fund.amount)
-        }
-        
-        # Registrar inicio de actualización
-        initial_audit = AuditService.log_action(
-            request=self.request,
-            action_code="FUND_UPDATE",
-            obj=fund,
-            details={
-                'old_data': old_data,
-                'operation': 'update_fund'
-            },
-            status='PENDING'
-        )
-        
-        try:
-            # Actualizar el fondo
-            updated_fund = serializer.save()
-            
-            # Datos después de la actualización
-            new_data = {
-                'name': updated_fund.name,
-                'description': updated_fund.description,
-                'amount': str(updated_fund.amount)
-            }
-            
-            # Actualizar estado de auditoría a SUCCESS
-            if initial_audit:
-                initial_audit.status = 'SUCCESS'
-                initial_audit.details.update({'new_data': new_data})
-                initial_audit.save(update_fields=['status', 'details'])
-            
-        except Exception as e:
-            # Actualizar estado de auditoría a ERROR
-            if initial_audit:
-                initial_audit.status = 'ERROR'
-                initial_audit.details.update({'error': str(e)})
-                initial_audit.save(update_fields=['status', 'details'])
-            
-            raise  # Re-lanzar la excepción para que DRF la maneje
-            
-    def perform_destroy(self, instance):
-        """
-        Elimina un fondo y crea registro de auditoría.
-        """
-        # Registrar inicio de eliminación
-        fund_data = {
-            'id': instance.id,
-            'name': instance.name,
-            'description': instance.description,
-            'amount': str(instance.amount)
-        }
-        
-        # Para eliminar, creamos un único registro directamente como SUCCESS
-        # ya que no hay un estado intermedio significativo
-        initial_audit = AuditService.log_action(
-            request=self.request,
-            action_code="FUND_DELETE",
-            obj=self.request.user,  # Referencia al usuario ya que el fondo será eliminado
-            details={
-                'fund_data': fund_data,
-                'operation': 'delete_fund'
-            },
-            status='PENDING'
-        )
-        
-        try:
-            # Eliminar el fondo
-            result = super().perform_destroy(instance)
-            
-            # Actualizar estado de auditoría a SUCCESS
-            if initial_audit:
-                initial_audit.status = 'SUCCESS'
-                initial_audit.save(update_fields=['status'])
-                
-            return result
-            
-        except Exception as e:
-            # Actualizar estado de auditoría a ERROR
-            if initial_audit:
-                initial_audit.status = 'ERROR'
-                initial_audit.details.update({'error': str(e)})
-                initial_audit.save(update_fields=['status', 'details'])
-            
-            raise  # Re-lanzar la excepción para que DRF la maneje
-        
+    
 class FundSemestralDocumentViewSet(viewsets.ModelViewSet):
     """
     API endpoint que permite gestionar documentos semestrales de fondos.

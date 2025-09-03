@@ -4,6 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework import serializers
+from django.db.models import QuerySet
 
 from apps.fund.models.core import Fund
 from apps.fund.models.membership import FundApplication, FundInvestment

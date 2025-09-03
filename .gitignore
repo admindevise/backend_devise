@@ -21,4 +21,6 @@ secret_key.txt
 .vscode/*
 # md #
 .copilot-instructions.md
+copilot-rules.md
+# Copilot #
 .copilot-rules.md

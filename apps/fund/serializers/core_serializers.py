@@ -11,11 +11,12 @@ from apps.fund.models.tokens import FundToken
 from apps.fund.models.receipts import TransferReceipt
 from apps.kaleido.models import PromoteContract
 
+# Serializers de Kaleido
 from apps.kaleido.serializers.serializer_token_instance import InstanceOfTokenContract721Serializer
 from apps.kaleido.serializers.serializer_wallet import WalletFundSerializer
 
-from apps.kaleido.utils import create_wallet_for_fund, create_instance_token_contract_721
-
+# Servicios
+from apps.fund.services.fund_service import FundCreationService, FundServiceError
 
 class FundSemestralDocumentSerializer(serializers.ModelSerializer):
     uploaded_date = serializers.DateField(format="%Y-%m-%d", read_only=True)
@@ -110,43 +111,48 @@ class FundSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Fund
-        fields = [
-            # Campos comunes existentes
-            'id', 'user', 'hd_wallet', 'name', 'description',
-            'amount_units', 'amount_tokens', 'nickname_tokens',
-            'token_contract_721', 'secret', 'price_per_unit', 'status', 
-            'promote_contract_id', 'image', 'description_admin',
-            'image_admin', 'created_at',
-            
-            # Información Regulatoria
-            'superintendency_registry', 'tax_id', 'fund_type', 'management_company',
-            
-            # Parámetros Financieros existentes
-            'initial_unit_value', 'total_assets',
-            'management_fee', 'success_fee', 'risk_rating',
-            'current_annual_yield', 'current_return_rate', 'expected_return', 'tir',
-            
-            # Políticas de Inversión existentes
-            'risk_profile', 'investment_horizon', 'asset_composition',
-            'dividend_distribution', 'performance_payment_frequency', 'suggested_trend',
-            
-            # Operaciones existentes
-            'minimum_investment', 'permanence_period', 'early_withdrawal_penalty',
-            'trading_hours', 'operations_closing_date',
-            
-            # Otros Campos Relevantes
-            'main_manager', 'operations_start_date', 'semestral_documents',
-            
-            # Documentos y politicas
-            'terms_and_conditions', 'data_processing_policy',
-            
-            # Funciones
-            'amount_total', 'current_price', 'total_investors'
-        ]
+        fields = '__all__'
         read_only_fields = [
-            'hd_wallet', 'token_contract_721', 'created_at', 'user',
-            'terms_and_conditions', 'data_processing_policy', 'semestral_documents'
+            'id', 'user', 'terms_and_conditions', 'data_processing_policy',
+            'semestral_documents', 'amount_total', 'current_price', 'total_investors'
         ]
+        
+        
+    def validate_name(self, value):
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("El nombre del fondo no puede estar vacío.")
+        if len(value) < 3:
+            raise serializers.ValidationError("El nombre del fondo debe tener al menos 3 caracteres.")
+        if len(value) > 100:
+            raise serializers.ValidationError("El nombre del fondo no puede exceder los 100 caracteres.")
+        return value.strip()
+    
+    def validate_secret(self, value):
+        if not value:
+            raise serializers.ValidationError("El campo 'secret' es obligatorio.")
+        if len(value.split()) < 12:
+            raise serializers.ValidationError("El campo 'secret' debe contener al menos 12 palabras.")
+        return value
+    
+    def validate_amount_units(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("El monto total del fondo debe ser mayor que cero.")
+        return value
+    
+    def validate_price_per_unit(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("El precio por unidad debe ser mayor que cero.")
+        return value
+    
+    def validate_promote_contract_id(self, value):
+        try:
+            PromoteContract.objects.get(id=value)
+        except PromoteContract.DoesNotExist:
+            raise serializers.ValidationError("El contrato de promoción con el ID proporcionado no existe.")
+        except PromoteContract.MultipleObjectsReturned:
+            raise serializers.ValidationError("El ID del contrato de promoción proporcionado es ambiguo.")
+        
+        return value
         
     def get_amount_total(self, obj):
         return obj.amount_total
@@ -159,51 +165,22 @@ class FundSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
-        secret = validated_data.get('secret')
+        request = self.context.get('request')
         
-        if not user.is_staff:
-            raise ValidationError({"user": "Solo los administradores pueden crear fondos."})
-        
-        promote_contract_id = validated_data.pop('promote_contract_id', None)
-        
-        if not secret:
-            raise ValidationError({"secret": "Secret is required."})
-        if not promote_contract_id:
-            raise ValidationError({"promote_contract_id": "Promote contract id is required."})
-        
-        # Validar que el promote_contract_id exista
         try:
-            promote_contract = PromoteContract.objects.get(id=promote_contract_id)
-        except PromoteContract.DoesNotExist:
-            raise ValidationError({"promote_contract_id": "Promote contract id is not found."})
-        
-        # Eliminar "user" de validated_data para evitar que se pase dos veces
-        validated_data.pop('user', None)
-        
-        with transaction.atomic():
-            # Crear el Fund
-            fund = Fund.objects.create(user=user, **validated_data)
-            
-            # Crear la wallet
-            wallet, error = create_wallet_for_fund(user, secret)
-            if not wallet:
-                raise ValidationError({"hd_wallet": f"Error creating wallet: {error}"})
-            fund.hd_wallet = wallet
-            fund.save()
-            
-            # Crear la instancia del contrato token
-            token_instance, error = create_instance_token_contract_721(
-                user,
-                fund.name,
-                fund.name[:3].upper(),
-                promote_contract=promote_contract
-                )
-            if not token_instance:
-                raise ValidationError({"token_contract": f"Error creating token contract instance: {error}"})
-            # Asignar el token_instance al fund
-            fund.token_contract_721 = token_instance
-            fund.save(update_fields=['token_contract_721'])
+            # Crear el fondo usando el servicio
+            fund = FundCreationService.create_fund(
+                user=user,
+                fund_data= validated_data,
+                request=request
+            )
             return fund
+        except FundServiceError as e:
+            raise ValidationError({"detail": [str(e)]})
+        except ValidationError as e:
+            raise e
+        except Exception as e:
+            raise ValidationError({"detail": [f"Ha ocurrido un error inesperado: {str(e)}"]})
 
 
 class TransferReceiptSerializer(serializers.ModelSerializer):
