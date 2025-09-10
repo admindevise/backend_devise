@@ -1,5 +1,6 @@
 from django.db import models
 from cities_light.models import Country, Region, City
+from django.utils import timezone
 
 class FinancialInstitution(models.Model):
     """
@@ -137,255 +138,384 @@ class FinancialInstitution(models.Model):
     
 class FinancialInstitutionApplication(models.Model):
     """
-    Solicitudes de usuarios para ser aprobados por instituciones financieras
+    Solicitudes de membresía en instituciones financieras
     """
     
     class ApplicationStatus(models.TextChoices):
         PENDING = 'pending', 'Pendiente'
         UNDER_REVIEW = 'under_review', 'En Revisión'
         ADDITIONAL_INFO_REQUIRED = 'additional_info', 'Información Adicional Requerida'
-        APPROVED = 'approved', 'Aprobado'
-        REJECTED = 'rejected', 'Rechazado'
-        WITHDRAWN = 'withdrawn', 'Retirada'
-        EXPIRED = 'expired', 'Expirada'
-    
-    class InvestorProfile(models.TextChoices):
-        RETAIL = 'retail', 'Minorista'
-        PROFESSIONAL = 'professional', 'Profesional'
-        HIGH_NET_WORTH = 'high_net_worth', 'Alto Patrimonio'
+        PENDING_USER_SIGNATURE = 'pending_user_signature', 'Pendiente de Firma del Usuario'
+        UNDER_REVIEW_FINAL = 'under_review_final', 'En Revisión Final'
+        APPROVED = 'approved', 'Aprobada'
+        REJECTED = 'rejected', 'Rechazada'
     
     class RejectionCategory(models.TextChoices):
         DOCUMENTATION = 'documentation', 'Documentación Incompleta'
-        INFORMATION = 'information', 'Información Incorrecta'
-        COMPLIANCE = 'compliance', 'Problemas de Cumplimiento'
+        FINANCIAL_PROFILE = 'financial_profile', 'Perfil Financiero No Cumple'
+        COMPLIANCE = 'compliance', 'Incumplimiento Normativo'
         FRAUD = 'fraud', 'Sospecha de Fraude'
-        POLICY = 'policy', 'No Cumple Políticas Internas'
+        CAPACITY = 'capacity', 'Capacidad de Inversión Insuficiente'
+        OTHER = 'other', 'Otros'
     
-    # ===========================================
-    # RELACIONES PRINCIPALES
-    # ===========================================
+    class InvestorProfile(models.TextChoices):
+        CONSERVATIVE = 'conservative', 'Conservador'
+        MODERATE = 'moderate', 'Moderado'
+        AGGRESSIVE = 'aggressive', 'Agresivo'
+        SOPHISTICATED = 'sophisticated', 'Sofisticado'
+        INSTITUTIONAL = 'institutional', 'Institucional'
+    
+    # ========================================
+    # CAMPOS BÁSICOS
+    # ========================================
     user = models.ForeignKey(
-        'user.User', 
-        on_delete=models.CASCADE, 
-        related_name='financial_institution_applications'
+        'user.User',
+        on_delete=models.CASCADE,
+        related_name='fi_applications',
+        verbose_name="Usuario Aplicante"
     )
     financial_institution = models.ForeignKey(
-        FinancialInstitution, 
-        on_delete=models.CASCADE, 
-        related_name='user_applications'
+        'FinancialInstitution',
+        on_delete=models.CASCADE,
+        related_name='applications',
+        verbose_name="Institución Financiera"
     )
     
-    # ===========================================
+    # ========================================
     # INFORMACIÓN DE LA SOLICITUD
-    # ===========================================
-    status = models.CharField(
-        max_length=20, 
-        choices=ApplicationStatus.choices, 
-        default=ApplicationStatus.PENDING
-    )
-    
+    # ========================================
     requested_investor_profile = models.CharField(
-        max_length=15,
+        max_length=20,
         choices=InvestorProfile.choices,
-        default=InvestorProfile.RETAIL
+        verbose_name="Perfil de Inversor Solicitado"
     )
-    
     requested_investment_amount = models.DecimalField(
-        max_digits=14, 
-        decimal_places=2, 
-        null=True, 
+        max_digits=15,
+        decimal_places=2,
+        null=True,
         blank=True,
-        verbose_name="Monto de inversión solicitado"
+        verbose_name="Monto de Inversión Solicitado"
     )
-    
-    # ===========================================
-    # DOCUMENTACIÓN Y PROCESO
-    # ===========================================
     application_notes = models.TextField(
-        blank=True, 
-        null=True, 
-        verbose_name="Notas de la aplicación"
-    )
-    
-    kyc_documents = models.JSONField(
-        default=dict, 
-        verbose_name="Documentos KYC presentados"
-    )
-    
-    # ===========================================
-    # PROCESO DE REVISIÓN
-    # ===========================================
-    reviewed_by = models.ForeignKey(
-        'user.User', 
-        on_delete=models.PROTECT, 
-        null=True, 
         blank=True,
-        related_name='reviewed_financial_applications'
+        verbose_name="Notas de la Solicitud"
     )
-    review_notes = models.TextField(blank=True, null=True)
-    reviewed_at = models.DateTimeField(null=True, blank=True)
+    kyc_documents = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Documentos KYC"
+    )
     
-    # EN CASO DE RECHAZO
+    # ========================================
+    # ESTADO Y SEGUIMIENTO
+    # ========================================
+    status = models.CharField(
+        max_length=30,
+        choices=ApplicationStatus.choices,
+        default=ApplicationStatus.PENDING,
+        verbose_name="Estado"
+    )
+    
+    # ========================================
+    # INFORMACIÓN DE REVISIÓN
+    # ========================================
+    reviewed_by = models.ForeignKey(
+        'user.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_fi_applications',
+        verbose_name="Revisado Por"
+    )
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de Revisión"
+    )
+    review_notes = models.TextField(
+        blank=True,
+        verbose_name="Notas de Revisión"
+    )
+    
+    # ========================================
+    # DECLARACIONES Y CONFIRMACIONES
+    # ========================================
+    accepts_terms_and_conditions = models.BooleanField(
+        default=False,
+        verbose_name="Acepta términos y condiciones"
+    )
+    accepts_risk_disclosure = models.BooleanField(
+        default=False,
+        verbose_name="Acepta declaración de riesgos"
+    )
+    confirms_information_accuracy = models.BooleanField(
+        default=False,
+        verbose_name="Confirma veracidad de la información"
+    )
+    authorizes_background_check = models.BooleanField(
+        default=False,
+        verbose_name="Autoriza verificación de antecedentes"
+    )
+    
+    # ========================================
+    # INFORMACIÓN DE RECHAZO
+    # ========================================
+    rejection_reason = models.TextField(
+        blank=True,
+        verbose_name="Razón de Rechazo"
+    )
     rejection_category = models.CharField(
-        max_length=20, 
-        choices=RejectionCategory.choices, 
-        blank=True, 
-        null=True
+        max_length=20,
+        choices=RejectionCategory.choices,
+        null=True,
+        blank=True,
+        verbose_name="Categoría de Rechazo"
     )
-    rejection_reason = models.TextField(blank=True, null=True)
-    can_reapply_after = models.DateField(blank=True, null=True)
+    can_reapply_after = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Puede Volver a Aplicar Después De"
+    )
     
-    # ===========================================
-    # METADATOS Y AUDITORÍA
-    # ===========================================
-    requested_at = models.DateTimeField(auto_now_add=True)
-    ip_address = models.CharField(max_length=60, blank=True, null=True)
-    user_agent = models.TextField(blank=True, null=True)
-    source_application = models.CharField(max_length=50, default='devise_platform')
+    # ========================================
+    # TIMESTAMPS
+    # ========================================
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        verbose_name = "Financial Institution Application"
-        verbose_name_plural = "Solicitudes a Instituciones Financieras"
-        ordering = ['-requested_at']
+        verbose_name = "Solicitud de Membresía FI"
+        verbose_name_plural = "Solicitudes de Membresía FI"
+        ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['status', 'financial_institution']),
-            models.Index(fields=['user', 'status']),
+            models.Index(fields=['user', 'financial_institution', 'status']),
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['reviewed_by', 'reviewed_at']),
         ]
     
     def __str__(self):
-        return f"Solicitud: {self.user.email} → {self.financial_institution.short_name}"
+        return f"{self.user.email} - {self.financial_institution.name} ({self.status})"
 
 
 class FinancialInstitutionApproval(models.Model):
     """
-    Aprobaciones activas otorgadas por instituciones financieras
-    Solo existe cuando la solicitud fue APROBADA
+    Aprobaciones de membresía en instituciones financieras
     """
     
     class ApprovalStatus(models.TextChoices):
-        ACTIVE = 'active', 'Activo'
-        SUSPENDED = 'suspended', 'Suspendido'
-        EXPIRED = 'expired', 'Expirado'
-        REVOKED = 'revoked', 'Revocado'
+        PRE_APPROVED = 'pre_approved', 'Pre-Aprobada'
+        PRE_APPROVED_WITH_CHANGES = 'pre_approved_with_changes', 'Pre-Aprobada con Cambios'
+        CONTRACT_SENT = 'contract_sent', 'Contrato Enviado'
+        CONTRACT_SIGNED = 'contract_signed', 'Contrato Firmado'
+        ACTIVE = 'active', 'Activa'  
+        SUSPENDED = 'suspended', 'Suspendida'
+        EXPIRED = 'expired', 'Expirada'
+        REVOKED = 'revoked', 'Revocada'
     
-    # ===========================================
+    # ========================================
     # RELACIÓN CON LA SOLICITUD
-    # ===========================================
+    # ========================================
     application = models.OneToOneField(
-        FinancialInstitutionApplication,
+        'FinancialInstitutionApplication',
         on_delete=models.CASCADE,
-        related_name='approval'
+        related_name='approval',
+        verbose_name="Solicitud"
     )
     
-    # ===========================================
-    # INFORMACIÓN DE LA APROBACIÓN
-    # ===========================================
-    status = models.CharField(
-        max_length=15, 
-        choices=ApprovalStatus.choices, 
-        default=ApprovalStatus.ACTIVE
-    )
-    
-    investor_profile = models.CharField(
-        max_length=15, 
-        choices=FinancialInstitutionApplication.InvestorProfile.choices
-    )
-    
-    
-    # ===========================================
-    # LÍMITES Y RESTRICCIONES OTORGADOS
-    # ===========================================
-    max_investment_amount = models.DecimalField(
-        max_digits=14, 
-        decimal_places=2, 
-        null=True, 
-        blank=True
-    )
-    
-    allowed_fund_types = models.JSONField(default=list)
-    restricted_fund_types = models.JSONField(default=list)
-    
-    # ===========================================
+    # ========================================
     # INFORMACIÓN DE APROBACIÓN
-    # ===========================================
+    # ========================================
     approved_by = models.ForeignKey(
-        'user.User', 
-        on_delete=models.PROTECT,
-        related_name='financial_institution_approvals_given'
+        'user.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='fi_approvals_made',
+        verbose_name="Aprobado Por"
+    )
+    status = models.CharField(
+        max_length=30,
+        choices=ApprovalStatus.choices,
+        default=ApprovalStatus.PRE_APPROVED,
+        verbose_name="Estado de Aprobación"
     )
     
-    approval_date = models.DateTimeField(auto_now_add=True)
-    expiry_date = models.DateField(null=True, blank=True)
+    # ========================================
+    # PERFIL Y LÍMITES APROBADOS
+    # ========================================
+    investor_profile = models.CharField(
+        max_length=20,
+        choices=FinancialInstitutionApplication.InvestorProfile.choices,
+        verbose_name="Perfil de Inversor Aprobado"
+    )
+    max_investment_amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Monto Máximo de Inversión"
+    )
+    allowed_fund_types = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Tipos de Fondos Permitidos"
+    )
     
-    approval_notes = models.TextField(blank=True, null=True)
-    conditions = models.TextField(blank=True, null=True)
+    # ========================================
+    # FECHAS DEL PROCESO
+    # ========================================
+    approval_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de Aprobación Final"
+    )
     
-    # ===========================================
-    # VALIDACIONES REALIZADAS
-    # ===========================================
-    kyc_score = models.PositiveSmallIntegerField(null=True, blank=True)
-    aml_check_passed = models.BooleanField(default=False)
+    # ========================================
+    # PROCESO DE CONTRATO (NUEVO)
+    # ========================================
+    contract_url = models.URLField(
+        blank=True,
+        verbose_name="URL del Contrato"
+    )
+    contract_generated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Contrato Generado En"
+    )
+    contract_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Contrato Enviado En"
+    )
+    contract_signed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Contrato Firmado En"
+    )
+    contract_notes = models.TextField(
+        blank=True,
+        verbose_name="Notas del Contrato"
+    )
+    signature_method = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Método de Firma"
+    )
+    user_signature_notes = models.TextField(
+        blank=True,
+        verbose_name="Notas de Firma del Usuario"
+    )
     
-    # ===========================================
-    # AUDITORÍA DE LA APROBACIÓN
-    # ===========================================
-    last_review_date = models.DateTimeField(null=True, blank=True)
-    last_activity_date = models.DateTimeField(null=True, blank=True)
+    # ========================================
+    # TÉRMINOS Y CONDICIONES
+    # ========================================
+    approval_notes = models.TextField(
+        blank=True,
+        verbose_name="Notas de Aprobación"
+    )
+    conditions = models.TextField(
+        blank=True,
+        verbose_name="Condiciones Especiales"
+    )
+    terms_modified = models.BooleanField(
+        default=False,
+        verbose_name="Términos Modificados"
+    )
+    changes_summary = models.TextField(
+        blank=True,
+        verbose_name="Resumen de Cambios"
+    )
     
-    class Meta:
-        verbose_name = "Financial Institution Approval"
-        verbose_name_plural = "Aprobaciones a Instituciones Financieras"
-        ordering = ['-approval_date']
-        indexes = [
-            models.Index(fields=['status']),
-            models.Index(fields=['expiry_date']),
-        ]
+    # ========================================
+    # VIGENCIA Y CONTROL
+    # ========================================
+    expiry_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de Expiración"
+    )
+    suspension_reason = models.TextField(
+        blank=True,
+        verbose_name="Razón de Suspensión"
+    )
+    suspended_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Suspendido En"
+    )
+    suspended_by = models.ForeignKey(
+        'user.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='fi_suspensions_made',
+        verbose_name="Suspendido Por"
+    )
     
-    # ===========================================
-    # PROPIEDADES Y MÉTODOS
-    # ===========================================
+    # ========================================
+    # TIMESTAMPS
+    # ========================================
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # ========================================
+    # PROPERTIES ÚTILES
+    # ========================================
     @property
     def user(self):
         """Acceso directo al usuario a través de la aplicación"""
-        return self.application.user
-    
-    @property
-    def financial_institution(self):
-        """Acceso directo a la institución a través de la aplicación"""
-        return self.application.financial_institution
+        return self.application.user if self.application else None
     
     @property
     def is_active(self):
-        """Verifica si la aprobación está activa"""
-        from datetime import date
-        
+        """Verificar si la membresía está activa"""
         if self.status != self.ApprovalStatus.ACTIVE:
             return False
         
-        if self.expiry_date and self.expiry_date < date.today():
+        if self.expiry_date and timezone.now().date() > self.expiry_date:
             return False
         
         return True
     
-    def can_invest_in_fund(self, fund):
-        """Verifica si puede invertir en un fondo específico"""
-        if not self.is_active:
-            return False
+    @property
+    def days_until_expiry(self):
+        """Días hasta la expiración"""
+        if not self.expiry_date:
+            return None
         
-        if self.allowed_fund_types and fund.fund_type not in self.allowed_fund_types:
-            return False
-        
-        if self.restricted_fund_types and fund.fund_type in self.restricted_fund_types:
-            return False
-        
-        return True
+        delta = self.expiry_date - timezone.now().date()
+        return delta.days if delta.days > 0 else 0
     
-    def can_invest_amount(self, amount):
-        """Verifica si puede invertir un monto específico"""
+    def can_invest_in_fund_type(self, fund_type: str) -> bool:
+        """Verificar si puede invertir en un tipo de fondo específico"""
         if not self.is_active:
             return False
         
-        if self.max_investment_amount and amount > self.max_investment_amount:
+        if not self.allowed_fund_types:
+            return True  # Sin restricciones
+        
+        return fund_type in self.allowed_fund_types
+    
+    def can_invest_amount(self, amount: float) -> bool:
+        """Verificar si puede invertir un monto específico"""
+        if not self.is_active:
             return False
         
-        return True
+        if not self.max_investment_amount:
+            return True  # Sin límite
+        
+        return amount <= float(self.max_investment_amount)
+    
+    class Meta:
+        verbose_name = "Aprobación de Membresía FI"
+        verbose_name_plural = "Aprobaciones de Membresía FI"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'expiry_date']),
+            models.Index(fields=['approved_by', 'approval_date']),
+            models.Index(fields=['investor_profile', 'status']),
+        ]
+    
+    def __str__(self):
+        user_name = self.user.email if self.user else "Usuario Desconocido"
+        fi_name = self.application.financial_institution.name if self.application else "FI Desconocida"
+        return f"{user_name} - {fi_name} ({self.status})"

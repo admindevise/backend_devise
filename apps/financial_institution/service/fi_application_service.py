@@ -1,8 +1,12 @@
-from django.db import transaction, models
+from django.db import transaction
 from django.utils import timezone
-from typing import Tuple, Optional
 
-from apps.financial_institution.models import FinancialInstitutionApplication, FinancialInstitutionApproval
+from apps.financial_institution.models import FinancialInstitutionApplication
+from apps.audit.audit_service import AuditService
+
+class FIApplicationError(Exception):
+    """Custom exception for FI application errors"""
+    pass
 
 class FinancialInstitutionApplicationService:
     """
@@ -15,124 +19,149 @@ class FinancialInstitutionApplicationService:
         user, 
         financial_institution, 
         requested_investor_profile: str,
-        requested_investment_amount: Optional[float] = None,
-        application_notes: str = "",
-        kyc_documents: dict = None
+        request=None,
+        **kwargs
     ) -> FinancialInstitutionApplication:
         """Crear nueva solicitud"""
             
+        initial_audit = None
         base_filter = {
             'user': user,
             'financial_institution': financial_institution
         }
         
-        # 1. Verificar solicitudes activas (UNA consulta específica)
-        active_statuses = ['pending', 'under_review', 'approved', 'additional_info']
-        has_active = FinancialInstitutionApplication.objects.select_for_update().filter(
-            **base_filter,
-            status__in=active_statuses
-        ).exists()
+        try:
+            # Crear auditoría inicial si tenemos request
+            if request:
+                print("Creando auditoría inicial para solicitud FI")
+                initial_audit = AuditService.log_action(
+                    request=request,
+                    action_code="FI_MEMBERSHIP_REQUEST",
+                    obj=user,  # Usamos el usuario como referencia hasta crear la aplicación
+                    details={
+                        'financial_institution_id': financial_institution.id,
+                        'financial_institution_name': financial_institution.name,
+                        'requested_investor_profile': requested_investor_profile,
+                        'requested_investment_amount': str(kwargs.get('requested_investment_amount')),
+                        'operation': 'submit_application'
+                    },
+                    status='PENDING'
+                )
         
-        if has_active:
-            raise ValueError("Ya tienes una solicitud pendiente con esta institución")
-        
-        # 2. Verificar rechazos permanentes (UNA consulta específica)
-        has_permanent_rejection = FinancialInstitutionApplication.objects.select_for_update().filter(
-            **base_filter,
-            status='rejected',
-            rejection_category__in=['fraud', 'compliance']
-        ).exists()
-        
-        if has_permanent_rejection:
-            raise ValueError("Tu solicitud ha sido rechazada permanentemente y no puedes volver a aplicar")
-        
-        # 3. Verificar restricciones de tiempo (UNA consulta específica)
-        latest_rejected = FinancialInstitutionApplication.objects.select_for_update().filter(
-            **base_filter,
-            status='rejected',
-            can_reapply_after__gt=timezone.now().date()  # Solo los que tienen restricción activa
-        ).order_by('-reviewed_at').first()
-        
-        if latest_rejected:
-            raise ValueError(
-                f"No puedes volver a aplicar hasta el {latest_rejected.can_reapply_after.strftime('%d/%m/%Y')}"
+            # 1. Verificar solicitudes activas (UNA consulta específica)
+            active_statuses = ['pending', 'under_review', 'approved', 'additional_info', 'pending_user_signature']
+            has_active = FinancialInstitutionApplication.objects.select_for_update().filter(
+                **base_filter,
+                status__in=active_statuses
+            ).exists()
+            
+            if has_active:
+                raise ValueError("Ya tienes una solicitud pendiente con esta institución financiera")
+            
+            # 2. Verificar rechazos permanentes (UNA consulta específica)
+            has_permanent_rejection = FinancialInstitutionApplication.objects.select_for_update().filter(
+                **base_filter,
+                status='rejected',
+                rejection_category__in=['fraud', 'compliance']
+            ).exists()
+            
+            if has_permanent_rejection:
+                raise ValueError("Tu solicitud ha sido rechazada permanentemente y no puedes volver a aplicar")
+            
+            # 3. Verificar restricciones de tiempo (UNA consulta específica)
+            latest_rejected = FinancialInstitutionApplication.objects.select_for_update().filter(
+                **base_filter,
+                status='rejected',
+                can_reapply_after__gt=timezone.now().date()  # Solo los que tienen restricción activa
+            ).order_by('-reviewed_at').first()
+            
+            if latest_rejected:
+                raise ValueError(
+                    f"No puedes volver a aplicar hasta el {latest_rejected.can_reapply_after.strftime('%d/%m/%Y')}"
+                )
+            
+            print(f"terminos y condiciones: {kwargs.get('accepts_terms_and_conditions')}")
+            
+            # 4. Validar aceptaciones requeridas
+            FinancialInstitutionApplicationService._validate_required_acceptances(
+                kwargs.get('accepts_terms_and_conditions', False),
+                kwargs.get('accepts_risk_disclosure', False),
+                kwargs.get('confirms_information_accuracy', False),
+                kwargs.get('authorizes_background_check', False)
             )
+            
+            # 5. Preparar datos de la solicitud
+            application_data = {
+                'user': user,
+                'financial_institution': financial_institution,
+                'requested_investor_profile': requested_investor_profile,
+            }
+            
+            # Obtener campos válidos del modelo
+            model_fields = [f.name for f in FinancialInstitutionApplication._meta.fields]
+            
+            # Agregar todos los kwargs que correspondan a campos del modelo
+            for key, value in kwargs.items():
+                if key in model_fields:  # ← Esta línea filtra campos inválidos
+                    application_data[key] = value
+            
+            # 6. Crear nueva solicitud
+            application = FinancialInstitutionApplication.objects.create(**application_data)
+
+            # Actualizar auditoría a SUCCESS
+            if initial_audit:
+                # Actualizar el objeto de referencia a la aplicación creada
+                from django.contrib.contenttypes.models import ContentType
+                application_content_type = ContentType.objects.get_for_model(FinancialInstitutionApplication)
+                initial_audit.content_type = application_content_type
+                initial_audit.object_id = application.id
+                
+                initial_audit.status = 'SUCCESS'
+                initial_audit.details.update({
+                    'application_id': application.id,
+                    'application_status': application.status,
+                    'validation_passed': True,
+                    'requested_investor_profile': requested_investor_profile
+                })
+                initial_audit.save(update_fields=['status', 'details', 'content_type', 'object_id'])
+            
+            return application
         
-        # 4. Crear nueva solicitud
-        application = FinancialInstitutionApplication.objects.create(
-            user=user,
-            financial_institution=financial_institution,
-            requested_investor_profile=requested_investor_profile,
-            requested_investment_amount=requested_investment_amount,
-            application_notes=application_notes,
-            kyc_documents=kyc_documents or {}
-        )
-        
-        return application
+        except Exception as e:
+            # Auditar error
+            if initial_audit:
+                initial_audit.status = 'ERROR'
+                initial_audit.details.update({
+                    'error': str(e),
+                    'error_type': type(e).__name__,
+                    'fi_id': financial_institution.id if financial_institution else None
+                })
+                initial_audit.save(update_fields=['status', 'details'])
+            
+            # Re-lanzar la excepción apropiada
+            if isinstance(e, ValueError):
+                raise e
+            else:
+                raise FIApplicationError(f"Error creando solicitud de ingreso al fondo: {str(e)}")
     
     @staticmethod
-    @transaction.atomic
-    def approve_application(
-        application_id: int,
-        approved_by,
-        investor_profile: str,
-        max_investment_amount: Optional[float] = None,
-        allowed_fund_types: list = None,
-        approval_notes: str = "",
-        conditions: str = "",
-        expiry_date=None
-    ) -> Tuple[FinancialInstitutionApplication, FinancialInstitutionApproval]:
-        """Aprobar solicitud y crear aprobación activa"""
+    def _validate_required_acceptances(
+        accepts_terms: bool,
+        accepts_risk: bool,
+        confirms_accuracy: bool,
+        authorizes_check: bool
+    ):
+        required_acceptances = {
+            'accepts_terms': accepts_terms,
+            'accepts_risk': accepts_risk,
+            'confirms_accuracy': confirms_accuracy,
+            'authorizes_check': authorizes_check
+        }
         
-        if not approved_by.is_staff:
-            raise ValueError("Solo el personal autorizado puede aprobar solicitudes")
+        missing = [name for name, accepted in required_acceptances.items() if not accepted]
         
-        application = FinancialInstitutionApplication.objects.get(id=application_id)
-        
-        if application.status != 'pending':
-            raise ValueError("Solo se pueden aprobar solicitudes pendientes")
-        
-        # Actualizar aplicación
-        application.status = FinancialInstitutionApplication.ApplicationStatus.APPROVED
-        application.reviewed_by = approved_by
-        application.reviewed_at = timezone.now()
-        application.review_notes = approval_notes
-        application.save()
-        
-        # Crear aprobación activa
-        approval = FinancialInstitutionApproval.objects.create(
-            application=application,
-            approved_by=approved_by,
-            investor_profile=investor_profile,
-            max_investment_amount=max_investment_amount,
-            allowed_fund_types=allowed_fund_types or [],
-            approval_notes=approval_notes,
-            conditions=conditions,
-            expiry_date=expiry_date
-        )
-        
-        return application, approval
+        if missing:
+            missing_text = ', '.join(missing)
+            raise ValueError(f"Debes aceptar todos los términos requeridos: {missing_text}")
     
-    @staticmethod
-    def reject_application(
-        application_id: int,
-        reviewed_by,
-        rejection_reason: str,
-        rejection_category: Optional[str] = None,
-        can_reapply_after: Optional[timezone.datetime] = None,
-        review_notes: str = ""
-    ) -> FinancialInstitutionApplication:
-        """Rechazar solicitud"""
-        
-        application = FinancialInstitutionApplication.objects.get(id=application_id)
-        
-        application.status = FinancialInstitutionApplication.ApplicationStatus.REJECTED
-        application.reviewed_by = reviewed_by
-        application.reviewed_at = timezone.now()
-        application.rejection_category = rejection_category
-        application.can_reapply_after = can_reapply_after
-        application.rejection_reason = rejection_reason
-        application.review_notes = review_notes
-        application.save()
-        
-        return application
+    
