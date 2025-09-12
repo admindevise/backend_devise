@@ -1,6 +1,16 @@
 from rest_framework import serializers
 from apps.fund.models.tokens import FundToken
 
+from apps.user.serializers.basic_info_user_serializer import UserShortInfoSerializer
+
+""" class FundMembersSerializers(serializers.ModelSerializer):
+    approval_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    user = UserShortInfoSerializer()
+    
+    class Meta:
+        model = FundApproval
+        fields = ['user', 'approval_date', 'approved_amount', 'approved_units'] """
+
 class TokenCounterUserSerializer(serializers.Serializer):
     """
     Serializer para contar los tokens de un usuario en un fondo específico.

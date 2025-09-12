@@ -8,7 +8,7 @@ from apps.utils.views.Mixins import DateFilterMixin
 
 from apps.fund.models.membership import FundInvestment
 
-from apps.fund.serializers.fund_investment_serializers import (
+from apps.fund.serializers.investment_serializers import (
     FundInvestmentSerializer
 )
 

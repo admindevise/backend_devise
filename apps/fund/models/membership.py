@@ -1,458 +1,79 @@
 from django.db import models
 from django.utils import timezone
 
-class FundApplication(models.Model):
+class InvestorContract(models.Model):
     """
-    Modelo para manejar las solicitudes de ingreso a fondos y el proceso de verificación.
-    Responsabilidad: Gestionar el proceso de aplicación y verificación inicial.
+    Modelo para manejar contratos de vinculaciones a fondos.
+    Responsabilidad: Gestionar el estado del contrato entre el usuario y el fondo.
     """
+    class FundApprovalStatus(models.TextChoices):
+        PENDING_SIGNATURE = 'pending_signature', 'Pendiente de Firma'
+        CONTRACT_SIGNED = 'contract_signed', 'Contrato Firmado'
+        SUSPENDED = 'suspended', 'Suspendido'
     
-    class ApplicationStatus(models.TextChoices):
-        """Enum para estados de la aplicación usando TextChoices (Django 3.0+)"""
-        PENDING = 'pending', 'Solicitud Pendiente'
-        UNDER_REVIEW = 'under_review', 'En Revisión'
-        ADDITIONAL_INFO_REQUIRED = 'additional_info_required', 'Información Adicional Requerida'
-        APPROVED = 'approved', 'Aprobada'
-        REJECTED = 'rejected', 'Rechazada'
-        WITHDRAWN = 'withdrawn', 'Retirada'
-        EXPIRED = 'expired', 'Expirada'
-        
-    class RejectionCategory(models.TextChoices):
-        """Categorías de rechazo para análisis estadístico."""
-        INSUFFICIENT_FUNDS = 'insufficient_funds', 'Fondos Insuficientes'
-        FAILED_KYC = 'failed_kyc', 'Fallo en KYC'
-        FAILED_BACKGROUND_CHECK = 'failed_background_check', 'Fallo en Verificación de Antecedentes'
-        HIGH_RISK_PROFILE = 'high_risk_profile', 'Perfil de Alto Riesgo'
-        INCOMPLETE_APPLICATION = 'incomplete_application', 'Aplicación Incompleta'
-        
-    class InvestmentObjective(models.TextChoices):
-        """Objetivos de inversión del solicitante."""
-        CAPITAL_GROWTH = 'capital_growth', 'Crecimiento de Capital'
-        INCOME_GENERATION = 'income_generation', 'Generación de Ingresos'
-        CAPITAL_PRESERVATION = 'capital_preservation', 'Preservación de Capital'
-        RETIREMENT = 'retirement', 'Jubilación'
-        EDUCATION = 'education', 'Educación'
-        OTHER = 'other', 'Otro'
-    
-    class SourceOfFunds(models.TextChoices):
-        """Fuente de los fondos del solicitante."""
-        SALARY = 'salary', 'Salario'
-        BUSINESS_INCOME = 'business_income', 'Ingresos de Negocio'
-        INVESTMENTS = 'investments', 'Inversiones'
-        INHERITANCE = 'inheritance', 'Herencia'
-        LOAN = 'loan', 'Préstamo'
-        SAVINGS = 'savings', 'Ahorros'
-        OTHER = 'other', 'Otro'
-    
-    class ReferralSource(models.TextChoices):
-        """Cómo se enteró el solicitante del fondo."""
-        WEBSITE = 'website', 'Sitio Web'
-        SOCIAL_MEDIA = 'social_media', 'Redes Sociales'
-        REFERRAL = 'referral', 'Referido'
-        ADVISOR = 'advisor', 'Asesor Financiero'
-        ADVERTISEMENT = 'advertisement', 'Publicidad'
-        EVENT = 'event', 'Evento'
-        OTHER = 'other', 'Otro'
-    
-    class PreferredPaymentMethod(models.TextChoices):
-        """Método de pago preferido del solicitante."""
-        BANK_TRANSFER = 'bank_transfer', 'Transferencia Bancaria'
-        CREDIT_CARD = 'credit_card', 'Tarjeta de Crédito'
-        DEBIT_CARD = 'debit_card', 'Tarjeta Débito'
-        CHECK = 'check', 'Cheque'
-        CRYPTO = 'crypto', 'Criptomonedas'
-        OTHER = 'other', 'Otro'
-    
-    class InvestmentExperience(models.TextChoices):
-        """Nivel de experiencia en inversión del solicitante."""
-        BEGINNER = 'beginner', 'Principiante'
-        INTERMEDIATE = 'intermediate', 'Intermedio'
-        ADVANCED = 'advanced', 'Avanzado'
-        PROFESSIONAL = 'professional', 'Profesional'
-    
-    # ========================================
-    # RELACIONES
-    # ========================================
     fund = models.ForeignKey(
-        'fund.Fund', 
-        on_delete=models.CASCADE, 
-        related_name="applications",
+        'fund.Fund',
+        on_delete=models.CASCADE,
+        related_name="investor_contracts",
         verbose_name="Fondo"
     )
-    applicant = models.ForeignKey(
-        'user.User', 
-        on_delete=models.CASCADE, 
-        related_name="fund_applications",
-        verbose_name="Solicitante"
-    )
-    
-    # ========================================
-    # INFORMACIÓN FINANCIERA DE LA SOLICITUD
-    # ========================================
-    requested_amount = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        verbose_name="Monto solicitado",
-        help_text="Monto que el solicitante desea invertir"
-    )
-    
-    requested_units = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        verbose_name="Unidades solicitadas",
-        help_text="Número específico de unidades que desea adquirir"
-    )
-    
-    maximum_acceptable_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        verbose_name="Precio máximo aceptable por unidad",
-        help_text="Precio máximo que está dispuesto a pagar por unidad"
-    )
-    
-    preferred_payment_method = models.CharField(
-        max_length=30,
-        choices=PreferredPaymentMethod.choices,
-        null=True,
-        blank=True
-    )
-    
-    # ========================================
-    # PERFIL DE INVERSIÓN
-    # ========================================
-    investment_objective = models.CharField(
-        max_length=60,
-        choices=InvestmentObjective.choices,
-        null=True,
-        blank=True,
-    )
-    
-    risk_tolerance = models.CharField(
-        max_length=15,
-        choices=[
-            ('low', 'Bajo'),
-            ('medium', 'Medio'),
-            ('high', 'Alto'),
-        ],
-        null=True,
-        blank=True,
-        verbose_name="Tolerancia al riesgo"
-    )
-    
-    investment_experience = models.CharField(
-        max_length=20,
-        choices=InvestmentExperience.choices,
-        null=True,
-        blank=True
-    )
-    planned_investment_horizon = models.PositiveSmallIntegerField(
-        null=True,
-        blank=True,
-        verbose_name="Horizonte de inversión planeado (años)",
-        help_text="Tiempo que planea mantener la inversión"
-    )
-    
-    # ========================================
-    # DECLARACIONES Y CONFIRMACIONES
-    # ========================================
-    accepts_terms_and_conditions = models.BooleanField(
-        default=False,
-        verbose_name="Acepta términos y condiciones"
-    )
-    accepts_risk_disclosure = models.BooleanField(
-        default=False,
-        verbose_name="Acepta declaración de riesgos"
-    )
-    confirms_information_accuracy = models.BooleanField(
-        default=False,
-        verbose_name="Confirma veracidad de la información"
-    )
-    authorizes_background_check = models.BooleanField(
-        default=False,
-        verbose_name="Autoriza verificación de antecedentes"
-    )
-    
-    # ========================================
-    # INFORMACIÓN ADICIONAL
-    # ========================================
-    source_of_funds = models.CharField(
-        max_length=30,
-        choices=SourceOfFunds.choices,
-        null=True,
-        blank=True
-    )
-    is_politically_exposed = models.BooleanField(default=False)
-    referral_source = models.CharField(
-        max_length=30,
-        choices=ReferralSource.choices,
-        null=True,
-        blank=True
-    )
-    special_instructions = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="Instrucciones especiales",
-        help_text="Cualquier instrucción o requerimiento especial"
-    )
-    
-    # ========================================
-    # FECHAS Y ESTADO
-    # ========================================
-    status = models.CharField(
-        max_length=50,
-        choices=ApplicationStatus.choices,
-        default=ApplicationStatus.PENDING,
-        verbose_name="Estado"
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    reviewed_at = models.DateTimeField(
-        null=True, 
-        blank=True, 
-        verbose_name="Fecha de revisión"
-    )
-    
-    # ========================================
-    # PROCESO DE REVISIÓN
-    # ========================================
-    reviewed_by = models.ForeignKey(
+    user = models.ForeignKey(
         'user.User',
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="reviewed_applications",
+        on_delete=models.CASCADE,
+        related_name="investor_contracts",
+        verbose_name="Usuario"
     )
-    rejection_category = models.CharField(
-        max_length=30,
-        choices=RejectionCategory.choices,
-        null=True,
-        blank=True
-    )
-    rejection_reason = models.TextField(blank=True, null=True)
-    can_reapply_after = models.DateField(blank=True, null=True)
-        
-    # ========================================
-    # NOTAS Y OBSERVACIONES 
-    # ========================================
-    applicant_notes = models.TextField(blank=True, null=True)
-    review_notes = models.TextField(blank=True, null=True)
-    
-    # ========================================
-    # METADATOS
-    # ========================================
-    ip_address = models.GenericIPAddressField(null=True, blank=True)
-    user_agent = models.TextField(blank=True, null=True)
-    application_version = models.CharField(
+    status = models.CharField(
         max_length=20,
-        null=True,
-        blank=True,
-        verbose_name="Versión de la aplicación",
-        help_text="Versión del formulario usado"
+        choices=FundApprovalStatus.choices,
+        default=FundApprovalStatus.PENDING_SIGNATURE,
+        verbose_name="Estado de aprobación"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de creación"
     )
     
-    @property
-    def is_approved(self) -> bool:
-        """Verifica si la aplicación está aprobada."""
-        return self.status == self.ApplicationStatus.APPROVED
+    # ===========================================
+    # ESCENARIO DE CONTRATO FIRMADO
+    # ===========================================
+    contract_url = models.URLField(
+        null=True,
+        blank=True,
+        verbose_name="URL del contrato a firmar"
+    )
+    contract_signed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de firma del contrato"
+    )
+    expired_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de expiración para firma"
+    )
     
-    @property
-    def can_proceed_to_investment(self) -> bool:
-        """Verifica si puede proceder al proceso de inversión."""
-        return self.is_approved
-
+    # ===========================================
+    # ESCENARIO DE SUSPENSIÓN
+    # ===========================================
+    
+    suspension_reason = models.TextField(
+        null=True,
+        blank=True, verbose_name="Motivo de suspensión"
+    )
+    suspended_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de suspensión"
+    )
+    
     class Meta:
         ordering = ['-created_at']
-        verbose_name = "Solicitud de Fondo"
-        verbose_name_plural = "Solicitudes de Fondos"
-        indexes = [
-            models.Index(fields=['status', 'created_at']),
-            models.Index(fields=['fund', 'status']),
-        ]
+        verbose_name = "Contrato de Inversor"
+        verbose_name_plural = "Contratos de Inversores"
     
-    def __str__(self) -> str:
-        return f"{self.applicant.email} → {self.fund.name} ({self.get_status_display()})"
-    
-    
-class FundApproval(models.Model):
-    """
-    Modelo para registrar aprobaciones formales de ingreso a fondos.
-    Responsabilidad: Documentar la aprobación final y los términos acordados.
-    """
-    
-    class ApprovalStatus(models.TextChoices):
-        ACTIVE = 'active', 'Activo'
-        SUSPENDED = 'suspended', 'Suspendido'
-        EXPIRED = 'expired', 'Expirado'
-        REVOKED = 'revoked', 'Revocado'
-        
-        PRE_APPROVED = 'pre_approved', 'Pre-aprobado'
-        PRE_APPROVED_WITH_CHANGES = 'pre_approved_with_changes', 'Pre-aprobado con cambios'
-        AWAITING_CONTRACT_SIGNATURE = 'awaiting_contract_signature', 'En espera de firma de contrato'
-        CONTRACT_SIGNED = 'contract_signed', 'Contrato firmado'
-    
-    # ========================================
-    # RELACIONES
-    # ========================================
-    application = models.OneToOneField(
-        FundApplication, 
-        on_delete=models.CASCADE, 
-        related_name="approval",
-        verbose_name="Solicitud Asociada"
-    )
-    approved_by = models.ForeignKey(
-        'user.User', 
-        on_delete=models.PROTECT, 
-        related_name="fund_approvals",
-        verbose_name="Aprobado por"
-    )
-    
-    # ========================================
-    # DETALLES DE LA APROBACIÓN
-    # ========================================
-    status = models.CharField(
-        max_length=40,
-        choices=ApprovalStatus.choices,
-        default=ApprovalStatus.PRE_APPROVED,
-        verbose_name="Estado de la aprobación"
-    )
-    approved_amount = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        verbose_name="Monto aprobado",
-        help_text="Monto que ha sido aprobado para inversión"
-    )
-    
-    approved_units = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        verbose_name="Unidades aprobadas",
-        help_text="Número de unidades aprobadas para adquisición"
-    )
-    
-    unit_price_at_approval = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        verbose_name="Precio por unidad al momento de la aprobación",
-        help_text="Precio unitario vigente al momento de la aprobación"
-    )
-    
-    approval_date = models.DateTimeField(auto_now_add=True)
-    expiry_date = models.DateField(null=True, blank=True)
-    
-    
-    terms_and_conditions_version = models.CharField(
-        max_length=20,
-        null=True,
-        blank=True,
-        verbose_name="Versión de términos y condiciones",
-        help_text="Versión de los términos aceptados"
-    )
-    
-    risk_disclosure_version = models.CharField(
-        max_length=20,
-        null=True,
-        blank=True,
-        verbose_name="Versión de declaración de riesgos",
-        help_text="Versión de la declaración de riesgos aceptada"
-    )
-    
-    # ========================================
-    # GESTIÓN DE CONTRATOS Y TÉRMINOS
-    # ========================================
-
-    # Términos iniciales (de la aplicación)
-    initial_terms_accepted_at = models.DateTimeField(
-        null=True, 
-        blank=True,
-        verbose_name="Fecha de aceptación de términos iniciales"
-    )
-
-    initial_terms_version = models.CharField(
-        max_length=20,
-        null=True,
-        blank=True,
-        verbose_name="Versión de términos iniciales aceptados"
-    )
-
-    # Proceso de pre-aprobación
-    pre_approval_date = models.DateTimeField(
-        null=True, 
-        blank=True,
-        verbose_name="Fecha de pre-aprobación"
-    )
-
-    # Detección de cambios en términos
-    terms_modified = models.BooleanField(
-        default=False,
-        verbose_name="Términos fueron modificados durante revisión"
-    )
-
-    changes_summary = models.TextField(
-        blank=True, 
-        null=True,
-        verbose_name="Resumen de cambios realizados",
-        help_text="Descripción de los cambios entre lo solicitado y lo aprobado"
-    )
-
-    # Gestión del contrato final
-    final_contract_generated_at = models.DateTimeField(
-        null=True, 
-        blank=True,
-        verbose_name="Fecha de generación del contrato final"
-    )
-
-    final_contract_sent_at = models.DateTimeField(
-        null=True, 
-        blank=True,
-        verbose_name="Fecha de envío del contrato final al usuario"
-    )
-
-    final_contract_signed_at = models.DateTimeField(
-        null=True, 
-        blank=True,
-        verbose_name="Fecha de firma del contrato final"
-    )
-
-    contract_signature_deadline = models.DateTimeField(
-        null=True, 
-        blank=True,
-        verbose_name="Fecha límite para firmar el contrato"
-    )
-
-    # Identificadores de documentos
-    contract_document_id = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True,
-        verbose_name="ID del documento de contrato",
-        help_text="Referencia al documento en el sistema de gestión documental"
-    )
-
-    digital_signature_id = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True,
-        verbose_name="ID de la firma digital",
-        help_text="Referencia de la firma digital en el sistema"
-    )
-    
-    # ========================================
-    # NOTAS Y OBSERVACIONES
-    # ========================================
-    approval_notes = models.TextField(blank=True, null=True)
-    conditions = models.TextField(blank=True, null=True)
-    
-    # ========================================
-    # METADATOS
-    # ========================================
-    ip_address = models.GenericIPAddressField(null=True, blank=True)
-    user_agent = models.TextField(blank=True, null=True)
-    
-    class Meta:
-        ordering = ['-approval_date']
-        verbose_name = "Aprobación de Fondo"
-        verbose_name
+    def __str__(self):
+        return f"{self.user.email} - {self.fund.name} ({self.status})"
         
 
 class FundInvestment(models.Model):
@@ -481,14 +102,6 @@ class FundInvestment(models.Model):
     # ========================================
     # RELACIONES
     # ========================================
-    application = models.OneToOneField(
-        FundApplication,
-        on_delete=models.CASCADE,
-        related_name="investment",
-        verbose_name="Solicitud asociada",
-        null=True,
-        blank=True
-    )
     fund = models.ForeignKey(
         'fund.Fund',
         on_delete=models.CASCADE,

@@ -7,7 +7,6 @@ from config.const_kaleido import CONSORTIA, ENVIRONMENT_ID, USERNAME, PASSWORD, 
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
 
 from apps.fund.models.core import Fund
-from apps.fund.models.membership import FundApplication
 
 from requests.auth import HTTPBasicAuth
 from django.db import transaction
@@ -173,52 +172,7 @@ def create_instance_token_contract_721(user, name, symbol, promote_contract=None
 
 #! ================ Funciones de verificación ================ #
 def is_investor_valid(user, fund_id):
-    """
-    Verifica si un usuario es inversor de un fondo específico basándose en FundApplication.
-    
-    Args:
-        user: El usuario a verificar
-        fund_id: El ID del fondo
-    
-    Returns:
-        Tupla (application, error_message) donde application es el objeto FundApplication aprobado o True (para staff),
-        o None si no existe o no está aprobado. Si hay error, error_message contiene el mensaje de error.
-        
-    Examples:
-        >>> application, error = is_investor_valid(request.user, fund_id)
-        >>> if application:
-        >>>     # Usuario tiene aplicación aprobada o es staff
-        >>> else:
-        >>>     # Mostrar mensaje de error
-    """
-    # Si el usuario es staff, devolver inmediatamente
-    if user.is_staff:
-        return True, None
-    
-    try:
-        # Buscar aplicación del usuario para el fondo específico
-        application = FundApplication.objects.get(applicant=user, fund_id=fund_id)
-        
-        # Verificar que la aplicación esté aprobada
-        if application.status == FundApplication.ApplicationStatus.APPROVED:
-            return application, None
-        else:
-            status_display = application.get_status_display()
-            return None, f"La aplicación del usuario {user.email} al fondo con ID {fund_id} está en estado: {status_display}. Se requiere estado 'Aprobada' para ser considerado inversor."
-    
-    except FundApplication.DoesNotExist:
-        return None, f"El usuario {user.email} no tiene una aplicación para el fondo con ID {fund_id}"
-        
-    except FundApplication.MultipleObjectsReturned:
-        # Caso improbable pero posible si hay duplicados
-        application = FundApplication.objects.filter(applicant=user, fund_id=fund_id, status=FundApplication.ApplicationStatus.APPROVED).first()
-        if application:
-            return application, "Advertencia: Se encontraron múltiples aplicaciones. Se retornó la primera aprobada."
-        else:
-            return None, f"Se encontraron múltiples aplicaciones para el usuario {user.email} en el fondo {fund_id}, pero ninguna está aprobada"
-        
-    except Exception as e:
-        return None, f"Error al verificar la aplicación: {str(e)}"
+    pass
 
 def get_owner_of(token_id, fund_id):
     """

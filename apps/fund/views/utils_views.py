@@ -15,7 +15,6 @@ from apps.fund.serializers.utils_serializers import (
 )
 from apps.fund.models.membership import (
     FundInvestment,
-    FundApplication
 )
 
 
@@ -210,7 +209,7 @@ def _enrich_user_data(self, user, serializer_data):
         user_investments = FundInvestment.objects.filter(investor=user).select_related('fund')
         
         # ✅ CONSULTAR APLICACIONES DEL USUARIO
-        user_applications = FundApplication.objects.filter(applicant=user).select_related('fund')
+        #user_applications = FundApplication.objects.filter(applicant=user).select_related('fund')
         
         # ✅ CALCULAR ESTADÍSTICAS
         investment_stats = user_investments.aggregate(

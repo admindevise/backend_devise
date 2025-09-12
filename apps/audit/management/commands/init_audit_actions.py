@@ -10,6 +10,67 @@ class Command(BaseCommand):
         # Crear categorías
         categories = [
             {
+                'name': 'Instituciones Financieras',
+                'code': 'FI_MGMT',
+                'description': 'Operaciones relacionadas con instituciones financieras', 
+                'actions': [
+                    {
+                        'name': 'Crear Institución Financiera',
+                        'code': 'FI_CREATE',
+                        'severity': 'HIGH',
+                        'description': 'Creación de una nueva institución financiera'
+                    },
+                    {
+                        'name': 'Actualizar Institución Financiera',
+                        'code': 'FI_UPDATE',
+                        'severity': 'MEDIUM',
+                        'description': 'Actualización de información general de una institución financiera'
+                    },
+                    {
+                        'name': 'Eliminar Institución Financiera',
+                        'code': 'FI_DELETE',
+                        'severity': 'HIGH',
+                        'description': 'Eliminación de una institución financiera existente'
+                    },
+                    {
+                        'name': 'Crear Solicitud de Membresía',
+                        'code': 'FI_MEMBERSHIP_REQUEST',
+                        'severity': 'MEDIUM',
+                        'description': 'Creación de una nueva solicitud de membresía en una institución financiera'
+                    },
+                    {
+                        'name': 'Preaprobar Solicitud de Membresía',
+                        'code': 'FI_MEMBERSHIP_PRE_APPROVAL',
+                        'severity': 'MEDIUM',
+                        'description': 'Preaprobación de una solicitud de membresía en una institución financiera'
+                    },
+                    {
+                        'name': 'Enviar Contrato de Membresía',
+                        'code': 'FI_MEMBERSHIP_SEND_CONTRACT',
+                        'severity': 'MEDIUM',
+                        'description': 'Envío del contrato de membresía a un usuario para una institución financiera'
+                    },
+                    {
+                        'name': 'Firmar Contrato de Membresía',
+                        'code': 'FI_MEMBERSHIP_SIGN_CONTRACT',
+                        'severity': 'HIGH',
+                        'description': 'Firma del contrato de membresía por parte de un usuario para una institución financiera'
+                    },
+                    {
+                        'name': 'Aprobar Solicitud de Membresía',
+                        'code': 'FI_MEMBERSHIP_APPROVE',
+                        'severity': 'MEDIUM',
+                        'description': 'Aprobación de una solicitud de membresía en una institución financiera'
+                    },
+                    {
+                        'name': 'Rechazar Solicitud de Membresía',
+                        'code': 'FI_MEMBERSHIP_REJECT',
+                        'severity': 'MEDIUM',
+                        'description': 'Rechazo de una solicitud de membresía en una institución financiera'  
+                    }
+                ]
+            },
+            {
                 'name': 'Transacciones Token',
                 'code': 'TOKEN_TX',
                 'description': 'Transacciones relacionadas con tokens',
@@ -132,47 +193,78 @@ class Command(BaseCommand):
                 'description': 'Operaciones de inversiones en fondos',
                 'actions': [
                     {
-                        'name': 'Crear Aplicación de Inversión',
+                        'name': 'Enviar Contrato de Ingreso a Fondo',
+                        'code': 'FUND_MEMBERSHIP_SEND_CONTRACT',
+                        'severity': 'MEDIUM',
+                        'description': 'Envío del contrato de ingreso a un usuario para un fondo'
+                    },
+                    {
+                        'name': 'Firmar Contrato de Ingreso a Fondo',
+                        'code': 'FUND_MEMBERSHIP_SIGN_CONTRACT',
+                        'severity': 'HIGH',
+                        'description': 'Firma del contrato de ingreso a un fondo por parte de un usuario'
+                    },
+                    {
+                        'name': 'Aprobar Ingreso a Fondo',
+                        'code': 'FUND_MEMBERSHIP_APPROVE',
+                        'severity': 'MEDIUM',
+                        'description': 'Aprobación de un usuario para ingresar a un fondo'
+                    },
+                    {
+                        'name': 'Supender vinculación Fondo',
+                        'code': 'FUND_MEMBERSHIP_SUSPEND',
+                        'severity': 'MEDIUM',
+                        'description': 'Rechazo de un usuario para ingresar a un fondo'  
+                    },
+                    {
+                        'name': 'Crear Solicitud de Inversión',
                         'code': 'INVESTMENT_APPLICATION_CREATE',
                         'severity': 'MEDIUM',
-                        'description': 'Creación de una nueva aplicación de inversión en un fondo'
+                        'description': 'Creación de una nueva solicitud de inversión en un fondo'
                     },
                     {
-                        'name': 'Aprobar Aplicación de Inversión',
-                        'code': 'INVESTMENT_APPLICATION_APPROVED',
+                        'name': 'Preaprobar Solicitud de Inversión',
+                        'code': 'INVESTMENT_APPLICATION_PRE_APPROVED',
                         'severity': 'MEDIUM',
-                        'description': 'Aprovación de una aplicacion de inversion en un fondo'
+                        'description': 'Preaprobación de una solicitud de inversión en un fondo'
                     },
                     {
-                        'name': 'Rechazar Aplicación de Inversión',
-                        'code': 'INVESTMENT_APPLICATION_REJECTED',
-                        'severity': 'MEDIUM',
-                        'description': 'Rechazo de una aplicación de inversión en un fondo'
-                    },
-                    {
-                        'name': 'En revisión Aplicación de Inversión',  
+                        'name': 'En revisión Solicitud de Inversión',  
                         'code': 'INVESTMENT_APPLICATION_UNDER_REVIEW',
                         'severity': 'MEDIUM',
-                        'description': 'Marcar una aplicación de inversión como en revisión'
+                        'description': 'Marcar una Solicitud de inversión como en revisión'
                     },
                     {
-                        'name': 'Crear Inversión', 
-                        'code': 'INVESTMENT_CREATE',
-                        'severity': 'HIGH',
-                        'description': 'Creación de una nueva inversión en un fondo'
-                    },
-                    {
-                        'name': 'Modificar Inversión',
-                        'code': 'INVESTMENT_UPDATE', 
+                        'name': 'Enviar Contrato de Sesión',
+                        'code': 'INVESTMENT_APPLICATION_SEND_CONTRACT',
                         'severity': 'MEDIUM',
-                        'description': 'Modificación de una inversión existente'
+                        'description': 'Envío del contrato de inversión a un usuario para un fondo'
                     },
                     {
-                        'name': 'Eliminar Inversión',
-                        'code': 'INVESTMENT_DELETE',
-                        'severity': 'HIGH', 
-                        'description': 'Eliminación de una inversión en un fondo'
-                    }
+                        'name': 'Firmar Contrato de Inversión',
+                        'code': 'INVESTMENT_APPLICATION_SIGN_CONTRACT',
+                        'severity': 'HIGH',
+                        'description': 'Firma del contrato de inversión por parte de un usuario para un fondo'
+                    },
+                    {
+                        'name': 'Aprobar Solicitud de Inversión',
+                        'code': 'INVESTMENT_APPLICATION_APPROVED',
+                        'severity': 'MEDIUM',
+                        'description': 'Aprovación de una solicitud de inversion en un fondo'
+                    },
+                    {
+                        'name': 'Rechazar Solicitud de Inversión',
+                        'code': 'INVESTMENT_APPLICATION_REJECTED',
+                        'severity': 'MEDIUM',
+                        'description': 'Rechazo de una Solicitud de inversión en un fondo'
+                    },
+                    {
+                        'name': 'Cancelar Solicitud de Inversión',
+                        'code': 'INVESTMENT_APPLICATION_CANCEL',
+                        'severity': 'MEDIUM',
+                        'description': 'Cancelación de una solicitud de inversión en un fondo'
+                    },
+                    
                 ]
             },
             {
@@ -193,22 +285,28 @@ class Command(BaseCommand):
                         'description': 'Cancelación de una orden de compra existente'
                     },
                     {
-                        'name': 'Orden de Compra en Proceso de Match',
-                        'code': 'MATCH_SELECTION_PROCESS',
+                        'name': 'Orden de Compra Expirada',
+                        'code': 'PURCHASE_ORDER_EXPIRED',
+                        'severity': 'LOW',
+                        'description': 'Expiración de una orden de compra en el mercado secundario'
+                    },
+                    {
+                        'name': 'Orden de Compra Items Seleccionados',
+                        'code': 'PURCHASE_MATCH_SELECTION',
                         'severity': 'MEDIUM',
                         'description': 'Selección de matches para una orden de compra en el mercado secundario'
                     },
                     {
                         'name': 'Orden de Compra Autoseleccionada',
-                        'code': 'AUTO_MATCH_SELECTION',
+                        'code': 'PURCHASE_AUTO_MATCH_SELECTION',
                         'severity': 'MEDIUM',
                         'description': 'Orden de compra que se autoselecciona en el mercado secundario'
                     },
                     {
-                        'name': 'Advertencia de Unidades Insuficientes',
-                        'code': 'AUTO_SELECTION_WARNING',
-                        'severity': 'LOW',
-                        'description': 'Advertencia de unidades insuficientes al seleccionar matches para una orden de compra'
+                        'name': 'Orden de Compra Contrato Firmado',
+                        'code': 'PURCHASE_CONTRACT_SIGNED',
+                        'severity': 'HIGH',
+                        'description': 'Firma del contrato para una orden de compra en el mercado secundario'
                     },
                     {
                         'name': 'Orden de Compra en Proceso de Pago',
@@ -217,13 +315,13 @@ class Command(BaseCommand):
                         'description': 'Pago de una orden de compra en proceso del mercado secundario'
                     },
                     {
-                        'name': 'Orden de Compra pagada',
+                        'name': 'Orden de Compra Pagada',
                         'code': 'PURCHASE_ORDER_PAID',
                         'severity': 'MEDIUM',
                         'description': 'Pago de una orden de compra en el mercado secundario'  
                     },
                     {
-                        'name': 'Completar Orden de Compra',
+                        'name': 'Orden de Compra Completada',
                         'code': 'PURCHASE_ORDER_COMPLETE',
                         'severity': 'HIGH',
                         'description': 'Finalización de una orden de compra en el mercado secundario'
@@ -241,17 +339,41 @@ class Command(BaseCommand):
                         'description': 'Cancelación de una orden de venta existente'
                     },
                     {
-                        'name': 'Orden de Venta pagada',
-                        'code': 'SALES_ORDER_PAID',
-                        'severity': 'MEDIUM',
-                        'description': 'Pago de una orden de venta en el mercado secundario'  
+                        'name': 'Orden de Venta Expirada',
+                        'code': 'SALES_ORDER_EXPIRED',
+                        'severity': 'LOW',
+                        'description': 'Expiración de una orden de venta en el mercado secundario'
                     },
                     {
-                        'name': 'Completar Orden de Venta',
+                        'name': 'Orden de Venta Items Seleccionados',
+                        'code': 'SALES_MATCH_SELECTION',
+                        'severity': 'MEDIUM',
+                        'description': 'Selección de matches para una orden de venta en el mercado secundario'
+                    },
+                    {
+                        'name': 'Orden de Venta Autoseleccionada',
+                        'code': 'SALES_AUTO_MATCH_SELECTION',
+                        'severity': 'MEDIUM',
+                        'description': 'Orden de venta que se autoselecciona en el mercado secundario'  
+                    },
+                    {
+                        'name': 'Orden de Venta Contrato Firmado',
+                        'code': 'SALES_CONTRACT_SIGNED',
+                        'severity': 'HIGH',
+                        'description': 'Firma del contrato para una orden de venta en el mercado secundario'
+                    },
+                    {
+                        'name': 'Orden de Venta Completada',
                         'code': 'SALES_ORDER_COMPLETE',
                         'severity': 'HIGH',
                         'description': 'Finalización de una orden de venta en el mercado secundario'
-                    }
+                    },
+                    {
+                        'name': 'Advertencia de Unidades Insuficientes',
+                        'code': 'AUTO_SELECTION_WARNING',
+                        'severity': 'LOW',
+                        'description': 'Advertencia de unidades insuficientes al seleccionar matches para una orden de compra'
+                    },
                 ]
             }
         ]

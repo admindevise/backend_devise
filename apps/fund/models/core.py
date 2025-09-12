@@ -19,6 +19,7 @@ class Fund(models.Model):
         blank=True,
         verbose_name="Usuario propietario"
     )
+
     hd_wallet = models.OneToOneField(
         Wallet, 
         on_delete=models.CASCADE, 
