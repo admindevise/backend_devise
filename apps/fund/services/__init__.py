@@ -1,5 +1,5 @@
-from .investment_service import FundInvestmentService
+from .investment_service import InvestmentService
 
 __all__ = [
-    'FundInvestmentService',
+    'InvestmentService',
 ]

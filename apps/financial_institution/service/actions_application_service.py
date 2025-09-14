@@ -431,3 +431,20 @@ class FIActionsService:
     def check_approval_exists(application):
         if not hasattr(application, 'approval') or not application.approval:
             raise ValueError("La solicitud no tiene una pre-aprobación asociada")
+
+
+    # ============================================
+    # METODOS PUBLICOS
+    # ============================================
+    
+    @staticmethod
+    def get_approved_amount(application_id: int) -> FinancialInstitutionApplication:
+        """Obtiene el monto aprobado para una solicitud específica"""
+        application = FinancialInstitutionApplication.objects.select_related('approval').filter(id=application_id).first()
+        if not application:
+            raise ValueError(f"Solicitud con ID {application_id} no encontrada")
+        
+        if not application.approval or application.approval.status != FinancialInstitutionApproval.ApprovalStatus.ACTIVE:
+            raise ValueError("La solicitud no tiene una aprobación activa asociada")
+        
+        return application.approval.max_investment_amount

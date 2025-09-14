@@ -4,7 +4,7 @@ import requests
 from django.db.models import Sum, Count, Q
 
 from rest_framework import response, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, permission_classes
 
 from apps.fund.utils import _generate_customer_support_prompt
@@ -17,6 +17,15 @@ from apps.fund.models.membership import (
     FundInvestment,
 )
 
+# =======================================
+# TESTING SERVICE
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def testing(request):
+    from apps.financial_institution.service.actions_application_service import FIActionsService
+    
+    return response.Response(FIActionsService.get_approved_amount(application_id=1))
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

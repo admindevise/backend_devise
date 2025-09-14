@@ -12,7 +12,7 @@ from apps.fund.serializers.investment_serializers import (
     FundInvestmentSerializer
 )
 
-class FundInvestmentViewSet(DateFilterMixin, viewsets.ModelViewSet):
+class InvestmentViewSet(DateFilterMixin, viewsets.ModelViewSet):
     serializer_class = FundInvestmentSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]

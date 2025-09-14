@@ -55,8 +55,8 @@ class InvestorContractService:
             return contract
             
         except Exception as e:
-            InvestorContractService._update_audit_error(audit_log, e, fund, user)
-            InvestorContractService._handle_contract_creation_error(e, "Error al crear el contrato de inversor")
+            InvestorContractService._update_audit_error(audit_log, e)
+            raise InvestorContractError(f"Error al solicitar contrato: {str(e)}")
 
     @staticmethod
     def _validate_no_existing_contract(fund, user):
@@ -67,7 +67,7 @@ class InvestorContractService:
         ).first()
         
         if existing_contract:
-            raise ValueError("Ya existe un contrato de inversor para este fondo y usuario.")
+            raise ValueError("Ya tienes un contrato de vinculación con este vehiculo de inversión.")
 
     @staticmethod
     def _create_investor_contract(fund, user, contract_url):
@@ -196,14 +196,6 @@ class InvestorContractService:
         })
         
         audit_log.save(update_fields=['status', 'details'])
-
-    @staticmethod
-    def _handle_contract_creation_error(error, message=None):
-        """Maneja los errores durante la creación del contrato."""
-        if isinstance(error, ValueError):
-            raise error
-        else:
-            raise InvestorContractError(f"{message}: {str(error)}")
 
     # ===================================================
     # MÉTODOS ADICIONALES PARA FUTURAS FUNCIONALIDADES

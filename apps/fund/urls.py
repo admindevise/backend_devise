@@ -1,8 +1,8 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from apps.fund.views.fund_investment_views import (
-    FundInvestmentViewSet
+from apps.fund.views.investment_views import (
+    InvestmentViewSet
 )
 from apps.fund.views.core_views import (
     FundViewSet,
@@ -23,13 +23,13 @@ from apps.kaleido.views.kaleido_fund import (
 )
 from apps.fund.views.investor_contract_views import create_investor_contract, sign_investor_contract
 
-from apps.fund.views.utils_views import get_token_count, ai_generate_content
+from apps.fund.views.utils_views import get_token_count, ai_generate_content, testing
 
 router = DefaultRouter()
 router.register(r'main', FundViewSet, basename='fund'),
 router.register(r'semestral-document', FSDVS, basename='semestral-document'),
 
-router.register(r'investment', FundInvestmentViewSet, basename='fund-investment'),
+router.register(r'investment', InvestmentViewSet, basename='investment'),
 router.register(r'transfer_receipt', TransferReceiptViewSet, basename='transfer-receipt'),
 router.register(r'token', FundTokenViewSet, basename='fund-token'),
 router.register(r'transaction', TokenTransactionViewSet, basename='token-transaction')
@@ -68,4 +68,6 @@ urlpatterns = [
     # AI GENERATE CONTENT
     #======================================
     path('api/ai/generate_content/', ai_generate_content, name='ai-generate-content'),
+    
+    path('testing/', testing, name='testing')
 ]
