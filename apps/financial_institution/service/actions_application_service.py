@@ -311,6 +311,7 @@ class FIActionsService:
     ) -> FinancialInstitutionApplication:
         """Rechazar solicitud"""
         initial_audit = None
+        application = None
         
         try:
             if request:
@@ -438,13 +439,22 @@ class FIActionsService:
     # ============================================
     
     @staticmethod
-    def get_approved_amount(application_id: int) -> FinancialInstitutionApplication:
-        """Obtiene el monto aprobado para una solicitud específica"""
-        application = FinancialInstitutionApplication.objects.select_related('approval').filter(id=application_id).first()
-        if not application:
-            raise ValueError(f"Solicitud con ID {application_id} no encontrada")
+    def get_approved_amount(user: int):
+        """Obtiene el monto aprobado para un usuario en especifico"""
         
-        if not application.approval or application.approval.status != FinancialInstitutionApproval.ApprovalStatus.ACTIVE:
-            raise ValueError("La solicitud no tiene una aprobación activa asociada")
+        # Buscar todas las aprobaciones activas del usuario
+        approvals = FinancialInstitutionApproval.objects.select_related('application').filter(
+            application__user=user,
+            status=FinancialInstitutionApproval.ApprovalStatus.ACTIVE
+        ).order_by('-approval_date')
         
-        return application.approval.max_investment_amount
+        if not approvals.exists():
+            raise ValueError(f"El usuario {user.email} no tiene aprobaciones activas para inversiones")
+        
+        # Tomar la aprobación más reciente y verificar si no ha expirado
+        latest_approval = approvals.first()
+        
+        if latest_approval.expiry_date and timezone.now().date() > latest_approval.expiry_date:
+            raise ValueError(f"La aprobación más reciente del usuario {user.email} ha expirado")
+        
+        return latest_approval.max_investment_amount

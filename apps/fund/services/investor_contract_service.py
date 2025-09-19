@@ -43,6 +43,9 @@ class InvestorContractService:
         audit_log = InvestorContractService._create_pending_audit_log(user, fund, request)
         
         try:
+            # 1. Validar que el usuario este asociado a la institucion Financiera
+            InvestorContractService._validate_member_fi(fund, user)
+            
             # 1. Validar que no exista un contrato previo
             InvestorContractService._validate_no_existing_contract(fund, user)
             
@@ -57,6 +60,19 @@ class InvestorContractService:
         except Exception as e:
             InvestorContractService._update_audit_error(audit_log, e)
             raise InvestorContractError(f"Error al solicitar contrato: {str(e)}")
+
+    @staticmethod
+    def _validate_member_fi(fund, user):
+        from apps.financial_institution.models import FinancialInstitutionApplication
+        try:
+            member = FinancialInstitutionApplication.objects.get(
+                user = user,
+                status = FinancialInstitutionApplication.ApplicationStatus.APPROVED,
+                financial_institution = fund.financial_institution
+            )
+        except FinancialInstitutionApplication.DoesNotExist:
+            raise ValueError(f"No existe una viculación a la institución financiera ({fund.financial_institution.name}).")
+        return member
 
     @staticmethod
     def _validate_no_existing_contract(fund, user):
@@ -77,7 +93,7 @@ class InvestorContractService:
             user=user,
             contract_url=contract_url,
             expired_at=timezone.now() + timezone.timedelta(days=5), # Ejemplo: expira en 5 días
-            status=InvestorContract.FundApprovalStatus.PENDING_SIGNATURE
+            status=InvestorContract.InvestorContractStatus.PENDING_SIGNATURE
         )
 
     @staticmethod
@@ -121,14 +137,17 @@ class InvestorContractService:
         audit_log = InvestorContractService._create_pending_audit_log_sign(contract, request)
         
         try:
+            if contract.user != request.user:
+                raise ValueError("No tienes permiso para firmar este contrato.")
+            
             # 1. Validar estado actual del contrato
-            if contract.status != InvestorContract.FundApprovalStatus.PENDING_SIGNATURE:
+            if contract.status != InvestorContract.InvestorContractStatus.PENDING_SIGNATURE:
                 raise ValueError("El contrato no está en un estado válido para ser firmado.")
             
             # 2. Verificar si el contrato ha expirado
             InvestorContractService._check_contract_expiry(contract)
             
-            contract.status = InvestorContract.FundApprovalStatus.CONTRACT_SIGNED
+            contract.status = InvestorContract.InvestorContractStatus.CONTRACT_SIGNED
             contract.contract_signed_at = timezone.now()
             contract.save(update_fields=['status', 'contract_signed_at'])
             

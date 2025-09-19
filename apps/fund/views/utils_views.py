@@ -23,9 +23,11 @@ from apps.fund.models.membership import (
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def testing(request):
-    from apps.financial_institution.service.actions_application_service import FIActionsService
+    from apps.fund.services.investment_service import InvestmentService
+    from apps.fund.models.membership import InvestmentApplication
+    from apps.fund.models.core import Fund
     
-    return response.Response(FIActionsService.get_approved_amount(application_id=1))
+    return response.Response(str(InvestmentApplication.objects.get(id=2).requested_amount/Fund.objects.get(id=1).price_per_unit))
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

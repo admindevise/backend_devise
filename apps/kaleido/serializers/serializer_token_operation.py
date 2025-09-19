@@ -282,7 +282,7 @@ class TokenMintBatchSerializer(BaseTokenOperationSerializer):
     quantity = serializers.IntegerField(
         required=True,
         min_value=1,
-        max_value=1000,  # Límite máximo por operación
+        max_value=2000,  # Límite máximo por operación
         help_text="Cantidad total de tokens a crear"
     )
     batch_size = serializers.IntegerField(
@@ -1269,15 +1269,42 @@ class PurchaseTokenBatchSerializer(BaseTokenOperationSerializer):
             
         except Exception as e:
             raise serializers.ValidationError(f"Error obteniendo tokens disponibles: {str(e)}")
+        
+    @staticmethod
+    def _obtain_address_wallet(user, fund):
+        from apps.kaleido.utils import get_wallet_index
+        
+        wallet_data, wallet_error = get_wallet_index(user, fund.id)
+        if wallet_error:
+            # Si hay error, devolver None y el error
+            return None, wallet_error
+        
+        user_wallet_address = wallet_data.get('address')
+        print(f"✅ Wallet obtenida UNA VEZ para el lote: {user_wallet_address}")
+        
+        return user_wallet_address, None
     
     def _process_purchase_batch(self, fund, token_batch, user, results, initial_audit):
         """Procesa un lote de compras de tokens"""
         batch_results = []
         
+        address_wallet, wallet_error = PurchaseTokenBatchSerializer._obtain_address_wallet(user, fund)
+        
+        if wallet_error:
+            # Si no se puede obtener la wallet, fallar todo el lote
+            for token_id in token_batch:
+                batch_results.append({
+                    'token_id': token_id,
+                    'success': False,
+                    'error': f'Error obteniendo wallet del usuario: {wallet_error}'
+                })
+                results['failures'] += 1
+            return batch_results        
+        
         for token_id in token_batch:
             try:
                 # Ejecutar compra individual
-                result_data, error = safe_transfer_721(token_id, fund.id, fund.contract_address, user)
+                result_data, error = safe_transfer_721(token_id, fund.id, fund.contract_address, user, address_wallet)
                 
                 if not error:
                     # Actualizar ownership en la base de datos

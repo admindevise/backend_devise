@@ -46,47 +46,47 @@ class FundCreationService:
         initial_audit = None
         
         try:
+            # 1. Validaciones de negocio
+            FundCreationService._validate_fund_data(fund_data)
+            
+            # 2. Crear auditoría inicial si tenemos request
+            if request:
+                initial_audit = AuditService.log_action(
+                    request=request,
+                    action_code="FUND_CREATE",
+                    obj=user,  # Usamos el usuario como referencia hasta crear el fondo
+                    details={
+                        'name': fund_data.get('name'),
+                        'amount': str(fund_data.get('amount', 0)),
+                        'operation': 'create_fund'
+                    },
+                    status='PENDING'
+                )
+                
             with transaction.atomic():
-                # 1. Validaciones de negocio
-                FundCreationService._validate_fund_data(fund_data)
-                
-                # 2. Crear auditoría inicial si tenemos request
-                if request:
-                    initial_audit = AuditService.log_action(
-                        request=request,
-                        action_code="FUND_CREATE",
-                        obj=user,  # Usamos el usuario como referencia hasta crear el fondo
-                        details={
-                            'name': fund_data.get('name'),
-                            'amount': str(fund_data.get('amount', 0)),
-                            'operation': 'create_fund'
-                        },
-                        status='PENDING'
-                    )
-                
                 # 3. Crear el fondo base
                 fund = FundCreationService._create_fund_base(user, fund_data)
                 
                 # 4. Crear infraestructura Kaleido
                 FundCreationService._setup_kaleido_infrastructure(fund, user, initial_audit)
                 
-                # 5. Actualizar auditoría a SUCCESS
-                if initial_audit:
-                    # Actualizar el objeto de referencia al fondo creado
-                    from django.contrib.contenttypes.models import ContentType
-                    fund_content_type = ContentType.objects.get_for_model(Fund)
-                    initial_audit.content_type = fund_content_type
-                    initial_audit.object_id = fund.id
-                    
-                    initial_audit.status = 'SUCCESS'
-                    initial_audit.details.update({
-                        'fund_id': fund.id,
-                        'wallet_created': bool(fund.hd_wallet),
-                        'contract_created': bool(fund.token_contract_721)
-                    })
-                    initial_audit.save(update_fields=['status', 'details', 'content_type', 'object_id'])
+            # 5. Actualizar auditoría a SUCCESS
+            if initial_audit:
+                # Actualizar el objeto de referencia al fondo creado
+                from django.contrib.contenttypes.models import ContentType
+                fund_content_type = ContentType.objects.get_for_model(Fund)
+                initial_audit.content_type = fund_content_type
+                initial_audit.object_id = fund.id
                 
-                return fund
+                initial_audit.status = 'SUCCESS'
+                initial_audit.details.update({
+                    'fund_id': fund.id,
+                    'wallet_created': bool(fund.hd_wallet),
+                    'contract_created': bool(fund.token_contract_721)
+                })
+                initial_audit.save(update_fields=['status', 'details', 'content_type', 'object_id'])
+            
+            return fund
                 
         except Exception as e:
             # Auditar error

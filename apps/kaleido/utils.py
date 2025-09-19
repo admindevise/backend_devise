@@ -172,7 +172,19 @@ def create_instance_token_contract_721(user, name, symbol, promote_contract=None
 
 #! ================ Funciones de verificación ================ #
 def is_investor_valid(user, fund_id):
-    pass
+    from apps.fund.models.membership import InvestorContract
+    
+    try:
+        investment = InvestorContract.objects.filter(
+            user=user,
+            fund_id=fund_id,
+            status='contract_signed'
+        ).first()
+        if investment is None:
+            return None, "El usuario no cuenta con un proceso de vinculacion activo"
+        return investment, None
+    except Exception as e:
+        return None, str(e)
 
 def get_owner_of(token_id, fund_id):
     """
@@ -389,7 +401,7 @@ def burn_721_token(token_id, fund_id, contract_address_id):
         return None, f"Error from external service: {response_data}"
 
 #* Simula la compra de un token / inversion en un fondo
-def safe_transfer_721(token_id, fund_id, contract_address_id, user_investor):
+def safe_transfer_721(token_id, fund_id, contract_address_id, user_investor, address_wallet=None):
     # 1. Verificar que el usuario este asociado al fondo
     investment, error = is_investor_valid(user_investor, fund_id)
     if error is not None:
@@ -420,10 +432,17 @@ def safe_transfer_721(token_id, fund_id, contract_address_id, user_investor):
         }
         return None, error_obj
     
-    # 3. Obtener la dirección de la wallet del usuario inversor
-    address_wallet, error = get_wallet_index(user_investor, fund_id)
-    if error is not None:
-        return None, error
+    # 3. Usar wallet proporcionada o obtener una nueva
+    if address_wallet is not None:
+        wallet_address = address_wallet
+        print(f"✅ Using pre-obtained wallet address: {wallet_address}")
+    else:
+        # Obtener la dirección de la wallet del usuario inversor (fallback)
+        print(f"⚠️ Getting wallet address individually for token {token_id}")
+        address_wallet_data, error = get_wallet_index(user_investor, fund_id)
+        if error is not None:
+            return None, error
+        wallet_address = address_wallet_data['address']
     
     url = f'https://{SERVICE_HOST}/instances/{contract_address_id}/safeTransferFrom'
     headers = {
@@ -433,7 +452,7 @@ def safe_transfer_721(token_id, fund_id, contract_address_id, user_investor):
     }
     data = {
         "from": USER_ACCOUNTS,
-        "to": address_wallet['address'],
+        "to": wallet_address,
         "tokenId": token_id,
     }
     

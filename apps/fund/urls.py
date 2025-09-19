@@ -2,7 +2,13 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from apps.fund.views.investment_views import (
-    InvestmentViewSet
+    InvestmentViewSet,
+    InvestmentApplicationViewSet,
+    submit_investment_application,
+    under_review_investment_application,
+    send_contrat_investment_application,
+    sign_contract_investment_application,
+    
 )
 from apps.fund.views.core_views import (
     FundViewSet,
@@ -29,7 +35,9 @@ router = DefaultRouter()
 router.register(r'main', FundViewSet, basename='fund'),
 router.register(r'semestral-document', FSDVS, basename='semestral-document'),
 
+router.register(r'investment-application', InvestmentApplicationViewSet, basename='investment-application')
 router.register(r'investment', InvestmentViewSet, basename='investment'),
+
 router.register(r'transfer_receipt', TransferReceiptViewSet, basename='transfer-receipt'),
 router.register(r'token', FundTokenViewSet, basename='fund-token'),
 router.register(r'transaction', TokenTransactionViewSet, basename='token-transaction')
@@ -58,6 +66,16 @@ urlpatterns = [
     # ======================================
     path('api/create-investor-contract/', create_investor_contract, name='create-investor-contract'),
     path('api/sign-investor-contract/<int:contract_id>/', sign_investor_contract, name='sign-investor-contract'),
+    
+    
+    # ======================================
+    # INVESTMENT APPLICATION
+    # ======================================
+    path('api/submit-investment/', submit_investment_application, name='sumbit-investment'),
+    path('api/under-review-investment-application/<int:application_id>/', under_review_investment_application, name='under-review-investment-application'),
+    path('api/send-contract-investment-application/<int:application_id>/', send_contrat_investment_application, name='send-contract-investment-application'),
+    path('api/sign-contract-investment-application/<int:application_id>/', sign_contract_investment_application, name='sign-contract-investment-application'),
+    
     
     # ======================================
     # FUND UTILS VIEWS

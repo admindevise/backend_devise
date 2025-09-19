@@ -15,7 +15,7 @@ from config.const_kaleido import USERNAME, PASSWORD, BEARER, SERVICE_HOST, USER_
 
 from apps.kaleido.utils import is_investor_valid, get_owner_of, get_wallet_index
 from apps.fund.models.core import Fund
-from apps.fund.models.membership import FundInvestment
+from apps.fund.models.membership import FundInvestment, InvestorContract
 from apps.fund.models.receipts import TransferReceipt
 from apps.audit.audit_service import AuditService
 from apps.kaleido.serializers.serializer_token_operation import (
@@ -212,8 +212,8 @@ def get_wallet_address(request):
         return Response({'error': 'fund_id is required'}, status=400)
     
     try:
-        investment = FundInvestment.objects.get(investor=request.user, fund__id=fund_id)
-    except FundInvestment.DoesNotExist:
+        InvestorContract.objects.get(user=request.user, fund=fund_id)
+    except InvestorContract.DoesNotExist:
         return Response({'error': 'User is not associated with the specified fund'}, status=404)
     
     wallet_data, error = get_wallet_index(request.user, fund_id)

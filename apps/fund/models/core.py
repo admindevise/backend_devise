@@ -19,6 +19,14 @@ class Fund(models.Model):
         blank=True,
         verbose_name="Usuario propietario"
     )
+    
+    financial_institution = models.ForeignKey(
+        'financial_institution.FinancialInstitution',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Institución financiera"
+    )
 
     hd_wallet = models.OneToOneField(
         Wallet, 
@@ -642,7 +650,7 @@ class FundSemestralDocument(models.Model):
         ]
     
     def __str__(self):
-        return f"Documento Semestral - {self.fund.name} ({self.uploaded_date.date()})"
+        return f"Documento Semestral - {self.fund.name}"
 
     @property
     def period_display(self):
