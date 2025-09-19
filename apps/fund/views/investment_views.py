@@ -55,7 +55,7 @@ class InvestmentViewSet(DateFilterMixin, viewsets.ModelViewSet):
         queryset = FundInvestment.objects.select_related('application__fund', 'application__user').all()
         
         if not user.is_staff:
-            queryset = queryset.filter(investor=user)
+            queryset = queryset.filter(application__user=user)
             
         return self.apply_date_filters(queryset)
     
