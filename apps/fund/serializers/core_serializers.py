@@ -106,15 +106,13 @@ class FundSerializer(serializers.ModelSerializer):
     nickname_tokens = RegexValidator(r'^[a-zA-Z0-9_]+$', 'El nickname solo puede contener letras, números y guiones bajos')
     
     amount_total = serializers.SerializerMethodField()
-    current_price = serializers.SerializerMethodField()
-    total_investors = serializers.SerializerMethodField()
     
     class Meta:
         model = Fund
         fields = '__all__'
         read_only_fields = [
             'id', 'user', 'terms_and_conditions', 'data_processing_policy',
-            'semestral_documents', 'amount_total', 'current_price', 'total_investors'
+            'semestral_documents', 'amount_total',
         ]
         
         
@@ -156,12 +154,6 @@ class FundSerializer(serializers.ModelSerializer):
         
     def get_amount_total(self, obj):
         return obj.amount_total
-    
-    def get_current_price(self, obj):
-        return obj.current_price
-    
-    def get_total_investors(self, obj):
-        return obj.total_investors
 
     def create(self, validated_data):
         user = self.context['request'].user
