@@ -381,6 +381,10 @@ class FundInvestment(models.Model):
         return self.application.fund.id
     
     @property
+    def fund_name(self):
+        return self.application.fund.name
+    
+    @property
     def user(self):
         """Acceso directo al usuario"""
         return self.application.user.id

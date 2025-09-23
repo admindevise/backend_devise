@@ -1,4 +1,3 @@
-from django.db import transaction
 from rest_framework import serializers
 from django.core.validators import RegexValidator
 from rest_framework.exceptions import ValidationError
@@ -7,6 +6,8 @@ from apps.fund.models.core import (
     Fund,
     FundSemestralDocument
 )
+from apps.fund.models.membership import InvestorContract
+from apps.user.serializers.basic_info_user_serializer import UserShortInfoSerializer
 from apps.fund.models.tokens import FundToken
 from apps.fund.models.receipts import TransferReceipt
 from apps.kaleido.models import PromoteContract
@@ -106,6 +107,7 @@ class FundSerializer(serializers.ModelSerializer):
     nickname_tokens = RegexValidator(r'^[a-zA-Z0-9_]+$', 'El nickname solo puede contener letras, números y guiones bajos')
     
     amount_total = serializers.SerializerMethodField()
+    total_members = serializers.SerializerMethodField()
     
     class Meta:
         model = Fund
@@ -154,6 +156,19 @@ class FundSerializer(serializers.ModelSerializer):
         
     def get_amount_total(self, obj):
         return obj.amount_total
+    
+    def get_total_members(self, obj):
+        """
+        Obtiene el conteo de miembros del fondo que han firmado el contrato.
+        
+        Returns:
+            dict: Información resumida de miembros
+        """
+        total_members = InvestorContract.objects.filter(
+            fund=obj,
+            status=InvestorContract.InvestorContractStatus.CONTRACT_SIGNED
+        ).count()    
+        return int(total_members)
 
     def create(self, validated_data):
         user = self.context['request'].user
@@ -174,6 +189,14 @@ class FundSerializer(serializers.ModelSerializer):
         except Exception as e:
             raise ValidationError({"detail": [f"Ha ocurrido un error inesperado: {str(e)}"]})
 
+class FundMemberSerializer(serializers.ModelSerializer):
+    user = UserShortInfoSerializer()
+    contract_signed_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)    
+    
+    class Meta:
+        model = InvestorContract
+        fields = ['id', 'user', 'fund', 'contract_signed_at']
+        read_only_fields = ['id', 'user']
 
 class TransferReceiptSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)

@@ -3,12 +3,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from django.contrib.contenttypes.models import ContentType
 from django_filters.rest_framework import DjangoFilterBackend
-
-from apps.audit.audit_service import AuditService
 from apps.utils.views.Mixins import DateFilterMixin
 
+from apps.fund.models.membership import InvestorContract
 from apps.fund.models.core import (
     Fund,
     FundSemestralDocument
@@ -21,6 +19,7 @@ from apps.fund.models.receipts import TransferReceipt
 from apps.fund.serializers.core_serializers import(
     FundSerializer,
     FundTokenSerializer,
+    FundMemberSerializer,
     TransferReceiptSerializer,
     FundSemestralDocumentSerializer,
 )
@@ -48,10 +47,66 @@ class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
     ordering = ['-created_at']
 
     def get_queryset(self):
-        return self.apply_date_filters(
-            Fund.objects.select_related('user').all()
-        )
+        user = self.request.user
+        
+        if user.is_staff:
+            queryset = Fund.objects.all()
+        else:
+            signed_contracts = InvestorContract.objects.filter(
+                user=user,
+                status=InvestorContract.InvestorContractStatus.CONTRACT_SIGNED
+            ).values_list('fund_id', flat=True)  
+            
+            queryset = Fund.objects.filter(id__in=signed_contracts)
+        
+        queryset = self.apply_date_filters(queryset)
+        return queryset
     
+class FundMembersViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
+    serializer_class = FundMemberSerializer
+    permission_classes = [IsAuthenticated]
+    
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['user', 'fund']
+    search_fields = ['user__email', 'fund__name']
+    ordering_fields = ['created_at', 'status']
+    ordering = ['-created_at']
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        # ✅ Solo staff puede acceder a esta información
+        if not user.is_staff:
+            return InvestorContract.objects.none()
+        
+        # ✅ OPTIMIZACIÓN: Base queryset mejorado
+        queryset = InvestorContract.objects.select_related(
+            'user',
+            'fund',
+            'fund__financial_institution'
+        ).prefetch_related(
+            'user__groups'
+        ).only(
+            'id', 'status', 'created_at', 'contract_signed_at',
+            'user__id', 'user__email', 'user__first_name', 'user__last_name',
+            'fund__id', 'fund__name', 'fund__financial_institution__name'
+        ).filter(
+            status=InvestorContract.InvestorContractStatus.CONTRACT_SIGNED
+        )
+        
+        # ✅ Filtro opcional por fondo específico
+        fund_id = self.request.query_params.get('fund_members')
+        if fund_id:
+            try:
+                fund_id = int(fund_id)
+                queryset = queryset.filter(fund_id=fund_id)
+            except (ValueError, TypeError):
+                # Si fund_id no es válido, devolver queryset vacío
+                return InvestorContract.objects.none()
+        
+        # ✅ Aplicar filtros de fecha
+        return self.apply_date_filters(queryset)
+
 class FundSemestralDocumentViewSet(viewsets.ModelViewSet):
     """
     API endpoint que permite gestionar documentos semestrales de fondos.

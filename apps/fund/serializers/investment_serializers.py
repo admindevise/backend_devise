@@ -21,7 +21,7 @@ class InvestmentSerializer(serializers.ModelSerializer):
             'payment_status', 'payment_method', 'payment_reference',
             
             # ✅ Agregar las propiedades directamente
-            'user', 'fund','financial_institution_name'
+            'user', 'fund', 'fund_name', 'financial_institution_name'
         ]
         read_only_fields = ('id', 'created_at', 'updated_at', 'status', 'payment_date', 'maturity_date')
 
@@ -40,6 +40,13 @@ class InvestmentApplicationSerializer(serializers.ModelSerializer):
         model = InvestmentApplication
         fields = '__all__'
         read_only_fields = ('id', 'status', 'created_at', 'updated_at', 'reviewed_at', 'contract_sent_at', 'contract_signed_at', 'contract_signature_deadline', 'rejected_at', 'can_reapply_after', 'withdrawn_at')
+
+class InvestmentDashboardSerializer(serializers.ModelSerializer):
+    created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    class Meta:
+        model = FundInvestment
+        fields = ['id', 'fund', 'fund_name', 'financial_institution_name', 'created_at', 'final_invested_amount', 'units_owned']
+        read_only_fields = fields
 
 
 class SubmitInvestmentSerializer(serializers.Serializer):

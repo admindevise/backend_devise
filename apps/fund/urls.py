@@ -4,6 +4,8 @@ from rest_framework.routers import DefaultRouter
 from apps.fund.views.investment_views import (
     InvestmentViewSet,
     InvestmentApplicationViewSet,
+    InvestmentDashboardViewSet,
+    PendingApplicationViewSet,
     submit_investment_application,
     under_review_investment_application,
     send_contrat_investment_application,
@@ -12,6 +14,7 @@ from apps.fund.views.investment_views import (
 )
 from apps.fund.views.core_views import (
     FundViewSet,
+    FundMembersViewSet,
     FundTokenViewSet,
     TransferReceiptViewSet,
     TokenTransactionViewSet,
@@ -33,10 +36,13 @@ from apps.fund.views.utils_views import get_token_count, ai_generate_content, te
 
 router = DefaultRouter()
 router.register(r'main', FundViewSet, basename='fund'),
+router.register(r'members', FundMembersViewSet, basename='fund-members')
 router.register(r'semestral-document', FSDVS, basename='semestral-document'),
 
+router.register(r'application-pending', PendingApplicationViewSet, basename='investment-application-pending')
 router.register(r'investment-application', InvestmentApplicationViewSet, basename='investment-application')
 router.register(r'investment', InvestmentViewSet, basename='investment'),
+router.register(r'invesment-dashboard', InvestmentDashboardViewSet, basename='investment-dashboard'),
 
 router.register(r'transfer_receipt', TransferReceiptViewSet, basename='transfer-receipt'),
 router.register(r'token', FundTokenViewSet, basename='fund-token'),
