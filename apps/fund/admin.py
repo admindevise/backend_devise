@@ -4,6 +4,8 @@ from apps.fund.models.membership import FundInvestment, InvestorContract, Invest
 from apps.fund.models.receipts import TransferReceipt
 from apps.fund.models.tokens import FundToken, TokenTransaction
 
+from apps.fund.models.distributions import DistributionPeriod, InvestmentDistributionRecord, TokenDistributionDetail
+
 class FundAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'amount_units', 'amount_tokens', 'created_at')
     search_fields = ('name', 'description')
@@ -41,6 +43,20 @@ class TokenTransactionAdmin(admin.ModelAdmin):
     search_fields = ('fund__fund__name', 'fund_token__token')
     list_filter = ('created_at',)
     ordering = ('-created_at',)
+    
+
+# ===================================
+# DISTRIBUTIONS
+# ===================================
+
+class DistributionPeriodAdmin(admin.ModelAdmin):
+    list_display = ('id', 'fund')
+    
+class InvestmentDistributionRecordAdmin(admin.ModelAdmin):
+    list_display = ('id', 'investment')
+    
+class TokenDistributionDetailAdmin(admin.ModelAdmin):
+    list_display = ('id', 'investment_distribution')
 
 admin.site.register(Fund, FundAdmin)
 admin.site.register(InvestorContract, InvestorContractAdmin)
@@ -50,3 +66,8 @@ admin.site.register(InvestmentApplication, InvestmentApplicationAdmin)
 admin.site.register(TransferReceipt, TransferReceiptAdmin)
 admin.site.register(FundToken, FundTokenAdmin) 
 admin.site.register(TokenTransaction, TokenTransactionAdmin)
+
+# distributions
+admin.site.register(DistributionPeriod, DistributionPeriodAdmin)
+admin.site.register(InvestmentDistributionRecord, InvestmentDistributionRecordAdmin)
+admin.site.register(TokenDistributionDetail, TokenDistributionDetailAdmin)

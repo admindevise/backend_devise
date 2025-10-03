@@ -63,7 +63,7 @@ class InvestmentService:
             
             # 3. Calcular monto exacto de tokens
             tokens_calculation = InvestmentCalculator._calculate_and_validate_tokens(
-                requested_amount, fund.price_per_unit
+                requested_amount, fund.price_per_unit, fund
             )
             
             # 4. Si no es exacto, generar sugerencias y lanzar error
@@ -216,7 +216,6 @@ class InvestmentService:
             with transaction.atomic():
                 transfer_result = BlockchainTransferService._transfer_blockchain_tokens(application, request)
                 
-                # ✅ DEBUGGING: Agregar log para ver qué devuelve
                 print(f"🔍 Transfer result: {transfer_result}")
                 print(f"🔍 Transfer result type: {type(transfer_result)}")
                 
@@ -237,6 +236,9 @@ class InvestmentService:
                     
                     raise ValueError(error_msg)
                 
+                # 4. Calcular tkn_cost
+                tkn_cost = InvestmentCalculator._calculate_tkn_cost(application)
+                
                 application.application_status = InvestmentApplication.ApplicationStatus.APPROVED
                 application.contract_signed_at = timezone.now()
                 application.save(update_fields=['application_status', 'contract_signed_at'])
@@ -247,6 +249,7 @@ class InvestmentService:
                     created_by=user,
                     units_owned=transfer_result.get('tokens_transferred', 0),
                     purchase_price_per_unit=application.fund.price_per_unit,
+                    tkn_cost=tkn_cost
                 )
             
             InvestmentAuditService._update_audit_success(audit_log)

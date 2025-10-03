@@ -375,6 +375,19 @@ class Command(BaseCommand):
                         'description': 'Advertencia de unidades insuficientes al seleccionar matches para una orden de compra'
                     },
                 ]
+            },
+            {
+                'name': 'Distribuciones',
+                'code': 'DISTRIBUTIONS',
+                'description': 'Distribuciones en fondos',
+                'actions': [
+                    {
+                        'name': 'Crear distribucion',
+                        'code': 'DISTRIBUTION_CREATE',
+                        'severity': 'MEDIUM',
+                        'description': 'Creación de un registro de distribucion según el periodo especificado'
+                    },
+                ]                
             }
         ]
         

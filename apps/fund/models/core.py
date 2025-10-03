@@ -17,6 +17,7 @@ class Fund(models.Model):
         on_delete=models.CASCADE, 
         null=True, 
         blank=True,
+        related_name='fund_core',
         verbose_name="Usuario propietario"
     )
     
@@ -139,6 +140,14 @@ class Fund(models.Model):
         verbose_name="Valor inicial por unidad"
     )
     
+    fee = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Comisión por unidad",
+    )
+
     # ========================================
     # PARÁMETROS FINANCIEROS - RENDIMIENTOS
     # ========================================

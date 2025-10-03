@@ -23,11 +23,16 @@ from apps.fund.models.membership import (
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def testing(request):
-    from apps.fund.services.investment_service import InvestmentService
-    from apps.fund.models.membership import InvestmentApplication
+    from apps.fund.services.fund_calculations import FundCalculationService
+    from apps.fund.models.membership import FundInvestment
     from apps.fund.models.core import Fund
     
-    return response.Response(str(InvestmentApplication.objects.get(id=2).requested_amount/Fund.objects.get(id=1).price_per_unit))
+    investment = FundInvestment.objects.get(id=9)
+    fund=Fund.objects.get(id=1)
+    calc_service = FundCalculationService(fund)
+    return str(calc_service.calculate_tkn_value_change(request.user)) 
+    
+    
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

@@ -426,35 +426,12 @@ class FundInvestment(models.Model):
         verbose_name="Valor actual por unidad"
     )
     
-    # ========================================
-    # RENDIMIENTOS Y GANANCIAS
-    # ========================================
-    total_dividends_received = models.DecimalField(
-        max_digits=14,
+    tkn_cost = models.DecimalField(
+        max_digits=10,
         decimal_places=2,
-        default=0,
-        verbose_name="Total dividendos recibidos"
-    )
-    
-    pending_dividends = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=0,
-        verbose_name="Dividendos pendientes"
-    )
-    
-    realized_capital_gains = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=0,
-        verbose_name="Ganancias realizadas"
-    )
-    
-    unrealized_capital_gains = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=0,
-        verbose_name="Ganancias no realizadas"
+        null=True, 
+        blank=True,
+        verbose_name="Precio del token mas comisiones"
     )
     
     # ========================================
@@ -567,15 +544,6 @@ class FundInvestment(models.Model):
         if self.current_unit_value:
             return self.units_owned * self.current_unit_value
         return self.final_invested_amount
-    
-    @property
-    def total_return(self):
-        """Retorno total (realizado + no realizado + dividendos)"""
-        return (
-            self.realized_capital_gains + 
-            self.unrealized_capital_gains + 
-            self.total_dividends_received
-        )
     
     @property
     def return_percentage(self):

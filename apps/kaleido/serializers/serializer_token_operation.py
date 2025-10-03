@@ -1280,11 +1280,10 @@ class PurchaseTokenBatchSerializer(BaseTokenOperationSerializer):
             return None, wallet_error
         
         user_wallet_address = wallet_data.get('address')
-        print(f"✅ Wallet obtenida UNA VEZ para el lote: {user_wallet_address}")
         
         return user_wallet_address, None
     
-    def _process_purchase_batch(self, fund, token_batch, user, results, initial_audit):
+    def _process_purchase_batch(self, fund, token_batch, user, results):
         """Procesa un lote de compras de tokens"""
         batch_results = []
         
@@ -1497,7 +1496,7 @@ class PurchaseTokenBatchSerializer(BaseTokenOperationSerializer):
                     
                     # Procesar el lote de compras
                     batch_results = self._process_purchase_batch(
-                        fund, token_batch, user, results, initial_audit
+                        fund, token_batch, user, results
                     )
                     
                     batch_processing_time = time.time() - batch_start_time
