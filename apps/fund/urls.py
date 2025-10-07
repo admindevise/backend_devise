@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
+# ====================== INVESTMENT ======================
 from apps.fund.views.investment_views import (
     InvestmentViewSet,
     InvestmentApplicationViewSet,
@@ -10,8 +11,23 @@ from apps.fund.views.investment_views import (
     under_review_investment_application,
     send_contrat_investment_application,
     sign_contract_investment_application,
-    
 )
+
+# ==================== DISTRIBUTIONS ====================
+from apps.fund.views.distributions_views import (
+    InvestmentDistributionRecordViewSet as IDRVS,
+    create_distribution_period,
+    distributions_records
+)
+
+# ========================= KPIs =========================
+from apps.fund.views.KPIs_views import (
+    calculate_token_value_change,
+    get_fund_distributions_12m,
+    calculate_yield_from_distributions
+)
+
+# ========================= FUND =========================
 from apps.fund.views.core_views import (
     FundViewSet,
     FundMembersViewSet,
@@ -20,6 +36,8 @@ from apps.fund.views.core_views import (
     TokenTransactionViewSet,
     FundSemestralDocumentViewSet as FSDVS,
 ) 
+
+# ======================= KALEIDO =======================
 from apps.kaleido.views.kaleido_fund import (
     TokenMintView,
     TokenMintBatchView,
@@ -30,6 +48,8 @@ from apps.kaleido.views.kaleido_fund import (
     batch_creation_progress_view,
     PurchaseTokenIndexToIndexView as PTIV,
 )
+
+
 from apps.fund.views.investor_contract_views import create_investor_contract, sign_investor_contract
 
 from apps.fund.views.utils_views import get_token_count, ai_generate_content, testing
@@ -43,6 +63,8 @@ router.register(r'application-pending', PendingApplicationViewSet, basename='inv
 router.register(r'investment-application', InvestmentApplicationViewSet, basename='investment-application')
 router.register(r'investment', InvestmentViewSet, basename='investment'),
 router.register(r'invesment-dashboard', InvestmentDashboardViewSet, basename='investment-dashboard'),
+
+router.register(r'investment-distribution', IDRVS, basename='investment-distribution')
 
 router.register(r'transfer_receipt', TransferReceiptViewSet, basename='transfer-receipt'),
 router.register(r'token', FundTokenViewSet, basename='fund-token'),
@@ -82,6 +104,18 @@ urlpatterns = [
     path('api/send-contract-investment-application/<int:application_id>/', send_contrat_investment_application, name='send-contract-investment-application'),
     path('api/sign-contract-investment-application/<int:application_id>/', sign_contract_investment_application, name='sign-contract-investment-application'),
     
+    # ======================================
+    # DISTRIBUTIONS PERIOD
+    # ======================================
+    path('api/create-distribution-period/', create_distribution_period, name='create-distriburion-period'),
+    path('api/distributions-by-members/', distributions_records, name='distributions-records'),
+    
+    # ======================================
+    # KPIs
+    # ======================================
+    path('api/kpis/token-value-change/', calculate_token_value_change, name='tkn-value-change'),
+    path('api/kpis/distributions-12m/', get_fund_distributions_12m, name='distributions-12m'),
+    path('api/kpis/yield-from-distributions/', calculate_yield_from_distributions, name='yield-from-distributions'),
     
     # ======================================
     # FUND UTILS VIEWS

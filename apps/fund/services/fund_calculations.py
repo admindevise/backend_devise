@@ -76,7 +76,7 @@ class FundCalculationService:
             'rent_per_token': rent_per_token,
             'total_distribution_calculated': total_distribution_calculated,
             'fund_name': self.fund.name,
-            'calculation_date': self.fund.updated_at
+            'calculation_date': self.fund.created_at
         }
     
     def calculate_user_distribution(self, user, total_distribution_amount: Decimal) -> Dict[str, Decimal]:
@@ -226,14 +226,14 @@ class FundCalculationService:
     # ========================================
     # CÁLCULO DE VALORIZACIÓN POR TOKEN
     # ========================================
-    def calculate_tkn_value_change(self, user, investment_application=None) -> Dict[str, any]:
+    def calculate_tkn_value_change(self, user, investment_id=None) -> Dict[str, any]:
         """
         Calcula el cambio de valor del token usando la fórmula:
         Cambio = (Precio actual (tkn_value) ÷ Costo (tkn_cost)) - 1
         
         Args:
             user: Usuario propietario de tokens
-            investment_application: Aplicación de inversión específica (opcional)
+            investment_id: ID de la inversión específica (opcional)
             
         Returns:
             dict: Información detallada del cambio de valor
@@ -242,87 +242,266 @@ class FundCalculationService:
         
         try:
             if not self.fund:
-                raise ValueError("error en fondo")
+                raise ValueError("Error: Error en el fondo")
+            
             # 1. Obtener el valor actual del token
             current_tkn_value = self.fund.price_per_unit
             
             # 2. Obtener inversiones relacionadas con el user y fund
             try:
                 user_investments = FundInvestment.objects.select_related('application__user', 'application__fund').filter(
-                    #application=investment_application,
                     application__user=user,
-                    application__fund=self.fund
+                    application__fund=self.fund,
+                    investment_status=FundInvestment.InvestmentStatus.ACTIVE
                 )
             except FundInvestment.DoesNotExist:
-                raise ValueError('No se encontro ninguna inversión asociada a este usuario y fondo')
+                raise ValueError('No se encontró ninguna inversión asociada a este usuario y fondo')
             
-            # 3. Obtener el valor de compra del token mas comisiones
-            tkn_cost = user_investments.tkn_cost
+            # 3. Si se especifica un ID de inversión, filtrar por inversión específica
+            if investment_id:
+                user_investments = user_investments.filter(id=investment_id)
+                if not user_investments.exists():
+                    return {
+                        'error': f'No se encontró la inversión específica con ID {investment_id} para el usuario {user.email}',
+                        'user_id': user.id,
+                        'fund_id': self.fund.id,
+                        'investment_id': investment_id
+                    }            
             
-            # 4. Calcular el cambio del valor
-            tkn_value_change = (current_tkn_value / tkn_cost) - Decimal('1')
+            # 4. Calcular cambio de valor por cada inversión
+            investment_changes = []
+            total_weighted_change = Decimal('0.00')
+            total_cost_basis = Decimal('0.00')
             
-            return tkn_value_change
+            for investment in user_investments:
+                # Obtener el costo del token incluyendo comisiones
+                tkn_cost = investment.tkn_cost or investment.purchase_price_per_unit
+                
+                if tkn_cost <= 0:
+                    continue  # Skip inversiones con costo inválido
+                
+                # Calcular el cambio de valor para esta inversión
+                tkn_value_change = (current_tkn_value / tkn_cost) - Decimal('1')
+                tkn_value_change_percentage = tkn_value_change * 100
+                
+                # Calcular valores absolutos
+                investment_cost = investment.final_invested_amount or Decimal('0.00')
+                current_investment_value = Decimal(str(investment.units_owned)) * current_tkn_value
+                absolute_gain_loss = current_investment_value - investment_cost
+                
+                # Para promedio ponderado
+                weighted_change = tkn_value_change * investment_cost
+                total_weighted_change += weighted_change
+                total_cost_basis += investment_cost
+                
+                investment_changes.append({
+                    'investment_id': investment.id,
+                    'application_id': investment.application.id,
+                    'units_owned': investment.units_owned,
+                    'purchase_price_per_unit': float(investment.purchase_price_per_unit),
+                    'tkn_cost': float(tkn_cost),
+                    'current_tkn_value': float(current_tkn_value),
+                    'tkn_value_change': float(tkn_value_change),
+                    'tkn_value_change_percentage': float(tkn_value_change_percentage),
+                    'investment_cost': float(investment_cost),
+                    'current_investment_value': float(current_investment_value),
+                    'absolute_gain_loss': float(absolute_gain_loss),
+                    'investment_date': investment.created_at.strftime("%Y-%m-%d") if investment.created_at else None
+                })
+            
+            # 5. Calcular promedio ponderado por costo de inversión
+            if total_cost_basis > 0:
+                weighted_average_change = total_weighted_change / total_cost_basis
+                weighted_average_change_percentage = weighted_average_change * 100
+            else:
+                weighted_average_change = Decimal('0.00')
+                weighted_average_change_percentage = Decimal('0.00')
+            
+            return {
+                'user_id': user.id,
+                'user_email': user.email,
+                'fund_id': self.fund.id,
+                'fund_name': self.fund.name,
+                'current_tkn_value': float(current_tkn_value),
+                'total_investments': len(investment_changes),
+                'weighted_average_change': float(weighted_average_change),
+                'weighted_average_change_percentage': float(weighted_average_change_percentage),
+                'total_cost_basis': float(total_cost_basis),
+                'investment_details': investment_changes,
+                'calculation_date': timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'investment_filter': investment_id
+            }
             
         except Exception as e:
             raise FundCalculationError(f"Error calculando cambio de valor: {str(e)}")
-    
+
 
     # ================================================
     # TOTAL DISTRIBUCIONES EN LOS ULTMOS 12M
-    # ================================================
-    
-    def sum_distributions_last_12_months(self) -> Decimal:
+    # ================================================    
+    def sum_distributions_last_12_months(self, user, investment_id=None) -> Decimal:
         """
-        Suma todas las distribuciones realizadas en los últimos 12 meses.
+        Suma todas las distribuciones realizadas en los últimos 12 meses para un usuario específico.
+        Filtra por período específico (año/mes) en lugar de payment_date.
+        Solo incluye meses completamente finalizados.
         
+        Args:
+            user: Usuario específico (requerido)
+            investment_id: ID de inversión específica (opcional)
+            
         Returns:
-            Decimal: Suma total de distribuciones en los últimos 12 meses
+            Decimal: Suma total de distribuciones del usuario en los últimos 12 meses
         """
-        from apps.fund.models.distributions import FundDistribution
+        from apps.fund.models.distributions import InvestmentDistributionRecord
         from django.db import models
         from django.utils import timezone
         from datetime import timedelta
+        from calendar import monthrange
         
-        # Fecha límite (hace 12 meses)
-        twelve_months_ago = timezone.now() - timedelta(days=365)
+        # Validar que se proporcione un usuario
+        if user is None:
+            raise ValueError("El usuario es requerido para calcular distribuciones")
         
-        # Sumar distribuciones
-        total_distributions = FundDistribution.objects.filter(
-            fund=self.fund,
-            distribution_date__gte=twelve_months_ago
-        ).aggregate(total_amount=models.Sum('amount'))['total_amount'] or Decimal('0.00')
+        # Obtener fecha actual
+        current_date = timezone.now()
+        
+        # Calcular el último mes completamente finalizado
+        # Si estamos en octubre 2024, el último mes finalizado es septiembre 2024
+        if current_date.month == 1:
+            last_completed_year = current_date.year - 1
+            last_completed_month = 12
+        else:
+            last_completed_year = current_date.year
+            last_completed_month = current_date.month - 1
+        
+        # Calcular el mes de inicio (12 meses atrás desde el último mes finalizado)
+        start_month = last_completed_month - 11
+        start_year = last_completed_year
+        
+        # Ajustar si el mes de inicio es negativo
+        if start_month <= 0:
+            start_month += 12
+            start_year -= 1
+        
+        # Usar InvestmentDistributionRecord para distribuciones a nivel de usuario
+        queryset = InvestmentDistributionRecord.objects.select_related(
+            'distribution_period', 'investment__application__user'
+        ).filter(
+            distribution_period__fund=self.fund,
+            investment__application__user=user,
+        )
+        
+        # Filtrar por período de los últimos 12 meses usando solo meses finalizados
+        period_filter = models.Q(
+            models.Q(distribution_period__period_year__gt=start_year) |
+            models.Q(distribution_period__period_year=start_year, distribution_period__period_month__gte=start_month)
+        ) & models.Q(
+            models.Q(distribution_period__period_year__lt=last_completed_year) |
+            models.Q(distribution_period__period_year=last_completed_year, distribution_period__period_month__lte=last_completed_month)
+        )
+        
+        queryset = queryset.filter(period_filter)
+        
+        # Filtrar por inversión específica si se especifica
+        if investment_id:
+            queryset = queryset.filter(investment_id=investment_id)
+        
+        # Sumar los montos netos distribuidos
+        total_distributions = queryset.aggregate(
+            total_amount=models.Sum('net_distribution_amount_cop')
+        )['total_amount'] or Decimal('0.00')
         
         return total_distributions
-    
+
 
     # ================================================
     # RENDIMIENTOS POR DISTRIBUCIONES 12M
     # ================================================
-    def calculate_yield_from_distributions(self) -> Optional[Decimal]:
+    def calculate_yield_from_distributions(self, user, investment_id) -> Dict[str, any]:
         """
         Calcula el rendimiento basado en las distribuciones de los últimos 12 meses.
         
-        Fórmula: Rendimiento = (Total distribuciones 12M / Costo del token) 
+        Fórmula: Rendimiento = (Total distribuciones 12M / tkn_cost)
         
+        Args:
+            user: Usuario específico (requerido)
+            investment_id: ID de inversión específica (requerido)
+            
         Returns:
-            Decimal: Rendimiento porcentual o None si no se puede calcular
+            dict: Información del rendimiento por distribuciones de la inversión
         """
+        from apps.fund.models.membership import FundInvestment
+        
         try:
-            total_distributions_12m = self.sum_distributions_last_12_months()
-            total_fund_value = self.fund.total_assets
+            # Validar que se proporcionen usuario e inversión
+            if user is None:
+                raise ValueError("El usuario es requerido para calcular rendimiento")
             
-            if total_fund_value == 0:
-                return None
+            if investment_id is None:
+                raise ValueError("El ID de inversión es requerido para calcular rendimiento")
             
-            yield_percentage = (total_distributions_12m / total_fund_value) * 100
-            return yield_percentage
-        
+            # Obtener la inversión específica
+            try:
+                investment = FundInvestment.objects.select_related(
+                    'application__user', 'application__fund'
+                ).get(
+                    id=investment_id,
+                    application__user=user,
+                    application__fund=self.fund,
+                    investment_status=FundInvestment.InvestmentStatus.ACTIVE
+                )
+            except FundInvestment.DoesNotExist:
+                return {
+                    'error': f'No se encontró la inversión {investment_id} para el usuario {user.email}',
+                    'user_id': user.id,
+                    'investment_id': investment_id,
+                    'token_cash_on_cash': 0.0
+                }
+            
+            # Obtener total de distribuciones de los últimos 12 meses para esta inversión específica
+            total_distributions_12m = self.sum_distributions_last_12_months(
+                user=user,
+                investment_id=investment_id
+            )
+            
+            # Obtener tkn_cost de la inversión
+            tkn_cost = investment.tkn_cost
+            
+            if not tkn_cost or tkn_cost <= 0:
+                return {
+                    'error': f'La inversión {investment_id} no tiene un tkn_cost válido',
+                    'user_id': user.id,
+                    'investment_id': investment_id,
+                    'token_cash_on_cash': 0.0,
+                    'tkn_cost': float(tkn_cost) if tkn_cost else 0.0,
+                    'total_distributions_12m': float(total_distributions_12m)
+                }
+            
+            # Aplicar la fórmula: Total distribuciones 12M / tkn_cost
+            token_cash_on_cash = total_distributions_12m / tkn_cost
+            
+            return {
+                'user_id': user.id,
+                'user_email': user.email,
+                'fund_id': self.fund.id,
+                'fund_name': self.fund.name,
+                'investment_id': investment_id,
+                'tkn_cost': float(tkn_cost),
+                'total_distributions_12m': float(total_distributions_12m),
+                'token_cash_on_cash': float(token_cash_on_cash),
+                'units_owned': investment.units_owned,
+                'period_analyzed': '12 months (completed months only)',
+                'calculation_date': timezone.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            
         except Exception as e:
-            raise FundCalculationError(f"Error calculando rendimiento por distribuciones: {str(e)}")
+            return {
+                'error': f'Error calculando rendimiento por distribuciones: {str(e)}',
+                'user_id': user.id if user else None,
+                'investment_id': investment_id,
+                'token_cash_on_cash': 0.0
+            }
         
-
-
 
     # ================================================
     # PROMEDIO PONDERADO POR UNIDADES
@@ -352,7 +531,12 @@ class FundCalculationService:
         """
         4.2) Cambio de precio por unidad para un usuario específico
         
-        Calcula el cambio de precio basado en las inversiones del usuario
+        Calcula el cambio de precio basado en las inversiones del usuario usando promedio ponderado por unidades.
+        
+        Fórmula: 
+        - Cambio individual: ((Precio Actual - Precio de Compra) / Precio de Compra) × 100
+        - Peso por inversión: Cambio % × Cantidad de Unidades  
+        - Promedio ponderado: Σ(Cambio % × Unidades) / Σ(Unidades)
         
         Args:
             user: Usuario del cual calcular el cambio de precio
@@ -373,7 +557,7 @@ class FundCalculationService:
             if not user_investments.exists():
                 return {
                     'error': f'Usuario {user.email} no tiene inversiones activas en el fondo {self.fund.name}',
-                    'user_price_change': Decimal('0.00'),
+                    'user_weighted_average_price_change': Decimal('0.00'),
                     'user_id': user.id
                 }
             
@@ -386,30 +570,37 @@ class FundCalculationService:
                 units = investment.units_owned
                 purchase_price = investment.purchase_price_per_unit
                 
-                # Calcular cambio de precio para esta inversión
+                # 1. Calcular cambio de precio para esta inversión específica
                 if purchase_price > 0:
                     price_change = ((current_price - purchase_price) / purchase_price) * 100
                 else:
                     price_change = Decimal('0.00')
                 
-                # Aplicar peso por unidades
+                # 2. Aplicar peso por unidades (no por monto, según la lógica explicada)
                 weighted_change = price_change * Decimal(str(units))
                 total_weighted_change += weighted_change
                 total_units += units
                 
+                # 3. Agregar detalles de esta inversión
                 investment_details.append({
                     'investment_id': investment.id,
                     'units': units,
                     'purchase_price': float(purchase_price),
+                    'current_price': float(current_price),
                     'price_change_percentage': float(price_change),
+                    'weighted_contribution': float(weighted_change),
+                    'weight_in_portfolio': float(Decimal(str(units)) / Decimal(str(total_units))) if total_units > 0 else 0,
                     'investment_date': investment.created_at.strftime("%Y-%m-%d") if investment.created_at else None
                 })
             
-            # Calcular promedio ponderado del usuario
+            # 4. Calcular promedio ponderado del usuario
             if total_units > 0:
                 user_weighted_average_change = total_weighted_change / Decimal(str(total_units))
             else:
                 user_weighted_average_change = Decimal('0.00')
+            
+            # 5. Calcular estadísticas adicionales
+            price_changes = [detail['price_change_percentage'] for detail in investment_details]
             
             return {
                 'user_id': user.id,
@@ -421,13 +612,20 @@ class FundCalculationService:
                 'total_user_units': total_units,
                 'total_user_investments': user_investments.count(),
                 'investment_details': investment_details,
+                'portfolio_statistics': {
+                    'highest_price_change': max(price_changes) if price_changes else 0,
+                    'lowest_price_change': min(price_changes) if price_changes else 0,
+                    'simple_average_change': sum(price_changes) / len(price_changes) if price_changes else 0,
+                    'weighted_vs_simple_difference': float(user_weighted_average_change) - (sum(price_changes) / len(price_changes)) if price_changes else 0
+                },
+                'calculation_method': 'weighted_by_units',
                 'calculation_date': timezone.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             
         except Exception as e:
             return {
                 'error': f'Error calculando cambio de precio para usuario {user.email}: {str(e)}',
-                'user_price_change': Decimal('0.00'),
+                'user_weighted_average_price_change': Decimal('0.00'),
                 'user_id': user.id
             }
     

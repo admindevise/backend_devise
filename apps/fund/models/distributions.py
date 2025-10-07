@@ -68,7 +68,7 @@ class DistributionPeriod(base_model.BaseModel):
     
     distribution_yield_percentage = models.DecimalField(
         max_digits=8,
-        decimal_places=4,
+        decimal_places=2,
         null=True,
         blank=True,
         verbose_name="Porcentaje de rendimiento distribuido"
@@ -82,8 +82,8 @@ class DistributionPeriod(base_model.BaseModel):
     )
     
     distribution_per_token = models.DecimalField(
-        max_digits=12,
-        decimal_places=8,
+        max_digits=18,
+        decimal_places=2,
         verbose_name="Distribución por token"
     )
     
@@ -206,7 +206,7 @@ class InvestmentDistributionRecord(base_model.BaseModel):
     )
     
     # ========================================
-    # DISTRIBUCIÓN EN PESOS COP (NUEVO)
+    # DISTRIBUCIÓN EN PESOS COP
     # ========================================
     distribution_type = models.CharField(
         max_length=20,
@@ -297,7 +297,7 @@ class InvestmentDistributionRecord(base_model.BaseModel):
     # ========================================
     participation_percentage = models.DecimalField(
         max_digits=8,
-        decimal_places=4,
+        decimal_places=2,
         verbose_name="Porcentaje de participación"
     )
     

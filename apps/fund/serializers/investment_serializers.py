@@ -16,8 +16,7 @@ class InvestmentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'created_at', 'updated_at', 'payment_date', 'maturity_date',
             'final_invested_amount', 'units_owned', 'purchase_price_per_unit',
-            'current_unit_value', 'total_dividends_received', 'pending_dividends',
-            'realized_capital_gains', 'unrealized_capital_gains', 'investment_status',
+            'current_unit_value', 'investment_status',
             'payment_status', 'payment_method', 'payment_reference',
             
             # ✅ Agregar las propiedades directamente

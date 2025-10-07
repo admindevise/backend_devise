@@ -134,7 +134,7 @@ class Fund(models.Model):
     )
     initial_unit_value = models.DecimalField(
         max_digits=14, 
-        decimal_places=4, 
+        decimal_places=2, 
         blank=True, 
         null=True,
         verbose_name="Valor inicial por unidad"

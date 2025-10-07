@@ -129,7 +129,7 @@ class DistributionService:
                     status=DistributionPeriod.DistributionStatus.DRAFT,
                     distribution_notes=distribution_notes,
                     calculation_metadata={
-                        'calculation_info': distribution_info,
+                        'calculation_info': str(distribution_info),
                         'validation_warnings': validation_result.get('warnings', []),
                         'creation_timestamp': timezone.now().isoformat()
                     }
@@ -380,7 +380,7 @@ class DistributionService:
     # DISTRIBUCIONES POR INVERSIÓN
     # ============================================
     @transaction.atomic
-    def create_cop_distribution_records(
+    def create_distribution_records(
         self,
         distribution_period: DistributionPeriod,
         created_by=None,
@@ -402,7 +402,7 @@ class DistributionService:
         
         try:
             # Obtener distribuciones calculadas en COP
-            cop_distributions = self.calc_service.calculate_batch_distributions_in_cop(
+            cop_distributions = self.calc_service.calculate_batch_distributions(
                 distribution_period.total_distribution_amount
             )
             
@@ -428,9 +428,9 @@ class DistributionService:
                         distribution_type=InvestmentDistributionRecord.DistributionType.COP_AMOUNT,
                         
                         # Montos en COP
-                        gross_distribution_amount_cop=user_dist['user_distribution_amount_cop'],
+                        gross_distribution_amount_cop=user_dist['user_distribution_amount'],
                         withholding_tax_cop=Decimal('0.00'),  # Configurar según necesidades
-                        net_distribution_amount_cop=user_dist['user_distribution_amount_cop'],
+                        net_distribution_amount_cop=user_dist['user_distribution_amount'],
                         
                         # Información de tokens
                         tokens_held_on_record_date=user_dist['user_tokens'],
@@ -442,7 +442,7 @@ class DistributionService:
                         
                         # Metadatos
                         calculation_metadata={
-                            'cop_per_token_participation': str(user_dist['cop_per_token_participation']),
+                            'participation_percentage': str(user_dist['participation_percentage']),
                             'calculation_timestamp': timezone.now().isoformat(),
                             'created_by': created_by.email if created_by else None,
                             'distribution_method': 'COP_BASED'
@@ -452,7 +452,7 @@ class DistributionService:
                     records_created.append({
                         'record_id': distribution_record.id,
                         'user_email': user_dist['user_email'],
-                        'cop_amount': float(user_dist['user_distribution_amount_cop']),
+                        'cop_amount': float(user_dist['user_distribution_amount']),
                         'tokens_held': user_dist['user_tokens']
                     })
                     total_records += 1
@@ -461,7 +461,7 @@ class DistributionService:
             if request and created_by:
                 AuditService.log_action(
                     request=request,
-                    action_code="COP_DISTRIBUTION_RECORDS_CREATED",
+                    action_code="DISTRIBUTION_RECORDS_CREATED",
                     obj=distribution_period,
                     details={
                         'distribution_period_id': distribution_period.id,

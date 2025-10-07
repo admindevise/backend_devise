@@ -53,7 +53,7 @@ class DistributionPeriodAdmin(admin.ModelAdmin):
     list_display = ('id', 'fund')
     
 class InvestmentDistributionRecordAdmin(admin.ModelAdmin):
-    list_display = ('id', 'investment')
+    list_display = ('id', 'investment', 'distribution_period__period_year', 'distribution_period__period_month')
     
 class TokenDistributionDetailAdmin(admin.ModelAdmin):
     list_display = ('id', 'investment_distribution')
