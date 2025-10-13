@@ -24,7 +24,12 @@ from apps.fund.views.distributions_views import (
 from apps.fund.views.KPIs_views import (
     calculate_token_value_change,
     get_fund_distributions_12m,
-    calculate_yield_from_distributions
+    calculate_yield_from_distributions,
+    user_price_change,
+    user_rent_12m_per_unit,
+    user_cash_on_cash,
+    user_current_value,
+    user_simple_total_return
 )
 
 # ========================= FUND =========================
@@ -116,6 +121,11 @@ urlpatterns = [
     path('api/kpis/token-value-change/', calculate_token_value_change, name='tkn-value-change'),
     path('api/kpis/distributions-12m/', get_fund_distributions_12m, name='distributions-12m'),
     path('api/kpis/yield-from-distributions/', calculate_yield_from_distributions, name='yield-from-distributions'),
+    path('api/kpis/user-price-change/', user_price_change, name='user-price-change'),
+    path('api/kpis/user-rent-12m-per-unit/', user_rent_12m_per_unit, name='user-rent-12m-per-unit'),
+    path('api/kpis/user-cash-on-cash/', user_cash_on_cash, name='user-cash-on-cash'),
+    path('api/kpis/user-current-value/', user_current_value, name='user-current-value'),
+    path('api/kpis/user-simple-total-return/', user_simple_total_return, name='user-simple-total-return'),
     
     # ======================================
     # FUND UTILS VIEWS

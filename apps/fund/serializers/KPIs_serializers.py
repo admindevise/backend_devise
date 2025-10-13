@@ -505,3 +505,623 @@ class YieldFromDistributionsSerializer(serializers.Serializer):
             'message': f'Rendimiento calculado exitosamente: {instance["token_cash_on_cash"]:.4f} (Cash on Cash por token)'
         }    
 
+# ================================================
+# AVERAGE PRICE CHANGE PER UNIT
+# ================================================
+class UserPriceChangeSerializer(serializers.Serializer):
+    """
+    Serializer para calcular el cambio de precio por unidad para un usuario específico
+    usando promedio ponderado por unidades.
+    """
+    
+    fund_id = serializers.IntegerField(
+        required=True,
+        help_text="ID del fondo"
+    )
+    
+    user_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="ID del usuario específico (opcional, si no se proporciona usa el usuario autenticado)"
+    )
+    
+    include_portfolio_details = serializers.BooleanField(
+        default=True,
+        help_text="Incluir detalles de cada inversión en el portfolio"
+    )
+    
+    def validate_fund_id(self, value):
+        """Validar que el fondo existe"""
+        try:
+            fund = Fund.objects.get(id=value)
+            return fund
+        except Fund.DoesNotExist:
+            raise serializers.ValidationError(f"El fondo con ID {value} no existe")
+    
+    def validate_user_id(self, value):
+        """Validar que el usuario existe si se proporciona"""
+        if value is None:
+            return None
+        
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            user = User.objects.get(id=value)
+            return user
+        except User.DoesNotExist:
+            raise serializers.ValidationError(f"El usuario con ID {value} no existe")
+    
+    def validate(self, attrs):
+        """Validaciones a nivel de objeto"""
+        fund = attrs.get('fund_id')
+        target_user = attrs.get('user_id')
+        request = self.context.get('request')
+        
+        # Validar que el usuario esté autenticado
+        if not request or not request.user:
+            raise serializers.ValidationError("Usuario no autenticado")
+        
+        # Si no se especifica user_id, usar el usuario autenticado
+        if target_user is None:
+            target_user = request.user
+            attrs['user_id'] = target_user
+        
+        # Validar permisos: solo staff puede consultar otros usuarios
+        if target_user != request.user and not request.user.is_staff:
+            raise serializers.ValidationError(
+                "No tienes permisos para consultar cambios de precio de otros usuarios"
+            )
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Calcular cambio de precio del usuario usando el servicio"""
+        fund = validated_data['fund_id']
+        target_user = validated_data['user_id']
+        include_details = validated_data.get('include_portfolio_details', True)
+        request = self.context.get('request')
+        
+        try:
+            # Crear servicio de cálculos
+            calc_service = FundCalculationService(fund)
+            
+            # Calcular cambio de precio del usuario
+            result = calc_service.calculate_user_price_change(target_user)
+            
+            # Si hay error en el resultado, devolverlo
+            if 'error' in result:
+                return result
+            
+            # Filtrar detalles si no se solicitan
+            if not include_details:
+                result.pop('investment_details', None)
+                result.pop('portfolio_statistics', None)
+            
+            # Agregar metadata adicional
+            result['calculated_by'] = request.user.email if request else None
+            
+            return result
+            
+        except FundCalculationError as e:
+            raise serializers.ValidationError(str(e))
+        except Exception as e:
+            raise serializers.ValidationError(f"Error interno: {str(e)}")
+    
+    def to_representation(self, instance):
+        """Representación de respuesta"""
+        if 'error' in instance:
+            return {
+                'success': False,
+                'error': instance['error'],
+                'user_id': instance.get('user_id'),
+                'fund_id': instance.get('fund_id')
+            }
+        
+        response_data = {
+            'success': True,
+            'data': {
+                'user_info': {
+                    'user_id': instance['user_id'],
+                    'user_email': instance['user_email'],
+                    'fund_id': instance['fund_id'],
+                    'fund_name': instance['fund_name']
+                },
+                'price_change_summary': {
+                    'current_price_per_unit': instance['current_price_per_unit'],
+                    'user_weighted_average_price_change': instance['user_weighted_average_price_change'],
+                    'total_user_units': instance['total_user_units'],
+                    'total_user_investments': instance['total_user_investments'],
+                    'calculation_method': instance['calculation_method']
+                }
+            },
+            'message': f'Cambio de precio calculado exitosamente: {instance["user_weighted_average_price_change"]:.2f}%'
+        }
+        
+        # Agregar detalles si están disponibles
+        if 'investment_details' in instance:
+            response_data['data']['portfolio_details'] = {
+                'investment_breakdown': instance['investment_details'],
+                'portfolio_statistics': instance.get('portfolio_statistics', {})
+            }
+        
+        # Agregar metadata
+        response_data['data']['calculation_metadata'] = {
+            'calculation_date': instance['calculation_date'],
+            'calculated_by': instance.get('calculated_by')
+        }
+        
+        return response_data
+
+# ================================================
+# USER RENT 12M PER UNIT
+# ================================================
+class UserRent12mPerUnitSerializer(serializers.Serializer):
+    """
+    Serializer para calcular las rentas por unidad de los últimos 12 meses para un usuario específico.
+    
+    Calcula las distribuciones recibidas por unidad en los últimos 12 meses usando lógica de día 30 
+    como corte: si estamos antes del día 30 del mes actual, usa el mes anterior como último finalizado.
+    """
+    
+    fund_id = serializers.IntegerField(
+        required=True,
+        help_text="ID del fondo"
+    )
+    
+    user_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="ID del usuario específico (opcional, si no se proporciona usa el usuario autenticado)"
+    )
+    
+    include_distribution_details = serializers.BooleanField(
+        default=True,
+        help_text="Incluir detalles de distribuciones por inversión"
+    )
+    
+    def validate_fund_id(self, value):
+        """Validar que el fondo existe"""
+        try:
+            fund = Fund.objects.get(id=value)
+            return fund
+        except Fund.DoesNotExist:
+            raise serializers.ValidationError(f"El fondo con ID {value} no existe")
+    
+    def validate_user_id(self, value):
+        """Validar que el usuario existe si se proporciona"""
+        if value is None:
+            return None
+        
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            user = User.objects.get(id=value)
+            return user
+        except User.DoesNotExist:
+            raise serializers.ValidationError(f"El usuario con ID {value} no existe")
+    
+    def validate(self, attrs):
+        """Validaciones a nivel de objeto"""
+        fund = attrs.get('fund_id')
+        target_user = attrs.get('user_id')
+        request = self.context.get('request')
+        
+        # Validar que el usuario esté autenticado
+        if not request or not request.user:
+            raise serializers.ValidationError("Usuario no autenticado")
+        
+        # Si no se especifica user_id, usar el usuario autenticado
+        if target_user is None:
+            target_user = request.user
+            attrs['user_id'] = target_user
+        
+        # Validar permisos: solo staff puede consultar otros usuarios
+        if target_user != request.user and not request.user.is_staff:
+            raise serializers.ValidationError(
+                "No tienes permisos para consultar rentas de otros usuarios"
+            )
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Calcular rentas 12m por unidad usando el servicio"""
+        fund = validated_data['fund_id']
+        target_user = validated_data['user_id']
+        include_details = validated_data.get('include_distribution_details', True)
+        request = self.context.get('request')
+        
+        try:
+            # Crear servicio de cálculos
+            calc_service = FundCalculationService(fund)
+            
+            # Calcular rentas 12m por unidad del usuario
+            result = calc_service.calculate_user_rent_12m_per_unit(target_user)
+            
+            # Si hay error en el resultado, devolverlo
+            if 'error' in result:
+                return result
+            
+            # Filtrar detalles si no se solicitan
+            if not include_details:
+                result.pop('distribution_details', None)
+            
+            # Agregar metadata adicional
+            result['calculated_by'] = request.user.email if request else None
+            
+            return result
+            
+        except FundCalculationError as e:
+            raise serializers.ValidationError(str(e))
+        except Exception as e:
+            raise serializers.ValidationError(f"Error interno: {str(e)}")
+    
+    def to_representation(self, instance):
+        """Representación de respuesta"""
+        if 'error' in instance:
+            return {
+                'success': False,
+                'error': instance['error'],
+                'user_id': instance.get('user_id'),
+                'fund_id': instance.get('fund_id')
+            }
+        
+        response_data = {
+            'success': True,
+            'data': {
+                'user_info': {
+                    'user_id': instance['user_id'],
+                    'user_email': instance['user_email'],
+                    'fund_id': instance['fund_id'],
+                    'fund_name': instance['fund_name']
+                },
+                'rent_summary': {
+                    'user_rent_per_unit_12m': instance['user_rent_per_unit_12m'],
+                    'total_user_rent_12m': instance['total_user_rent_12m'],
+                    'total_user_units': instance['total_user_units'],
+                    'average_monthly_rent_per_unit': instance['user_rent_per_unit_12m'] / 12 if instance['user_rent_per_unit_12m'] > 0 else 0
+                },
+                'period_info': {
+                    'period_analyzed': instance['period_analyzed'],
+                    'current_date': instance['current_date'],
+                    'cutoff_logic_applied': instance['cutoff_logic'],
+                    'methodology': 'Uses day 30 as cutoff: if current day < 30, uses previous month as last completed'
+                }
+            },
+            'message': f'Rentas 12m calculadas exitosamente: ${instance["user_rent_per_unit_12m"]:.2f} por unidad'
+        }
+        
+        # Agregar detalles si están disponibles
+        if 'distribution_details' in instance:
+            response_data['data']['distribution_breakdown'] = {
+                'investment_details': instance['distribution_details'],
+                'total_investments_analyzed': len(instance['distribution_details'])
+            }
+        
+        # Agregar metadata
+        response_data['data']['calculation_metadata'] = {
+            'calculation_date': instance['calculation_date'],
+            'calculated_by': instance.get('calculated_by')
+        }
+        
+        return response_data
+
+# ================================================
+# USER CASH ON CASH
+# ================================================
+class UserCashOnCashSerializer(serializers.Serializer):
+    """
+    Serializer para calcular Cash on Cash de un usuario específico.
+    
+    Cash on Cash = (Distribuciones anuales del usuario / Costo inicial del usuario) × 100
+    
+    Utiliza la misma lógica de "día 30 como corte" para determinar meses completados.
+    """
+    
+    fund_id = serializers.IntegerField(
+        required=True,
+        help_text="ID del fondo"
+    )
+    
+    user_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="ID del usuario específico (opcional, si no se proporciona usa el usuario autenticado)"
+    )
+    
+    include_investment_details = serializers.BooleanField(
+        default=True,
+        help_text="Incluir detalles de Cash on Cash por inversión"
+    )
+    
+    def validate_fund_id(self, value):
+        """Validar que el fondo existe"""
+        try:
+            fund = Fund.objects.get(id=value)
+            return fund
+        except Fund.DoesNotExist:
+            raise serializers.ValidationError(f"El fondo con ID {value} no existe")
+    
+    def validate_user_id(self, value):
+        """Validar que el usuario existe si se proporciona"""
+        if value is None:
+            return None
+        
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            user = User.objects.get(id=value)
+            return user
+        except User.DoesNotExist:
+            raise serializers.ValidationError(f"El usuario con ID {value} no existe")
+    
+    def validate(self, attrs):
+        """Validaciones a nivel de objeto"""
+        fund = attrs.get('fund_id')
+        target_user = attrs.get('user_id')
+        request = self.context.get('request')
+        
+        # Validar que el usuario esté autenticado
+        if not request or not request.user:
+            raise serializers.ValidationError("Usuario no autenticado")
+        
+        # Si no se especifica user_id, usar el usuario autenticado
+        if target_user is None:
+            target_user = request.user
+            attrs['user_id'] = target_user
+        
+        # Validar permisos: solo staff puede consultar otros usuarios
+        if target_user != request.user and not request.user.is_staff:
+            raise serializers.ValidationError(
+                "No tienes permisos para consultar Cash on Cash de otros usuarios"
+            )
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Calcular Cash on Cash del usuario usando el servicio"""
+        fund = validated_data['fund_id']
+        target_user = validated_data['user_id']
+        include_details = validated_data.get('include_investment_details', True)
+        request = self.context.get('request')
+        
+        try:
+            # Crear servicio de cálculos
+            calc_service = FundCalculationService(fund)
+            
+            # Calcular Cash on Cash del usuario
+            result = calc_service.calculate_user_cash_on_cash(target_user)
+            
+            # Si hay error en el resultado, devolverlo
+            if 'error' in result:
+                return result
+            
+            # Filtrar detalles si no se solicitan
+            if not include_details:
+                result.pop('investment_details', None)
+            
+            # Agregar metadata adicional
+            result['calculated_by'] = request.user.email if request else None
+            
+            return result
+            
+        except FundCalculationError as e:
+            raise serializers.ValidationError(str(e))
+        except Exception as e:
+            raise serializers.ValidationError(f"Error interno: {str(e)}")
+    
+    def to_representation(self, instance):
+        """Representación de respuesta"""
+        if 'error' in instance:
+            return {
+                'success': False,
+                'error': instance['error'],
+                'user_id': instance.get('user_id'),
+                'fund_id': instance.get('fund_id')
+            }
+        
+        response_data = {
+            'success': True,
+            'data': {
+                'user_info': {
+                    'user_id': instance['user_id'],
+                    'user_email': instance['user_email'],
+                    'fund_id': instance['fund_id'],
+                    'fund_name': instance['fund_name']
+                },
+                'cash_on_cash_summary': {
+                    'user_cash_on_cash_percentage': instance['user_cash_on_cash_percentage'],
+                    'total_user_initial_investment': instance['total_user_initial_investment'],
+                    'total_user_distributions_12m': instance['total_user_distributions_12m'],
+                    'annualized_return': f"{instance['user_cash_on_cash_percentage']:.2f}%"
+                },
+                'period_info': {
+                    'period_analyzed': instance['period_analyzed'],
+                    'current_date': instance['current_date'],
+                    'cutoff_logic_applied': instance['cutoff_logic'],
+                    'calculation_period': instance['calculation_period'],
+                    'methodology': 'Uses day 30 as cutoff: if current day < 30, uses previous month as last completed'
+                }
+            },
+            'message': f'Cash on Cash calculado exitosamente: {instance["user_cash_on_cash_percentage"]:.2f}%'
+        }
+        
+        # Agregar detalles por inversión si están disponibles
+        if 'investment_details' in instance:
+            response_data['data']['investment_breakdown'] = {
+                'individual_investments': instance['investment_details'],
+                'total_investments_analyzed': len(instance['investment_details']),
+                'investment_summary': {
+                    'highest_coc': max([inv['investment_cash_on_cash'] for inv in instance['investment_details']]) if instance['investment_details'] else 0,
+                    'lowest_coc': min([inv['investment_cash_on_cash'] for inv in instance['investment_details']]) if instance['investment_details'] else 0,
+                    'average_coc': sum([inv['investment_cash_on_cash'] for inv in instance['investment_details']]) / len(instance['investment_details']) if instance['investment_details'] else 0
+                }
+            }
+        
+        # Agregar metadata
+        response_data['data']['calculation_metadata'] = {
+            'calculation_date': instance['calculation_date'],
+            'calculated_by': instance.get('calculated_by'),
+            'formula_applied': 'Cash on Cash = (Distribuciones anuales / Costo inicial) × 100'
+        }
+        
+        return response_data
+    
+# ================================================
+# USER CURRENT VALUE
+# ================================================
+class UserCurrentValueSerializer(serializers.Serializer):
+    """
+    Serializer para calcular el valor actual de inversión de un usuario
+    
+    4.5) Valor actual del usuario = unidades del usuario × precio actual
+    """
+    
+    fund_id = serializers.IntegerField(required=True)
+    
+    def validate_fund_id(self, value):
+        """Validar que el fondo existe"""
+        try:
+            return Fund.objects.get(id=value)
+        except Fund.DoesNotExist:
+            raise serializers.ValidationError(f"El fondo con ID {value} no existe")
+    
+    def validate(self, attrs):
+        """Validaciones a nivel de serializer"""
+        request = self.context.get('request')
+        if not request or not request.user:
+            raise serializers.ValidationError("Usuario no autenticado")
+        
+        # Siempre usar el usuario autenticado
+        attrs['_user'] = request.user
+        attrs['_fund'] = attrs['fund_id']
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Calcular valor actual usando el servicio"""
+        fund = validated_data['_fund']
+        user = validated_data['_user']
+        
+        try:
+            calculation_service = FundCalculationService(fund)
+            result = calculation_service.calculate_user_current_value(user)
+            
+            if 'error' in result:
+                raise serializers.ValidationError(result['error'])
+            
+            return result
+            
+        except Exception as e:
+            raise serializers.ValidationError(f"Error calculando valor actual: {str(e)}")
+    
+    def to_representation(self, instance):
+        """Formatear la respuesta de salida"""
+        if isinstance(instance, dict) and 'error' not in instance:
+            return {
+                'success': True,
+                'data': {
+                    'user_info': {
+                        'user_id': instance.get('user_id'),
+                        'user_email': instance.get('user_email'),
+                    },
+                    'fund_info': {
+                        'fund_id': instance.get('fund_id'),
+                        'fund_name': instance.get('fund_name'),
+                        'current_price_per_unit': instance.get('current_price_per_unit'),
+                    },
+                    'value_metrics': {
+                        'total_user_units': instance.get('total_user_units'),
+                        'total_user_invested_amount': instance.get('total_user_invested_amount'),
+                        'user_current_value': instance.get('user_current_value'),
+                        'user_unrealized_gain_loss': instance.get('user_unrealized_gain_loss'),
+                        'user_return_percentage': instance.get('user_return_percentage'),
+                    },
+                    'investment_details': instance.get('investment_details', []),
+                    'calculation_date': instance.get('calculation_date')
+                }
+            }
+        return instance
+    
+# ================================================
+# USER SIMPLE TOTAL RETURN
+# ================================================    
+    
+class UserSimpleTotalReturnSerializer(serializers.Serializer):
+    """
+    Serializer para calcular el rendimiento total simple de un usuario
+    
+    4.6) Rendimiento total simple del usuario = ((valor actual + efectivo recibido) - Costo) / Costo
+    """
+    
+    fund_id = serializers.IntegerField(required=True)
+    user_id = serializers.IntegerField(required=False)
+    
+    def validate_fund_id(self, value):
+        """Validar que el fondo existe"""
+        try:
+            return Fund.objects.get(id=value)
+        except Fund.DoesNotExist:
+            raise serializers.ValidationError(f"El fondo con ID {value} no existe")
+    
+    def validate(self, attrs):
+        """Validaciones a nivel de serializer"""
+        request = self.context.get('request')
+        if not request or not request.user:
+            raise serializers.ValidationError("Usuario no autenticado")
+        
+        # Siempre usar el usuario autenticado
+        attrs['_user'] = request.user
+        attrs['_fund'] = attrs['fund_id']
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Calcular rendimiento total simple usando el servicio"""
+        fund = validated_data['_fund']
+        user = validated_data['_user']
+        
+        try:
+            calculation_service = FundCalculationService(fund)
+            result = calculation_service.calculate_user_simple_total_return(user)
+            
+            if 'error' in result:
+                raise serializers.ValidationError(result['error'])
+            
+            return result
+            
+        except Exception as e:
+            raise serializers.ValidationError(f"Error calculando rendimiento total simple: {str(e)}")
+    
+    def to_representation(self, instance):
+        """Formatear la respuesta de salida"""
+        if isinstance(instance, dict) and 'error' not in instance:
+            return {
+                'success': True,
+                'data': {
+                    'user_info': {
+                        'user_id': instance.get('user_id'),
+                        'user_email': instance.get('user_email'),
+                    },
+                    'fund_info': {
+                        'fund_id': instance.get('fund_id'),
+                        'fund_name': instance.get('fund_name'),
+                    },
+                    'return_metrics': {
+                        'user_simple_total_return_percentage': instance.get('user_simple_total_return_percentage'),
+                        'total_user_initial_cost': instance.get('total_user_initial_cost'),
+                        'total_user_current_value': instance.get('total_user_current_value'),
+                        'total_user_cash_received': instance.get('total_user_cash_received'),
+                        'user_total_value': instance.get('user_total_value'),
+                        'user_absolute_gain_loss': instance.get('user_absolute_gain_loss'),
+                    },
+                    'portfolio_summary': {
+                        'total_investments': instance.get('total_investments'),
+                        'investment_breakdown': instance.get('investment_breakdown', []),
+                    },
+                    'calculation_date': instance.get('calculation_date')
+                }
+            }
+        return instance    
+    
+    
+    

@@ -7,7 +7,12 @@ from rest_framework import generics
 from apps.fund.serializers.KPIs_serializers import (
     TokenValueChangeSerializer,
     FundDistributionsSummary12MSerializer,
-    YieldFromDistributionsSerializer
+    YieldFromDistributionsSerializer,
+    UserPriceChangeSerializer,
+    UserRent12mPerUnitSerializer,
+    UserCashOnCashSerializer,
+    UserCurrentValueSerializer,
+    UserSimpleTotalReturnSerializer
 )
 
 
@@ -111,6 +116,151 @@ def calculate_yield_from_distributions(request):
             'error': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)        
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def user_price_change(request):
+    serializer = UserPriceChangeSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        result = serializer.save()
+        
+        return Response(
+            serializer.to_representation(result),
+            status=status.HTTP_200_OK
+        )
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)          
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def user_rent_12m_per_unit(request):
+    serializer = UserRent12mPerUnitSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        result = serializer.save()
+        
+        return Response(
+            serializer.to_representation(result),
+            status=status.HTTP_200_OK
+        )
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)          
+        
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def user_cash_on_cash(request):
+    serializer = UserCashOnCashSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        result = serializer.save()
+        
+        return Response(
+            serializer.to_representation(result),
+            status=status.HTTP_200_OK
+        )
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)                 
+        
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def user_current_value(request):
+    """
+    Vista para calcular el valor actual de inversión de un usuario.
+    """
+    serializer = UserCurrentValueSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        result = serializer.save()
+        
+        return Response(
+            serializer.to_representation(result),
+            status=status.HTTP_200_OK
+        )
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)        
+        
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def user_simple_total_return(request):
+    """
+    Vista para calcular el valor actual de inversión de un usuario.
+    """
+    serializer = UserSimpleTotalReturnSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        result = serializer.save()
+        
+        return Response(
+            serializer.to_representation(result),
+            status=status.HTTP_200_OK
+        )
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)           
         
         
         

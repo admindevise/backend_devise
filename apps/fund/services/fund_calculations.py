@@ -1,7 +1,8 @@
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Dict
 from apps.fund.models.core import Fund
 from django.utils import timezone
+from django.db import models
 from datetime import timedelta
 
 class FundCalculationError(Exception):
@@ -353,11 +354,6 @@ class FundCalculationService:
             Decimal: Suma total de distribuciones del usuario en los últimos 12 meses
         """
         from apps.fund.models.distributions import InvestmentDistributionRecord
-        from django.db import models
-        from django.utils import timezone
-        from datetime import timedelta
-        from calendar import monthrange
-        
         # Validar que se proporcione un usuario
         if user is None:
             raise ValueError("El usuario es requerido para calcular distribuciones")
@@ -646,8 +642,27 @@ class FundCalculationService:
         from django.db.models import Sum
         
         try:
-            # Fecha límite (hace 12 meses)
-            twelve_months_ago = timezone.now() - timedelta(days=365)
+            # Obtener fecha actual
+            current_date = timezone.now()
+            
+            # ✅ NUEVA LÓGICA CORREGIDA: Determinar el último mes completamente finalizado
+            if current_date.day < 30:
+                # Estamos antes del día 30, usar el mes anterior como último finalizado
+                if current_date.month == 1:
+                    last_completed_year = current_date.year - 1
+                    last_completed_month = 12
+                else:
+                    last_completed_year = current_date.year
+                    last_completed_month = current_date.month - 1
+            else:
+                # Ya pasó el día 30, considerar el mes actual como terminado
+                last_completed_year = current_date.year
+                last_completed_month = current_date.month
+            
+            # ✅ CORREGIDO: Calcular exactamente 12 meses hacia atrás desde el último mes finalizado
+            # Si último mes finalizado es septiembre 2025 (mes 9), queremos desde septiembre 2024 (mes 9)
+            start_month = last_completed_month
+            start_year = last_completed_year - 1
             
             # Obtener inversiones del usuario
             user_investments = FundInvestment.objects.filter(
@@ -669,14 +684,30 @@ class FundCalculationService:
             
             for investment in user_investments:
                 units = investment.units_owned
-                
-                # Obtener distribuciones de los últimos 12 meses para esta inversión
+
+                # Filtrar por período usando los campos period_year y period_month del DistributionPeriod
                 distributions_12m = InvestmentDistributionRecord.objects.filter(
                     investment=investment,
-                    distribution_period__distribution_date__gte=twelve_months_ago.date(),
-                    payment_status=InvestmentDistributionRecord.PaymentStatus.PAID
+                    distribution_period__period_year__gte=start_year,
+                    distribution_period__period_year__lte=last_completed_year,
+                    #payment_status=InvestmentDistributionRecord.PaymentStatus.PAID
+                ).filter(
+                    # Filtro adicional para los meses específicos: desde start_month del start_year hasta last_completed_month del last_completed_year
+                    models.Q(
+                        models.Q(distribution_period__period_year__gt=start_year) |
+                        models.Q(
+                            distribution_period__period_year=start_year, 
+                            distribution_period__period_month__gte=start_month
+                        )
+                    ) & models.Q(
+                        models.Q(distribution_period__period_year__lt=last_completed_year) |
+                        models.Q(
+                            distribution_period__period_year=last_completed_year, 
+                            distribution_period__period_month__lte=last_completed_month
+                        )
+                    )
                 ).aggregate(
-                    total_received=Sum('net_distribution_amount')
+                    total_received=Sum('net_distribution_amount_cop')
                 )['total_received'] or Decimal('0.00')
                 
                 total_user_rent += distributions_12m
@@ -703,7 +734,9 @@ class FundCalculationService:
                 'user_rent_per_unit_12m': float(user_rent_per_unit),
                 'total_user_rent_12m': float(total_user_rent),
                 'total_user_units': total_user_units,
-                'period_analyzed': '12 months',
+                'period_analyzed': f'12 months (from {start_year}-{start_month:02d} to {last_completed_year}-{last_completed_month:02d})',
+                'current_date': current_date.strftime("%Y-%m-%d"),
+                'cutoff_logic': f'Using day {current_date.day} < 30: {"Yes" if current_date.day < 30 else "No"}',
                 'distribution_details': distribution_details,
                 'calculation_date': timezone.now().strftime("%Y-%m-%d %H:%M:%S")
             }
@@ -714,7 +747,7 @@ class FundCalculationService:
                 'user_rent_per_unit_12m': Decimal('0.00'),
                 'user_id': user.id
             }
-    
+
     def calculate_user_cash_on_cash(self, user) -> Dict[str, any]:
         """
         4.4) Cash on cash para un usuario específico
@@ -732,8 +765,24 @@ class FundCalculationService:
         from django.db.models import Sum
         
         try:
-            # Fecha límite (hace 12 meses)
-            twelve_months_ago = timezone.now() - timedelta(days=365)
+            # Obtener fecha actual y calcular período de 12 meses usando la lógica de "mes completado"
+            current_date = timezone.now()
+            
+            # Determinar el último mes completamente finalizado
+            if current_date.day < 30:
+                if current_date.month == 1:
+                    last_completed_year = current_date.year - 1
+                    last_completed_month = 12
+                else:
+                    last_completed_year = current_date.year
+                    last_completed_month = current_date.month - 1
+            else:
+                last_completed_year = current_date.year
+                last_completed_month = current_date.month
+            
+            # Calcular período de inicio (12 meses atrás)
+            start_month = last_completed_month
+            start_year = last_completed_year - 1
             
             user_investments = FundInvestment.objects.filter(
                 application__user=user,
@@ -755,13 +804,30 @@ class FundCalculationService:
             for investment in user_investments:
                 initial_cost = investment.final_invested_amount or Decimal('0.00')
                 
-                # Obtener distribuciones de los últimos 12 meses
+                # ✅ CORREGIDO: Usar filtro por período usando period_year y period_month
                 annual_distributions = InvestmentDistributionRecord.objects.filter(
                     investment=investment,
-                    distribution_period__distribution_date__gte=twelve_months_ago.date(),
-                    payment_status=InvestmentDistributionRecord.PaymentStatus.PAID
+                    distribution_period__period_year__gte=start_year,
+                    distribution_period__period_year__lte=last_completed_year,
+                    #payment_status=InvestmentDistributionRecord.PaymentStatus.PAID
+                ).filter(
+                    # Filtro adicional para los meses específicos
+                    models.Q(
+                        models.Q(distribution_period__period_year__gt=start_year) |
+                        models.Q(
+                            distribution_period__period_year=start_year, 
+                            distribution_period__period_month__gte=start_month
+                        )
+                    ) & models.Q(
+                        models.Q(distribution_period__period_year__lt=last_completed_year) |
+                        models.Q(
+                            distribution_period__period_year=last_completed_year, 
+                            distribution_period__period_month__lte=last_completed_month
+                        )
+                    )
                 ).aggregate(
-                    total_received=Sum('net_distribution_amount')
+                    # ✅ CORREGIDO: Usar el campo correcto net_distribution_amount_cop
+                    total_received=Sum('net_distribution_amount_cop')
                 )['total_received'] or Decimal('0.00')
                 
                 # Calcular Cash on Cash para esta inversión
@@ -795,7 +861,10 @@ class FundCalculationService:
                 'user_cash_on_cash_percentage': float(user_cash_on_cash),
                 'total_user_initial_investment': float(total_user_initial_cost),
                 'total_user_distributions_12m': float(total_user_distributions),
-                'calculation_period': '12 months',
+                'period_analyzed': f'12 months (from {start_year}-{start_month:02d} to {last_completed_year}-{last_completed_month:02d})',
+                'current_date': current_date.strftime("%Y-%m-%d"),
+                'cutoff_logic': f'Using day {current_date.day} < 30: {"Yes" if current_date.day < 30 else "No"}',
+                'calculation_period': '12 months (completed months only)',
                 'investment_details': investment_coc_details,
                 'calculation_date': timezone.now().strftime("%Y-%m-%d %H:%M:%S")
             }
@@ -806,7 +875,7 @@ class FundCalculationService:
                 'user_cash_on_cash': Decimal('0.00'),
                 'user_id': user.id
             }
-    
+
     def calculate_user_current_value(self, user) -> Dict[str, any]:
         """
         4.5) Valor actual del usuario = unidades del usuario × precio actual
@@ -839,7 +908,7 @@ class FundCalculationService:
                     'user_id': user.id
                 }
             
-            # Calcular totales del usuario
+            # Calcular totales del usuario usando el campo correcto
             user_totals = user_investments.aggregate(
                 total_units=Sum('units_owned'),
                 total_invested=Sum('final_invested_amount')
@@ -936,12 +1005,12 @@ class FundCalculationService:
                 # Valor actual de esta inversión
                 current_value = Decimal(str(units)) * current_price
                 
-                # Total efectivo recibido de esta inversión
+                # ✅ CORREGIDO: Total efectivo recibido usando el campo correcto
                 cash_received = InvestmentDistributionRecord.objects.filter(
                     investment=investment,
                     payment_status=InvestmentDistributionRecord.PaymentStatus.PAID
                 ).aggregate(
-                    total_received=Sum('net_distribution_amount')
+                    total_received=Sum('net_distribution_amount_cop')
                 )['total_received'] or Decimal('0.00')
                 
                 # Calcular rendimiento para esta inversión
