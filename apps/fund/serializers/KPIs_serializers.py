@@ -1037,15 +1037,24 @@ class UserCurrentValueSerializer(serializers.Serializer):
                         'user_return_percentage': instance.get('user_return_percentage'),
                     },
                     'investment_details': instance.get('investment_details', []),
-                    'calculation_date': instance.get('calculation_date')
-                }
+                    'calculation_metadata': {
+                        'calculation_date': instance.get('calculation_date'),
+                        'formula_applied': 'Unidades del usuario × Precio actual'
+                    }
+                },
+                'message': f'Valor actual calculado: ${instance.get("user_current_value", 0):,.2f} COP ({instance.get("total_user_units", 0)} unidades × ${instance.get("current_price_per_unit", 0):,.2f})'
             }
-        return instance
+        
+        # Manejar errores
+        return {
+            'success': False,
+            'error': instance.get('error', 'Error desconocido'),
+            'user_id': instance.get('user_id')
+        }
     
 # ================================================
 # USER SIMPLE TOTAL RETURN
 # ================================================    
-    
 class UserSimpleTotalReturnSerializer(serializers.Serializer):
     """
     Serializer para calcular el rendimiento total simple de un usuario
@@ -1118,10 +1127,441 @@ class UserSimpleTotalReturnSerializer(serializers.Serializer):
                         'total_investments': instance.get('total_investments'),
                         'investment_breakdown': instance.get('investment_breakdown', []),
                     },
-                    'calculation_date': instance.get('calculation_date')
-                }
+                    'calculation_metadata': {
+                        'calculation_date': instance.get('calculation_date'),
+                        'formula_applied': '((Valor actual + Efectivo recibido) - Costo) ÷ Costo × 100'
+                    }
+                },
+                'message': f'Rendimiento total simple calculado: {instance.get("user_simple_total_return_percentage", 0):.2f}% (Ganancia/Pérdida: ${instance.get("user_absolute_gain_loss", 0):,.2f} COP)'
             }
-        return instance    
+        
+        # Manejar errores
+        return {
+            'success': False,
+            'error': instance.get('error', 'Error desconocido'),
+            'user_id': instance.get('user_id')
+        }
+
+# ================================================
+# USER TOTAL PORTFOLIO - ALL FUNDS
+# ================================================
+class UserTotalPortfolioSerializer(serializers.Serializer):
+    """
+    Serializer para calcular el portafolio total del usuario sumando todas sus inversiones
+    activas en todos los fondos donde es miembro.
+    """
     
+    def validate(self, attrs):
+        """Validaciones a nivel de serializer"""
+        request = self.context.get('request')
+        if not request or not request.user:
+            raise serializers.ValidationError("Usuario no autenticado")
+        
+        # Siempre usar el usuario autenticado
+        attrs['_user'] = request.user
+        
+        return attrs
     
+    def create(self, validated_data):
+        """Calcular portafolio total usando el servicio"""
+        user = validated_data['_user']
+        
+        try:
+            # Usar cualquier fondo para el servicio (no importa cuál)
+            from apps.fund.models.core import Fund
+            any_fund = Fund.objects.first()
+            
+            if not any_fund:
+                raise serializers.ValidationError("No hay fondos disponibles en el sistema")
+            
+            calculation_service = FundCalculationService(any_fund)
+            result = calculation_service.calculate_user_total_portfolio(user)
+            
+            if 'error' in result:
+                raise serializers.ValidationError(result['error'])
+            
+            return result
+            
+        except Exception as e:
+            raise serializers.ValidationError(f"Error calculando portafolio total: {str(e)}")
+    
+    def to_representation(self, instance):
+        """Formatear la respuesta de salida"""
+        if isinstance(instance, dict) and 'error' not in instance:
+            return {
+                'success': True,
+                'data': {
+                    'user_info': {
+                        'user_id': instance.get('user_id'),
+                        'user_email': instance.get('user_email'),
+                    },
+                    'portfolio_summary': instance.get('portfolio_summary', {}),
+                    'diversification_metrics': instance.get('diversification_metrics', {}),
+                    'performance_analysis': instance.get('performance_analysis', {}),
+                    'fund_breakdown': instance.get('fund_breakdown', []),
+                },
+                'metadata': instance.get('calculation_metadata', {}),
+                'message': f'Portafolio calculado exitosamente: {instance.get("portfolio_summary", {}).get("total_funds", 0)} fondos, {instance.get("portfolio_summary", {}).get("total_investments", 0)} inversiones'
+            }
+        
+        # Manejar errores
+        return {
+            'success': False,
+            'error': instance.get('error', 'Error desconocido'),
+            'user_id': instance.get('user_id')
+        }
+    
+# ================================================
+# USER TOTAL DISTRIBUTIONS - ALL FUNDS (HISTORIC)
+# ================================================
+class UserTotalDistributionsAllFundsSerializer(serializers.Serializer):
+    """
+    Serializer para calcular la suma total de todas las distribuciones recibidas
+    por el usuario a través de todos los fondos (histórico completo).
+    """
+    
+    def validate(self, attrs):
+        """Validaciones a nivel de serializer"""
+        request = self.context.get('request')
+        if not request or not request.user:
+            raise serializers.ValidationError("Usuario no autenticado")
+        
+        # Siempre usar el usuario autenticado
+        attrs['_user'] = request.user
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Calcular distribuciones totales históricas usando el servicio"""
+        user = validated_data['_user']
+        
+        try:
+            # Usar cualquier fondo para el servicio (no importa cuál)
+            from apps.fund.models.core import Fund
+            any_fund = Fund.objects.first()
+            
+            if not any_fund:
+                raise serializers.ValidationError("No hay fondos disponibles en el sistema")
+            
+            calculation_service = FundCalculationService(any_fund)
+            result = calculation_service.calculate_user_total_distributions_all_funds(user)
+            
+            if 'error' in result:
+                raise serializers.ValidationError(result['error'])
+            
+            return result
+            
+        except Exception as e:
+            raise serializers.ValidationError(f"Error calculando distribuciones totales: {str(e)}")
+    
+    def to_representation(self, instance):
+        """Formatear la respuesta de salida"""
+        if isinstance(instance, dict) and 'error' not in instance:
+            return {
+                'success': True,
+                'data': {
+                    'user_info': {
+                        'user_id': instance.get('user_id'),
+                        'user_email': instance.get('user_email'),
+                    },
+                    'global_distributions_summary': instance.get('global_distributions_summary', {}),
+                    'fund_breakdown': instance.get('fund_breakdown', []),
+                },
+                'metadata': instance.get('calculation_metadata', {}),
+                'message': f'Distribuciones históricas calculadas: ${instance.get("global_distributions_summary", {}).get("total_distributions_all_time", 0):,.2f} COP en {instance.get("global_distributions_summary", {}).get("total_funds_with_distributions", 0)} fondos'
+            }
+        
+        # Manejar errores
+        return {
+            'success': False,
+            'error': instance.get('error', 'Error desconocido'),
+            'user_id': instance.get('user_id')
+        }    
+    
+# ================================================
+# USER TOTAL CASH RECEIVED - ALL FUNDS (HISTORIC)
+# ================================================
+class UserTotalCashReceivedAllFundsSerializer(serializers.Serializer):
+    """
+    Serializer para calcular el total de efectivo recibido por el usuario
+    a través de todos los fondos (histórico completo - solo PAID/VERIFIED).
+    """
+    
+    def validate(self, attrs):
+        """Validaciones a nivel de serializer"""
+        request = self.context.get('request')
+        if not request or not request.user:
+            raise serializers.ValidationError("Usuario no autenticado")
+        
+        # Siempre usar el usuario autenticado
+        attrs['_user'] = request.user
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Calcular efectivo total recibido usando el servicio"""
+        user = validated_data['_user']
+        
+        try:
+            # Usar cualquier fondo para el servicio (no importa cuál)
+            from apps.fund.models.core import Fund
+            any_fund = Fund.objects.first()
+            
+            if not any_fund:
+                raise serializers.ValidationError("No hay fondos disponibles en el sistema")
+            
+            calculation_service = FundCalculationService(any_fund)
+            result = calculation_service.calculate_user_total_cash_received_all_funds(user)
+            
+            if 'error' in result:
+                raise serializers.ValidationError(result['error'])
+            
+            return result
+            
+        except Exception as e:
+            raise serializers.ValidationError(f"Error calculando efectivo total recibido: {str(e)}")
+    
+    def to_representation(self, instance):
+        """Formatear la respuesta de salida"""
+        if isinstance(instance, dict) and 'error' not in instance:
+            return {
+                'success': True,
+                'data': {
+                    'user_info': {
+                        'user_id': instance.get('user_id'),
+                        'user_email': instance.get('user_email'),
+                    },
+                    'global_cash_summary': instance.get('global_cash_summary', {}),
+                    'fund_breakdown': instance.get('fund_breakdown', []),
+                },
+                'metadata': instance.get('calculation_metadata', {}),
+                'message': f'Efectivo recibido calculado: ${instance.get("global_cash_summary", {}).get("total_cash_received_all_time", 0):,.2f} COP en {instance.get("global_cash_summary", {}).get("total_funds_with_cash_received", 0)} fondos'
+            }
+        
+        # Manejar errores
+        return {
+            'success': False,
+            'error': instance.get('error', 'Error desconocido'),
+            'user_id': instance.get('user_id')
+        }    
+    
+    # ================================================
+
+# ================================================
+# USER TOTAL SIMPLE RETURN - ALL FUNDS
+# ================================================
+class UserTotalSimpleReturnAllFundsSerializer(serializers.Serializer):
+    """
+    Serializer para calcular el rendimiento total simple del usuario
+    a través de todos los fondos.
+    
+    Fórmula: (Valor actual + Efectivo recibido - Aportes) ÷ Aportes × 100
+    """
+    
+    def validate(self, attrs):
+        """Validaciones a nivel de serializer"""
+        request = self.context.get('request')
+        if not request or not request.user:
+            raise serializers.ValidationError("Usuario no autenticado")
+        
+        # Siempre usar el usuario autenticado
+        attrs['_user'] = request.user
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Calcular rendimiento total simple usando el servicio"""
+        user = validated_data['_user']
+        
+        try:
+            # Usar cualquier fondo para el servicio (no importa cuál)
+            from apps.fund.models.core import Fund
+            any_fund = Fund.objects.first()
+            
+            if not any_fund:
+                raise serializers.ValidationError("No hay fondos disponibles en el sistema")
+            
+            calculation_service = FundCalculationService(any_fund)
+            result = calculation_service.calculate_user_total_simple_return_all_funds(user)
+            
+            if 'error' in result:
+                raise serializers.ValidationError(result['error'])
+            
+            return result
+            
+        except Exception as e:
+            raise serializers.ValidationError(f"Error calculando rendimiento total simple: {str(e)}")
+    
+    def to_representation(self, instance):
+        """Formatear la respuesta de salida"""
+        if isinstance(instance, dict) and 'error' not in instance:
+            return {
+                'success': True,
+                'data': {
+                    'user_info': {
+                        'user_id': instance.get('user_id'),
+                        'user_email': instance.get('user_email'),
+                    },
+                    'rendimiento_total_simple': instance.get('rendimiento_total_simple', {}),
+                    'componentes_calculo': instance.get('componentes_calculo', {}),
+                    'analisis_contribucion': instance.get('analisis_contribucion', {}),
+                    'diversificacion_portafolio': instance.get('diversificacion_portafolio', {}),
+                    'rendimiento_por_fondo': instance.get('rendimiento_por_fondo', []),
+                },
+                'metadata': instance.get('calculation_metadata', {}),
+                'message': f'Rendimiento total simple calculado: {instance.get("rendimiento_total_simple", {}).get("rendimiento_total_simple_percentage", 0):.2f}% sobre {instance.get("diversificacion_portafolio", {}).get("total_fondos", 0)} fondos'
+            }
+        
+        # Manejar errores
+        return {
+            'success': False,
+            'error': instance.get('error', 'Error desconocido'),
+            'user_id': instance.get('user_id')
+        }
+    
+# ================================================
+# USER WEIGHTED AVERAGE RETURN - ALL FUNDS
+# ================================================
+class UserWeightedAverageReturnAllFundsSerializer(serializers.Serializer):
+    """
+    Serializer para calcular el promedio ponderado del rendimiento total simple
+    del usuario a través de todos los fondos.
+    
+    Fórmula: Promedio Ponderado = Σ(Rendimiento_Fondo × Peso_Fondo)
+    """
+    
+    def validate(self, attrs):
+        """Validaciones a nivel de serializer"""
+        request = self.context.get('request')
+        if not request or not request.user:
+            raise serializers.ValidationError("Usuario no autenticado")
+        
+        # Siempre usar el usuario autenticado
+        attrs['_user'] = request.user
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Calcular promedio ponderado de rendimiento usando el servicio"""
+        user = validated_data['_user']
+        
+        try:
+            # Usar cualquier fondo para el servicio (no importa cuál)
+            from apps.fund.models.core import Fund
+            any_fund = Fund.objects.first()
+            
+            if not any_fund:
+                raise serializers.ValidationError("No hay fondos disponibles en el sistema")
+            
+            calculation_service = FundCalculationService(any_fund)
+            result = calculation_service.calculate_user_weighted_average_return_all_funds(user)
+            
+            if 'error' in result:
+                raise serializers.ValidationError(result['error'])
+            
+            return result
+            
+        except Exception as e:
+            raise serializers.ValidationError(f"Error calculando promedio ponderado de rendimiento: {str(e)}")
+    
+    def to_representation(self, instance):
+        """Formatear la respuesta de salida"""
+        if isinstance(instance, dict) and 'error' not in instance:
+            return {
+                'success': True,
+                'data': {
+                    'user_info': {
+                        'user_id': instance.get('user_id'),
+                        'user_email': instance.get('user_email'),
+                    },
+                    'weighted_average_summary': instance.get('weighted_average_summary', {}),
+                    'portfolio_composition': instance.get('portfolio_composition', {}),
+                    'performance_breakdown': instance.get('performance_breakdown', {}),
+                    'fund_details': instance.get('fund_details', []),
+                },
+                'methodology': instance.get('calculation_methodology', {}),
+                'metadata': instance.get('calculation_metadata', {}),
+                'message': f'Promedio ponderado de rendimiento calculado: {instance.get("weighted_average_summary", {}).get("weighted_average_return_percentage", 0):.2f}% (vs {instance.get("weighted_average_summary", {}).get("simple_average_return_percentage", 0):.2f}% simple)'
+            }
+        
+        # Manejar errores
+        return {
+            'success': False,
+            'error': instance.get('error', 'Error desconocido'),
+            'user_id': instance.get('user_id')
+        }    
+    
+# ================================================
+# USER WEIGHTED AVERAGE CASH ON CASH - ALL FUNDS
+# ================================================
+class UserWeightedAverageCashOnCashAllFundsSerializer(serializers.Serializer):
+    """
+    Serializer para calcular el promedio ponderado de Cash on Cash del usuario
+    a través de todos los fondos (últimos 12 meses).
+    
+    Fórmula: Promedio Ponderado CoC = Σ(CoC_Fondo × Peso_Fondo)
+    """
+    
+    def validate(self, attrs):
+        """Validaciones a nivel de serializer"""
+        request = self.context.get('request')
+        if not request or not request.user:
+            raise serializers.ValidationError("Usuario no autenticado")
+        
+        # Siempre usar el usuario autenticado
+        attrs['_user'] = request.user
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Calcular promedio ponderado de CoC usando el servicio"""
+        user = validated_data['_user']
+        
+        try:
+            # Usar cualquier fondo para el servicio (no importa cuál)
+            from apps.fund.models.core import Fund
+            any_fund = Fund.objects.first()
+            
+            if not any_fund:
+                raise serializers.ValidationError("No hay fondos disponibles en el sistema")
+            
+            calculation_service = FundCalculationService(any_fund)
+            result = calculation_service.calculate_user_weighted_average_cash_on_cash_all_funds(user)
+            
+            if 'error' in result:
+                raise serializers.ValidationError(result['error'])
+            
+            return result
+            
+        except Exception as e:
+            raise serializers.ValidationError(f"Error calculando promedio ponderado de Cash on Cash: {str(e)}")
+    
+    def to_representation(self, instance):
+        """Formatear la respuesta de salida"""
+        if isinstance(instance, dict) and 'error' not in instance:
+            return {
+                'success': True,
+                'data': {
+                    'user_info': {
+                        'user_id': instance.get('user_id'),
+                        'user_email': instance.get('user_email'),
+                    },
+                    'weighted_average_coc_summary': instance.get('weighted_average_coc_summary', {}),
+                    'portfolio_composition': instance.get('portfolio_composition', {}),
+                    'performance_breakdown': instance.get('performance_breakdown', {}),
+                    'fund_details': instance.get('fund_details', []),
+                },
+                'methodology': instance.get('calculation_methodology', {}),
+                'metadata': instance.get('calculation_metadata', {}),
+                'message': f'Promedio ponderado CoC calculado: {instance.get("weighted_average_coc_summary", {}).get("weighted_average_coc_percentage", 0):.2f}% (vs {instance.get("weighted_average_coc_summary", {}).get("simple_average_coc_percentage", 0):.2f}% simple)'
+            }
+        
+        # Manejar errores
+        return {
+            'success': False,
+            'error': instance.get('error', 'Error desconocido'),
+            'user_id': instance.get('user_id')
+        }
+
+
     

@@ -500,9 +500,8 @@ class FundCalculationService:
         
 
     # ================================================
-    # PROMEDIO PONDERADO POR UNIDADES
+    # PROMEDIO PONDERADO POR UNIDADES - NIVEL FONDO
     # ================================================
-    
     def calculate_user_total_tokens_in_fund(self, user) -> int:
         """
         4.1) Σ (Tokens) - Total de tokens que posee un usuario específico en el fondo
@@ -1008,7 +1007,7 @@ class FundCalculationService:
                 # ✅ CORREGIDO: Total efectivo recibido usando el campo correcto
                 cash_received = InvestmentDistributionRecord.objects.filter(
                     investment=investment,
-                    payment_status=InvestmentDistributionRecord.PaymentStatus.PAID
+                    #payment_status=InvestmentDistributionRecord.PaymentStatus.PAID
                 ).aggregate(
                     total_received=Sum('net_distribution_amount_cop')
                 )['total_received'] or Decimal('0.00')
@@ -1065,39 +1064,1032 @@ class FundCalculationService:
                 'user_id': user.id
             }
     
-    def get_comprehensive_user_metrics(self, user) -> Dict[str, any]:
+
+    # ================================================
+    # PORTAFOLIO - TODOS LOS FONDOS
+    # ================================================
+    def calculate_user_total_portfolio(self, user) -> Dict[str, any]:
         """
-        Método consolidado que obtiene todas las métricas del usuario en el fondo
+        Calcula el portafolio total del usuario sumando todas sus inversiones activas
+        en todos los fondos donde es miembro.
         
         Args:
-            user: Usuario del cual obtener métricas
+            user: Usuario del cual calcular el portafolio total
             
         Returns:
-            dict: Todas las métricas calculadas del usuario
+            dict: Información completa del portafolio del usuario
         """
+        from apps.fund.models.membership import FundInvestment
+        from apps.fund.models.core import Fund
+        from django.db.models import Sum, Count
+        
         try:
-            return {
-                'user_basic_info': {
+            # Obtener todas las inversiones activas del usuario en todos los fondos
+            all_user_investments = FundInvestment.objects.select_related(
+                'application__fund', 'application__user'
+            ).filter(
+                application__user=user,
+                investment_status=FundInvestment.InvestmentStatus.ACTIVE
+            )
+            
+            if not all_user_investments.exists():
+                return {
+                    'error': f'Usuario {user.email} no tiene inversiones activas en ningún fondo',
                     'user_id': user.id,
-                    'user_email': user.email,
-                    'fund_id': self.fund.id,
-                    'fund_name': self.fund.name,
-                    'current_price_per_unit': float(self.fund.price_per_unit)
+                    'total_portfolio_value': Decimal('0.00'),
+                    'total_invested_amount': Decimal('0.00')
+                }
+            
+            # Variables para totales del portafolio
+            total_invested_amount = Decimal('0.00')
+            total_current_value = Decimal('0.00')
+            total_unrealized_gain_loss = Decimal('0.00')
+            total_units_owned = 0
+            
+            # Agrupar por fondo
+            fund_details = {}
+            fund_summaries = []
+            
+            for investment in all_user_investments:
+                fund = investment.application.fund
+                fund_id = fund.id
+                
+                # Inicializar datos del fondo si no existe
+                if fund_id not in fund_details:
+                    fund_details[fund_id] = {
+                        'fund_id': fund_id,
+                        'fund_name': fund.name,
+                        'fund_current_price': float(fund.price_per_unit),
+                        'investments': [],
+                        'fund_totals': {
+                            'total_invested': Decimal('0.00'),
+                            'total_current_value': Decimal('0.00'),
+                            'total_units': 0,
+                            'total_investments': 0
+                        }
+                    }
+                
+                # Calcular valores para esta inversión
+                investment_cost = investment.final_invested_amount or Decimal('0.00')
+                units = investment.units_owned
+                current_price = fund.price_per_unit
+                investment_current_value = Decimal(str(units)) * current_price
+                investment_gain_loss = investment_current_value - investment_cost
+                
+                # Agregar a totales generales
+                total_invested_amount += investment_cost
+                total_current_value += investment_current_value
+                total_unrealized_gain_loss += investment_gain_loss
+                total_units_owned += units
+                
+                # Agregar a totales del fondo
+                fund_details[fund_id]['fund_totals']['total_invested'] += investment_cost
+                fund_details[fund_id]['fund_totals']['total_current_value'] += investment_current_value
+                fund_details[fund_id]['fund_totals']['total_units'] += units
+                fund_details[fund_id]['fund_totals']['total_investments'] += 1
+                
+                # Detalles de la inversión
+                investment_detail = {
+                    'investment_id': investment.id,
+                    'units_owned': units,
+                    'invested_amount': float(investment_cost),
+                    'purchase_price_per_unit': float(investment.purchase_price_per_unit),
+                    'current_price_per_unit': float(current_price),
+                    'current_value': float(investment_current_value),
+                    'unrealized_gain_loss': float(investment_gain_loss),
+                    'return_percentage': float((investment_gain_loss / investment_cost) * 100) if investment_cost > 0 else 0,
+                    'investment_date': investment.created_at.strftime("%Y-%m-%d") if investment.created_at else None,
+                    'tkn_cost': float(investment.tkn_cost) if investment.tkn_cost else float(investment.purchase_price_per_unit)
+                }
+                
+                fund_details[fund_id]['investments'].append(investment_detail)
+            
+            # Crear resúmenes por fondo
+            for fund_id, fund_data in fund_details.items():
+                fund_totals = fund_data['fund_totals']
+                fund_return_percentage = 0
+                
+                if fund_totals['total_invested'] > 0:
+                    fund_gain_loss = fund_totals['total_current_value'] - fund_totals['total_invested']
+                    fund_return_percentage = float((fund_gain_loss / fund_totals['total_invested']) * 100)
+                
+                # Calcular peso del fondo en el portafolio
+                fund_weight = float((fund_totals['total_invested'] / total_invested_amount) * 100) if total_invested_amount > 0 else 0
+                
+                fund_summary = {
+                    'fund_id': fund_data['fund_id'],
+                    'fund_name': fund_data['fund_name'],
+                    'fund_current_price': fund_data['fund_current_price'],
+                    'total_invested_in_fund': float(fund_totals['total_invested']),
+                    'total_current_value_in_fund': float(fund_totals['total_current_value']),
+                    'total_units_in_fund': fund_totals['total_units'],
+                    'total_investments_in_fund': fund_totals['total_investments'],
+                    'fund_unrealized_gain_loss': float(fund_totals['total_current_value'] - fund_totals['total_invested']),
+                    'fund_return_percentage': fund_return_percentage,
+                    'fund_weight_in_portfolio': fund_weight,
+                    'investments_detail': fund_data['investments']
+                }
+                
+                fund_summaries.append(fund_summary)
+            
+            # Calcular estadísticas del portafolio
+            portfolio_return_percentage = float((total_unrealized_gain_loss / total_invested_amount) * 100) if total_invested_amount > 0 else 0
+            
+            # Estadísticas adicionales
+            best_performing_fund = max(fund_summaries, key=lambda x: x['fund_return_percentage']) if fund_summaries else None
+            worst_performing_fund = min(fund_summaries, key=lambda x: x['fund_return_percentage']) if fund_summaries else None
+            
+            # Diversificación (distribución entre fondos)
+            diversification_score = len(fund_summaries)  # Número de fondos diferentes
+            largest_fund_weight = max([fund['fund_weight_in_portfolio'] for fund in fund_summaries]) if fund_summaries else 0
+            
+            return {
+                'user_id': user.id,
+                'user_email': user.email,
+                'portfolio_summary': {
+                    'total_invested_amount': float(total_invested_amount),
+                    'total_current_value': float(total_current_value),
+                    'total_unrealized_gain_loss': float(total_unrealized_gain_loss),
+                    'portfolio_return_percentage': portfolio_return_percentage,
+                    'total_units_owned': total_units_owned,
+                    'total_funds': len(fund_summaries),
+                    'total_investments': all_user_investments.count()
                 },
-                'user_token_metrics': {
-                    'total_user_tokens': self.calculate_user_total_tokens_in_fund(user)
+                'diversification_metrics': {
+                    'number_of_funds': diversification_score,
+                    'largest_fund_allocation_percentage': largest_fund_weight,
+                    'is_well_diversified': largest_fund_weight < 50 and diversification_score >= 3  # Criterio básico
                 },
-                'user_price_metrics': self.calculate_user_price_change(user),
-                'user_distribution_metrics': {
-                    'user_rent_12m': self.calculate_user_rent_12m_per_unit(user),
-                    'user_cash_on_cash': self.calculate_user_cash_on_cash(user)
+                'performance_analysis': {
+                    'best_performing_fund': {
+                        'fund_name': best_performing_fund['fund_name'],
+                        'return_percentage': best_performing_fund['fund_return_percentage']
+                    } if best_performing_fund else None,
+                    'worst_performing_fund': {
+                        'fund_name': worst_performing_fund['fund_name'],
+                        'return_percentage': worst_performing_fund['fund_return_percentage']
+                    } if worst_performing_fund else None,
+                    'positive_return_funds': len([f for f in fund_summaries if f['fund_return_percentage'] > 0]),
+                    'negative_return_funds': len([f for f in fund_summaries if f['fund_return_percentage'] < 0])
                 },
-                'user_value_metrics': self.calculate_user_current_value(user),
-                'user_return_metrics': self.calculate_user_simple_total_return(user),
-                'calculation_timestamp': timezone.now().strftime("%Y-%m-%d %H:%M:%S")
+                'fund_breakdown': fund_summaries,
+                'calculation_metadata': {
+                    'calculation_date': timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'analysis_scope': 'All active investments across all funds',
+                    'currency': 'COP'
+                }
             }
             
         except Exception as e:
-            raise FundCalculationError(f"Error calculando métricas comprehensivas para usuario {user.email}: {str(e)}")
+            return {
+                'error': f'Error calculando portafolio total para usuario {user.email}: {str(e)}',
+                'user_id': user.id,
+                'total_portfolio_value': Decimal('0.00'),
+                'total_invested_amount': Decimal('0.00')
+            }
+
+    def calculate_user_total_distributions_all_funds(self, user) -> Dict[str, any]:
+        """
+        Calcula la suma total de todas las distribuciones recibidas por el usuario
+        a través de todas sus inversiones en todos los fondos (histórico completo).
         
+        Args:
+            user: Usuario del cual calcular las distribuciones totales
+            
+        Returns:
+            dict: Información completa de distribuciones del usuario en todos los fondos
+        """
+        from apps.fund.models.membership import FundInvestment
+        from apps.fund.models.distributions import InvestmentDistributionRecord
+        from django.db.models import Sum, Count
         
+        try:
+            # Obtener todas las inversiones del usuario en todos los fondos
+            all_user_investments = FundInvestment.objects.select_related(
+                'application__fund', 'application__user'
+            ).filter(
+                application__user=user,
+                investment_status=FundInvestment.InvestmentStatus.ACTIVE
+            )
+            
+            if not all_user_investments.exists():
+                return {
+                    'error': f'Usuario {user.email} no tiene inversiones activas en ningún fondo',
+                    'user_id': user.id,
+                    'total_distributions_all_time': Decimal('0.00')
+                }
+            
+            # Obtener todas las distribuciones del usuario (histórico completo)
+            all_distributions = InvestmentDistributionRecord.objects.select_related(
+                'distribution_period', 'investment__application__fund'
+            ).filter(
+                investment__in=all_user_investments,
+                #payment_status__in=[
+                #    InvestmentDistributionRecord.PaymentStatus.PAID,
+                #    InvestmentDistributionRecord.PaymentStatus.VERIFIED,
+                #    InvestmentDistributionRecord.PaymentStatus.PROCESSING
+                #]
+            )
+            
+            # Agrupar distribuciones por fondo
+            fund_distributions = {}
+            total_distributions_all_time = Decimal('0.00')
+            
+            for distribution in all_distributions:
+                fund = distribution.investment.application.fund
+                fund_id = fund.id
+                amount = distribution.net_distribution_amount_cop or Decimal('0.00')
+                
+                if fund_id not in fund_distributions:
+                    fund_distributions[fund_id] = {
+                        'fund_name': fund.name,
+                        'fund_id': fund_id,
+                        'total_distributions': Decimal('0.00'),
+                        'distribution_count': 0,
+                        'first_distribution_date': None,
+                        'last_distribution_date': None,
+                        'distributions_detail': []
+                    }
+                
+                fund_distributions[fund_id]['total_distributions'] += amount
+                fund_distributions[fund_id]['distribution_count'] += 1
+                
+                # Rastrear fechas de primera y última distribución
+                payment_date = distribution.payment_date or distribution.created_at.date()
+                if fund_distributions[fund_id]['first_distribution_date'] is None or payment_date < fund_distributions[fund_id]['first_distribution_date']:
+                    fund_distributions[fund_id]['first_distribution_date'] = payment_date
+                if fund_distributions[fund_id]['last_distribution_date'] is None or payment_date > fund_distributions[fund_id]['last_distribution_date']:
+                    fund_distributions[fund_id]['last_distribution_date'] = payment_date
+                
+                fund_distributions[fund_id]['distributions_detail'].append({
+                    'distribution_id': distribution.id,
+                    'investment_id': distribution.investment.id,
+                    'amount': float(amount),
+                    'period_display': distribution.distribution_period.period_display,
+                    'payment_date': payment_date.strftime("%Y-%m-%d"),
+                    'payment_status': distribution.get_payment_status_display(),
+                    'period_year': distribution.distribution_period.period_year,
+                    'period_month': distribution.distribution_period.period_month
+                })
+                
+                total_distributions_all_time += amount
+            
+            # Convertir a lista para respuesta y calcular estadísticas
+            fund_breakdown = []
+            total_distribution_records = 0
+            oldest_distribution_date = None
+            newest_distribution_date = None
+            
+            for fund_id, fund_data in fund_distributions.items():
+                total_distribution_records += fund_data['distribution_count']
+                
+                # Rastrear fechas globales
+                if oldest_distribution_date is None or fund_data['first_distribution_date'] < oldest_distribution_date:
+                    oldest_distribution_date = fund_data['first_distribution_date']
+                if newest_distribution_date is None or fund_data['last_distribution_date'] > newest_distribution_date:
+                    newest_distribution_date = fund_data['last_distribution_date']
+                
+                fund_breakdown.append({
+                    'fund_id': fund_data['fund_id'],
+                    'fund_name': fund_data['fund_name'],
+                    'total_distributions_from_fund': float(fund_data['total_distributions']),
+                    'distribution_count': fund_data['distribution_count'],
+                    'percentage_of_total': float((fund_data['total_distributions'] / total_distributions_all_time) * 100) if total_distributions_all_time > 0 else 0,
+                    'first_distribution_date': fund_data['first_distribution_date'].strftime("%Y-%m-%d") if fund_data['first_distribution_date'] else None,
+                    'last_distribution_date': fund_data['last_distribution_date'].strftime("%Y-%m-%d") if fund_data['last_distribution_date'] else None,
+                    'distributions_detail': fund_data['distributions_detail']
+                })
+            
+            # Calcular estadísticas adicionales
+            average_distribution_per_fund = total_distributions_all_time / len(fund_distributions) if fund_distributions else Decimal('0.00')
+            average_distribution_per_record = total_distributions_all_time / total_distribution_records if total_distribution_records > 0 else Decimal('0.00')
+            
+            return {
+                'user_id': user.id,
+                'user_email': user.email,
+                'global_distributions_summary': {
+                    'total_distributions_all_time': float(total_distributions_all_time),
+                    'total_funds_with_distributions': len(fund_distributions),
+                    'total_distribution_records': total_distribution_records,
+                    'average_distribution_per_fund': float(average_distribution_per_fund),
+                    'average_distribution_per_record': float(average_distribution_per_record),
+                    'oldest_distribution_date': oldest_distribution_date.strftime("%Y-%m-%d") if oldest_distribution_date else None,
+                    'newest_distribution_date': newest_distribution_date.strftime("%Y-%m-%d") if newest_distribution_date else None,
+                    'distribution_period_span_days': (newest_distribution_date - oldest_distribution_date).days if oldest_distribution_date and newest_distribution_date else 0
+                },
+                'fund_breakdown': fund_breakdown,
+                'calculation_metadata': {
+                    'calculation_date': timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'analysis_scope': 'All distributions across all funds (complete history)',
+                    'currency': 'COP',
+                    'status_filter': 'PAID, VERIFIED, PROCESSING'
+                }
+            }
+            
+        except Exception as e:
+            return {
+                'error': f'Error calculando distribuciones totales para usuario {user.email}: {str(e)}',
+                'user_id': user.id,
+                'total_distributions_all_time': Decimal('0.00')
+            }        
+        
+    def calculate_user_total_cash_received_all_funds(self, user) -> Dict[str, any]:
+        """
+        Calcula el total de efectivo recibido por el usuario a través de todas sus inversiones
+        en todos los fondos (distribuciones históricas completas).
+        
+        Args:
+            user: Usuario del cual calcular el efectivo recibido
+            
+        Returns:
+            dict: Información completa del efectivo recibido del usuario en todos los fondos
+        """
+        from apps.fund.models.membership import FundInvestment
+        from apps.fund.models.distributions import InvestmentDistributionRecord
+        from django.db.models import Sum, Count
+        
+        try:
+            # Obtener todas las inversiones del usuario en todos los fondos
+            all_user_investments = FundInvestment.objects.select_related(
+                'application__fund', 'application__user'
+            ).filter(
+                application__user=user,
+                investment_status=FundInvestment.InvestmentStatus.ACTIVE
+            )
+            
+            if not all_user_investments.exists():
+                return {
+                    'error': f'Usuario {user.email} no tiene inversiones activas en ningún fondo',
+                    'user_id': user.id,
+                    'total_cash_received_all_time': Decimal('0.00')
+                }
+            
+            # Obtener todas las distribuciones pagadas del usuario (efectivo real recibido)
+            all_cash_distributions = InvestmentDistributionRecord.objects.select_related(
+                'distribution_period', 'investment__application__fund'
+            ).filter(
+                investment__in=all_user_investments,
+                #payment_status__in=[
+                #    InvestmentDistributionRecord.PaymentStatus.PAID,
+                #    InvestmentDistributionRecord.PaymentStatus.VERIFIED
+                #]  # Solo efectivo realmente recibido
+            )
+            
+            # Agrupar efectivo por fondo
+            fund_cash_received = {}
+            total_cash_received_all_time = Decimal('0.00')
+            
+            for distribution in all_cash_distributions:
+                fund = distribution.investment.application.fund
+                fund_id = fund.id
+                amount = distribution.net_distribution_amount_cop or Decimal('0.00')
+                
+                if fund_id not in fund_cash_received:
+                    fund_cash_received[fund_id] = {
+                        'fund_name': fund.name,
+                        'fund_id': fund_id,
+                        'total_cash_received': Decimal('0.00'),
+                        'cash_payments_count': 0,
+                        'first_payment_date': None,
+                        'last_payment_date': None,
+                        'cash_payments_detail': []
+                    }
+                
+                fund_cash_received[fund_id]['total_cash_received'] += amount
+                fund_cash_received[fund_id]['cash_payments_count'] += 1
+                
+                # Rastrear fechas de primer y último pago
+                payment_date = distribution.payment_date or distribution.created_at.date()
+                if fund_cash_received[fund_id]['first_payment_date'] is None or payment_date < fund_cash_received[fund_id]['first_payment_date']:
+                    fund_cash_received[fund_id]['first_payment_date'] = payment_date
+                if fund_cash_received[fund_id]['last_payment_date'] is None or payment_date > fund_cash_received[fund_id]['last_payment_date']:
+                    fund_cash_received[fund_id]['last_payment_date'] = payment_date
+                
+                fund_cash_received[fund_id]['cash_payments_detail'].append({
+                    'distribution_id': distribution.id,
+                    'investment_id': distribution.investment.id,
+                    'cash_amount': float(amount),
+                    'period_display': distribution.distribution_period.period_display,
+                    'payment_date': payment_date.strftime("%Y-%m-%d"),
+                    'payment_status': distribution.get_payment_status_display(),
+                    'period_year': distribution.distribution_period.period_year,
+                    'period_month': distribution.distribution_period.period_month
+                })
+                
+                total_cash_received_all_time += amount
+            
+            # Convertir a lista para respuesta y calcular estadísticas
+            fund_breakdown = []
+            total_cash_payments = 0
+            oldest_payment_date = None
+            newest_payment_date = None
+            
+            for fund_id, fund_data in fund_cash_received.items():
+                total_cash_payments += fund_data['cash_payments_count']
+                
+                # Rastrear fechas globales
+                if oldest_payment_date is None or fund_data['first_payment_date'] < oldest_payment_date:
+                    oldest_payment_date = fund_data['first_payment_date']
+                if newest_payment_date is None or fund_data['last_payment_date'] > newest_payment_date:
+                    newest_payment_date = fund_data['last_payment_date']
+                
+                fund_breakdown.append({
+                    'fund_id': fund_data['fund_id'],
+                    'fund_name': fund_data['fund_name'],
+                    'total_cash_received_from_fund': float(fund_data['total_cash_received']),
+                    'cash_payments_count': fund_data['cash_payments_count'],
+                    'percentage_of_total': float((fund_data['total_cash_received'] / total_cash_received_all_time) * 100) if total_cash_received_all_time > 0 else 0,
+                    'first_payment_date': fund_data['first_payment_date'].strftime("%Y-%m-%d") if fund_data['first_payment_date'] else None,
+                    'last_payment_date': fund_data['last_payment_date'].strftime("%Y-%m-%d") if fund_data['last_payment_date'] else None,
+                    'cash_payments_detail': fund_data['cash_payments_detail']
+                })
+            
+            # Calcular estadísticas adicionales
+            average_cash_per_fund = total_cash_received_all_time / len(fund_cash_received) if fund_cash_received else Decimal('0.00')
+            average_cash_per_payment = total_cash_received_all_time / total_cash_payments if total_cash_payments > 0 else Decimal('0.00')
+            
+            return {
+                'user_id': user.id,
+                'user_email': user.email,
+                'global_cash_summary': {
+                    'total_cash_received_all_time': float(total_cash_received_all_time),
+                    'total_funds_with_cash_received': len(fund_cash_received),
+                    'total_cash_payment_records': total_cash_payments,
+                    'average_cash_per_fund': float(average_cash_per_fund),
+                    'average_cash_per_payment': float(average_cash_per_payment),
+                    'oldest_payment_date': oldest_payment_date.strftime("%Y-%m-%d") if oldest_payment_date else None,
+                    'newest_payment_date': newest_payment_date.strftime("%Y-%m-%d") if newest_payment_date else None,
+                    'cash_receiving_period_span_days': (newest_payment_date - oldest_payment_date).days if oldest_payment_date and newest_payment_date else 0
+                },
+                'fund_breakdown': fund_breakdown,
+                'calculation_metadata': {
+                    'calculation_date': timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'analysis_scope': 'All cash received across all funds (complete history)',
+                    'currency': 'COP',
+                    'status_filter': 'PAID, VERIFIED (actual cash received)',
+                    'calculation_basis': 'Only payments actually received by user'
+                }
+            }
+            
+        except Exception as e:
+            return {
+                'error': f'Error calculando efectivo total recibido para usuario {user.email}: {str(e)}',
+                'user_id': user.id,
+                'total_cash_received_all_time': Decimal('0.00')
+            }    
+        
+    def calculate_user_total_simple_return_all_funds(self, user) -> Dict[str, any]:
+        """
+        Calcula el rendimiento total simple del usuario a través de todos los fondos.
+        
+        Fórmula: Rendimiento total simple = (Valor actual + Efectivo recibido - Aportes) ÷ Aportes × 100
+        
+        Donde:
+        - Valor actual = suma de todas las inversiones a precio actual
+        - Efectivo recibido = distribuciones realmente pagadas (histórico completo)
+        - Aportes = suma de todos los montos invertidos
+        
+        Args:
+            user: Usuario del cual calcular el rendimiento total simple
+            
+        Returns:
+            dict: Información completa del rendimiento total simple del usuario
+        """
+        try:
+            # 1. Obtener valor actual del portafolio (todas las inversiones)
+            portfolio_data = self.calculate_user_total_portfolio(user)
+            
+            if 'error' in portfolio_data:
+                return portfolio_data
+            
+            # 2. Obtener efectivo recibido (distribuciones históricas pagadas)
+            cash_data = self.calculate_user_total_cash_received_all_funds(user)
+            
+            if 'error' in cash_data:
+                cash_data = {
+                    'global_cash_summary': {
+                        'total_cash_received_all_time': 0.0
+                    }
+                }
+            
+            # 3. Obtener aportes totales (distribuciones históricas - todas)
+            distributions_data = self.calculate_user_total_distributions_all_funds(user)
+            
+            if 'error' in distributions_data:
+                distributions_data = {
+                    'global_distributions_summary': {
+                        'total_distributions_all_time': 0.0
+                    }
+                }
+            
+            # 4. Extraer valores clave
+            valor_actual = portfolio_data['portfolio_summary']['total_current_value']
+            efectivo_recibido = cash_data['global_cash_summary']['total_cash_received_all_time']
+            aportes_totales = distributions_data['global_distributions_summary']['total_distributions_all_time']
+            total_invertido = portfolio_data['portfolio_summary']['total_invested_amount']
+            
+            # 5. Calcular rendimiento total simple
+            if aportes_totales > 0:
+                # Fórmula: (Valor actual + Efectivo recibido - Aportes) ÷ Aportes × 100
+                numerador = valor_actual + efectivo_recibido - aportes_totales
+                rendimiento_total_simple = (numerador / aportes_totales) * 100
+            else:
+                # Si no hay aportes, usar la inversión inicial como base
+                if total_invertido > 0:
+                    numerador = valor_actual + efectivo_recibido - total_invertido
+                    rendimiento_total_simple = (numerador / total_invertido) * 100
+                else:
+                    rendimiento_total_simple = 0.0
+            
+            # 6. Calcular métricas adicionales
+            valor_total_portafolio = valor_actual + efectivo_recibido
+            ganancia_perdida_absoluta = valor_total_portafolio - total_invertido
+            
+            # Desglose por componentes
+            if total_invertido > 0:
+                contribucion_valor_actual = (valor_actual / total_invertido) * 100
+                contribucion_efectivo = (efectivo_recibido / total_invertido) * 100
+                retorno_total = contribucion_valor_actual + contribucion_efectivo - 100  # -100 porque incluye la inversión inicial
+            else:
+                contribucion_valor_actual = 0
+                contribucion_efectivo = 0
+                retorno_total = 0
+            
+            return {
+                'user_id': user.id,
+                'user_email': user.email,
+                'rendimiento_total_simple': {
+                    'rendimiento_total_simple_percentage': float(rendimiento_total_simple),
+                    'ganancia_perdida_absoluta': float(ganancia_perdida_absoluta),
+                    'valor_total_portafolio': float(valor_total_portafolio)
+                },
+                'componentes_calculo': {
+                    'valor_actual_inversiones': float(valor_actual),
+                    'efectivo_recibido_historico': float(efectivo_recibido),
+                    'aportes_totales_distribuciones': float(aportes_totales),
+                    'total_invertido_inicial': float(total_invertido),
+                    'base_calculo_utilizada': 'aportes_distribuciones' if aportes_totales > 0 else 'inversion_inicial'
+                },
+                'analisis_contribucion': {
+                    'contribucion_valor_actual_percentage': float(contribucion_valor_actual),
+                    'contribucion_efectivo_percentage': float(contribucion_efectivo),
+                    'retorno_total_percentage': float(retorno_total),
+                    'ratio_efectivo_vs_valor': float(efectivo_recibido / valor_actual) if valor_actual > 0 else 0
+                },
+                'diversificacion_portafolio': {
+                    'total_fondos': portfolio_data['portfolio_summary']['total_funds'],
+                    'total_inversiones': portfolio_data['portfolio_summary']['total_investments'],
+                    'fondos_con_efectivo_recibido': cash_data['global_cash_summary']['total_funds_with_cash_received'],
+                    'fondos_con_distribuciones': distributions_data['global_distributions_summary']['total_funds_with_distributions']
+                },
+                'rendimiento_por_fondo': self._calculate_return_by_fund(
+                    portfolio_data['fund_breakdown'],
+                    cash_data.get('fund_breakdown', []),
+                    distributions_data.get('fund_breakdown', [])
+                ),
+                'calculation_metadata': {
+                    'calculation_date': timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'formula_applied': '(Valor actual + Efectivo recibido - Aportes) ÷ Aportes × 100',
+                    'analysis_scope': 'All funds, complete history',
+                    'currency': 'COP',
+                    'data_sources': {
+                        'valor_actual': 'Current portfolio value (all active investments)',
+                        'efectivo_recibido': 'Historical cash distributions (PAID/VERIFIED)',
+                        'aportes': 'Historical total distributions (PAID/VERIFIED/PROCESSING)'
+                    }
+                }
+            }
+            
+        except Exception as e:
+            return {
+                'error': f'Error calculando rendimiento total simple para usuario {user.email}: {str(e)}',
+                'user_id': user.id,
+                'rendimiento_total_simple_percentage': 0.0
+            }
+
+    def _calculate_return_by_fund(self, portfolio_funds, cash_funds, distribution_funds) -> list:
+        """
+        Método auxiliar para calcular rendimiento por fondo individual.
+        
+        Args:
+            portfolio_funds: Lista de fondos del portafolio
+            cash_funds: Lista de fondos con efectivo recibido
+            distribution_funds: Lista de fondos con distribuciones
+            
+        Returns:
+            list: Rendimiento detallado por fondo
+        """
+        fund_returns = []
+        
+        # Crear diccionarios para lookup rápido
+        cash_by_fund = {fund['fund_id']: fund for fund in cash_funds}
+        distributions_by_fund = {fund['fund_id']: fund for fund in distribution_funds}
+        
+        for fund_portfolio in portfolio_funds:
+            fund_id = fund_portfolio['fund_id']
+            
+            # Obtener datos del fondo
+            valor_actual_fondo = fund_portfolio['total_current_value_in_fund']
+            invertido_fondo = fund_portfolio['total_invested_in_fund']
+            
+            efectivo_fondo = cash_by_fund.get(fund_id, {}).get('total_cash_received_from_fund', 0.0)
+            aportes_fondo = distributions_by_fund.get(fund_id, {}).get('total_distributions_from_fund', 0.0)
+            
+            # Calcular rendimiento del fondo
+            if aportes_fondo > 0:
+                rendimiento_fondo = ((valor_actual_fondo + efectivo_fondo - aportes_fondo) / aportes_fondo) * 100
+            elif invertido_fondo > 0:
+                rendimiento_fondo = ((valor_actual_fondo + efectivo_fondo - invertido_fondo) / invertido_fondo) * 100
+            else:
+                rendimiento_fondo = 0.0
+            
+            fund_returns.append({
+                'fund_id': fund_id,
+                'fund_name': fund_portfolio['fund_name'],
+                'valor_actual': valor_actual_fondo,
+                'efectivo_recibido': efectivo_fondo,
+                'aportes_distribuciones': aportes_fondo,
+                'total_invertido': invertido_fondo,
+                'rendimiento_simple_percentage': float(rendimiento_fondo),
+                'peso_en_portafolio': fund_portfolio['fund_weight_in_portfolio']
+            })
+        
+        return fund_returns    
+    
+    def calculate_user_weighted_average_return_all_funds(self, user) -> Dict[str, any]:
+        """
+        Calcula el promedio ponderado del rendimiento total simple del usuario 
+        a través de todos los fondos donde tiene inversiones.
+        
+        Fórmula: Promedio Ponderado = Σ(Rendimiento_Fondo × Peso_Fondo)
+        
+        Donde:
+        - Peso_Fondo = Monto invertido en fondo / Total invertido
+        - Rendimiento_Fondo = ((Valor actual + Efectivo - Aportes) / Aportes) × 100
+        
+        Args:
+            user: Usuario del cual calcular el promedio ponderado
+            
+        Returns:
+            dict: Información completa del promedio ponderado de rendimiento
+        """
+        try:
+            # 1. Obtener datos completos del rendimiento por todos los fondos
+            simple_return_data = self.calculate_user_total_simple_return_all_funds(user)
+            
+            if 'error' in simple_return_data:
+                return simple_return_data
+            
+            # 2. Extraer rendimientos por fondo
+            rendimientos_por_fondo = simple_return_data.get('rendimiento_por_fondo', [])
+            
+            if not rendimientos_por_fondo:
+                return {
+                    'error': f'No se encontraron fondos con rendimientos para el usuario {user.email}',
+                    'user_id': user.id,
+                    'weighted_average_return_percentage': 0.0
+                }
+            
+            # 3. Calcular promedio ponderado por monto invertido
+            total_weighted_return = 0.0
+            total_invested_amount = 0.0
+            valid_funds = []
+            
+            for fund_data in rendimientos_por_fondo:
+                total_invertido_fondo = fund_data['total_invertido']
+                rendimiento_fondo = fund_data['rendimiento_simple_percentage']
+                
+                # Solo incluir fondos con inversión > 0
+                if total_invertido_fondo > 0:
+                    # Peso = inversión en fondo / total invertido (se calculará después)
+                    total_invested_amount += total_invertido_fondo
+                    
+                    valid_funds.append({
+                        'fund_id': fund_data['fund_id'],
+                        'fund_name': fund_data['fund_name'],
+                        'total_invertido': total_invertido_fondo,
+                        'rendimiento_percentage': rendimiento_fondo,
+                        'valor_actual': fund_data['valor_actual'],
+                        'efectivo_recibido': fund_data['efectivo_recibido'],
+                        'aportes_distribuciones': fund_data['aportes_distribuciones']
+                    })
+            
+            # 4. Calcular pesos y promedio ponderado
+            fund_weights_and_returns = []
+            
+            for fund in valid_funds:
+                # Peso del fondo en el portafolio
+                peso_fondo = (fund['total_invertido'] / total_invested_amount) * 100 if total_invested_amount > 0 else 0
+                
+                # Contribución al promedio ponderado
+                contribucion_ponderada = fund['rendimiento_percentage'] * (peso_fondo / 100)
+                total_weighted_return += contribucion_ponderada
+                
+                fund_weights_and_returns.append({
+                    'fund_id': fund['fund_id'],
+                    'fund_name': fund['fund_name'],
+                    'total_invertido': fund['total_invertido'],
+                    'peso_en_portafolio_percentage': peso_fondo,
+                    'rendimiento_simple_percentage': fund['rendimiento_percentage'],
+                    'contribucion_ponderada': contribucion_ponderada,
+                    'valor_actual': fund['valor_actual'],
+                    'efectivo_recibido': fund['efectivo_recibido'],
+                    'aportes_distribuciones': fund['aportes_distribuciones']
+                })
+            
+            # 5. Calcular métricas adicionales
+            rendimientos_individuales = [f['rendimiento_percentage'] for f in valid_funds]
+            promedio_simple = sum(rendimientos_individuales) / len(rendimientos_individuales) if rendimientos_individuales else 0
+            
+            # Diferencia entre promedio ponderado y simple
+            diferencia_ponderacion = total_weighted_return - promedio_simple
+            
+            # Estadísticas de dispersión
+            mejor_fondo = max(valid_funds, key=lambda x: x['rendimiento_percentage']) if valid_funds else None
+            peor_fondo = min(valid_funds, key=lambda x: x['rendimiento_percentage']) if valid_funds else None
+            
+            # Métricas de concentración
+            mayor_peso = max([f['peso_en_portafolio_percentage'] for f in fund_weights_and_returns]) if fund_weights_and_returns else 0
+            fondos_positivos = len([f for f in valid_funds if f['rendimiento_percentage'] > 0])
+            fondos_negativos = len([f for f in valid_funds if f['rendimiento_percentage'] < 0])
+            
+            return {
+                'user_id': user.id,
+                'user_email': user.email,
+                'weighted_average_summary': {
+                    'weighted_average_return_percentage': total_weighted_return,
+                    'simple_average_return_percentage': promedio_simple,
+                    'weighting_impact': diferencia_ponderacion,
+                    'total_funds_analyzed': len(valid_funds),
+                    'total_invested_amount': total_invested_amount
+                },
+                'portfolio_composition': {
+                    'largest_fund_weight_percentage': mayor_peso,
+                    'is_well_diversified': mayor_peso < 50 and len(valid_funds) >= 3,
+                    'funds_with_positive_returns': fondos_positivos,
+                    'funds_with_negative_returns': fondos_negativos,
+                    'concentration_ratio': mayor_peso / 100 if mayor_peso > 0 else 0
+                },
+                'performance_breakdown': {
+                    'best_performing_fund': {
+                        'fund_name': mejor_fondo['fund_name'],
+                        'return_percentage': mejor_fondo['rendimiento_percentage'],
+                        'amount_invested': mejor_fondo['total_invertido']
+                    } if mejor_fondo else None,
+                    'worst_performing_fund': {
+                        'fund_name': peor_fondo['fund_name'],
+                        'return_percentage': peor_fondo['rendimiento_percentage'],
+                        'amount_invested': peor_fondo['total_invertido']
+                    } if peor_fondo else None,
+                    'return_range': {
+                        'highest': max(rendimientos_individuales) if rendimientos_individuales else 0,
+                        'lowest': min(rendimientos_individuales) if rendimientos_individuales else 0,
+                        'spread': max(rendimientos_individuales) - min(rendimientos_individuales) if rendimientos_individuales else 0
+                    }
+                },
+                'fund_details': fund_weights_and_returns,
+                'calculation_methodology': {
+                    'weighting_basis': 'Amount invested in each fund',
+                    'formula_applied': 'Σ(Return_Fund × Weight_Fund)',
+                    'return_calculation': '(Current Value + Cash Received - Contributions) ÷ Contributions × 100',
+                    'weight_calculation': 'Amount_Invested_Fund ÷ Total_Amount_Invested × 100'
+                },
+                'calculation_metadata': {
+                    'calculation_date': timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'analysis_scope': 'All funds with active investments',
+                    'currency': 'COP',
+                    'period_analyzed': 'Complete investment history'
+                }
+            }
+            
+        except Exception as e:
+            return {
+                'error': f'Error calculando promedio ponderado de rendimiento para usuario {user.email}: {str(e)}',
+                'user_id': user.id,
+                'weighted_average_return_percentage': 0.0
+            }    
+        
+    def calculate_user_weighted_average_cash_on_cash_all_funds(self, user) -> Dict[str, any]:
+        """
+        Calcula el promedio ponderado de Cash on Cash del usuario 
+        a través de todos los fondos donde tiene inversiones.
+        
+        Fórmula: Promedio Ponderado CoC = Σ(CoC_Fondo × Peso_Fondo)
+        
+        Donde:
+        - Peso_Fondo = Monto invertido en fondo / Total invertido
+        - CoC_Fondo = (Distribuciones 12M del fondo / Inversión en fondo) × 100
+        
+        Args:
+            user: Usuario del cual calcular el promedio ponderado de CoC
+            
+        Returns:
+            dict: Información completa del promedio ponderado de Cash on Cash
+        """
+        from apps.fund.models.membership import FundInvestment
+        from apps.fund.models.distributions import InvestmentDistributionRecord
+        from apps.fund.models.core import Fund
+        
+        try:
+            # 1. Obtener todas las inversiones activas del usuario
+            all_user_investments = FundInvestment.objects.select_related(
+                'application__fund', 'application__user'
+            ).filter(
+                application__user=user,
+                investment_status=FundInvestment.InvestmentStatus.ACTIVE
+            )
+            
+            if not all_user_investments.exists():
+                return {
+                    'error': f'Usuario {user.email} no tiene inversiones activas en ningún fondo',
+                    'user_id': user.id,
+                    'weighted_average_coc_percentage': 0.0
+                }
+            
+            # 2. Calcular período de 12 meses (meses completados)
+            current_date = timezone.now()
+            
+            if current_date.month == 1:
+                last_completed_year = current_date.year - 1
+                last_completed_month = 12
+            else:
+                last_completed_year = current_date.year
+                last_completed_month = current_date.month - 1
+            
+            start_month = last_completed_month - 11
+            start_year = last_completed_year
+            
+            if start_month <= 0:
+                start_month += 12
+                start_year -= 1
+            
+            # 3. Agrupar por fondo y calcular CoC de cada fondo
+            fund_coc_data = {}
+            total_invested_all_funds = Decimal('0.00')
+            
+            for investment in all_user_investments:
+                fund = investment.application.fund
+                fund_id = fund.id
+                
+                # Inicializar datos del fondo si no existe
+                if fund_id not in fund_coc_data:
+                    fund_coc_data[fund_id] = {
+                        'fund_id': fund_id,
+                        'fund_name': fund.name,
+                        'total_invested_in_fund': Decimal('0.00'),
+                        'total_distributions_12m': Decimal('0.00'),
+                        'investment_count': 0
+                    }
+                
+                # Acumular inversión en el fondo
+                investment_cost = investment.final_invested_amount or Decimal('0.00')
+                fund_coc_data[fund_id]['total_invested_in_fund'] += investment_cost
+                fund_coc_data[fund_id]['investment_count'] += 1
+                total_invested_all_funds += investment_cost
+                
+                # Obtener distribuciones de los últimos 12 meses para esta inversión
+                distributions_12m = InvestmentDistributionRecord.objects.select_related(
+                    'distribution_period'
+                ).filter(
+                    investment=investment,
+                    #payment_status__in=[
+                    #    InvestmentDistributionRecord.PaymentStatus.PAID,
+                    #    InvestmentDistributionRecord.PaymentStatus.VERIFIED,
+                    #    InvestmentDistributionRecord.PaymentStatus.PROCESSING
+                    #]
+                )
+                
+                # Filtrar por período
+                period_filter = models.Q(
+                    models.Q(distribution_period__period_year__gt=start_year) |
+                    models.Q(distribution_period__period_year=start_year, distribution_period__period_month__gte=start_month)
+                ) & models.Q(
+                    models.Q(distribution_period__period_year__lt=last_completed_year) |
+                    models.Q(distribution_period__period_year=last_completed_year, distribution_period__period_month__lte=last_completed_month)
+                )
+                
+                distributions_12m = distributions_12m.filter(period_filter)
+                
+                # Sumar distribuciones del fondo
+                distributions_amount = distributions_12m.aggregate(
+                    total=models.Sum('net_distribution_amount_cop')
+                )['total'] or Decimal('0.00')
+                
+                fund_coc_data[fund_id]['total_distributions_12m'] += distributions_amount
+            
+            # 4. Calcular CoC y peso de cada fondo
+            fund_coc_details = []
+            total_weighted_coc = 0.0
+            
+            for fund_id, fund_data in fund_coc_data.items():
+                total_invested_fund = fund_data['total_invested_in_fund']
+                distributions_fund = fund_data['total_distributions_12m']
+                
+                # Calcular CoC del fondo
+                if total_invested_fund > 0:
+                    fund_coc_percentage = float((distributions_fund / total_invested_fund) * 100)
+                else:
+                    fund_coc_percentage = 0.0
+                
+                # Calcular peso del fondo en el portafolio
+                if total_invested_all_funds > 0:
+                    fund_weight_percentage = float((total_invested_fund / total_invested_all_funds) * 100)
+                else:
+                    fund_weight_percentage = 0.0
+                
+                # Contribución ponderada del fondo al promedio
+                weighted_contribution = fund_coc_percentage * (fund_weight_percentage / 100)
+                total_weighted_coc += weighted_contribution
+                
+                fund_coc_details.append({
+                    'fund_id': fund_data['fund_id'],
+                    'fund_name': fund_data['fund_name'],
+                    'total_invested_in_fund': float(total_invested_fund),
+                    'total_distributions_12m': float(distributions_fund),
+                    'fund_coc_percentage': fund_coc_percentage,
+                    'fund_weight_percentage': fund_weight_percentage,
+                    'weighted_contribution': weighted_contribution,
+                    'investment_count': fund_data['investment_count']
+                })
+            
+            # 5. Calcular estadísticas adicionales
+            coc_values = [fund['fund_coc_percentage'] for fund in fund_coc_details]
+            simple_average_coc = sum(coc_values) / len(coc_values) if coc_values else 0
+            
+            # Diferencia entre promedio ponderado y simple
+            weighting_impact = total_weighted_coc - simple_average_coc
+            
+            # Identificar mejor y peor fondo
+            best_coc_fund = max(fund_coc_details, key=lambda x: x['fund_coc_percentage']) if fund_coc_details else None
+            worst_coc_fund = min(fund_coc_details, key=lambda x: x['fund_coc_percentage']) if fund_coc_details else None
+            
+            # Métricas de concentración
+            largest_fund_weight = max([f['fund_weight_percentage'] for f in fund_coc_details]) if fund_coc_details else 0
+            funds_with_positive_coc = len([f for f in fund_coc_details if f['fund_coc_percentage'] > 0])
+            funds_with_zero_coc = len([f for f in fund_coc_details if f['fund_coc_percentage'] == 0])
+            
+            # Calcular totales globales
+            total_distributions_all_funds = sum([f['total_distributions_12m'] for f in fund_coc_details])
+            
+            return {
+                'user_id': user.id,
+                'user_email': user.email,
+                'weighted_average_coc_summary': {
+                    'weighted_average_coc_percentage': total_weighted_coc,
+                    'simple_average_coc_percentage': simple_average_coc,
+                    'weighting_impact': weighting_impact,
+                    'total_funds_analyzed': len(fund_coc_details),
+                    'total_invested_all_funds': float(total_invested_all_funds),
+                    'total_distributions_12m_all_funds': total_distributions_all_funds
+                },
+                'portfolio_composition': {
+                    'largest_fund_weight_percentage': largest_fund_weight,
+                    'is_well_diversified': largest_fund_weight < 50 and len(fund_coc_details) >= 3,
+                    'funds_with_positive_coc': funds_with_positive_coc,
+                    'funds_with_zero_coc': funds_with_zero_coc,
+                    'concentration_ratio': largest_fund_weight / 100 if largest_fund_weight > 0 else 0
+                },
+                'performance_breakdown': {
+                    'best_coc_fund': {
+                        'fund_name': best_coc_fund['fund_name'],
+                        'coc_percentage': best_coc_fund['fund_coc_percentage'],
+                        'distributions_12m': best_coc_fund['total_distributions_12m'],
+                        'amount_invested': best_coc_fund['total_invested_in_fund']
+                    } if best_coc_fund else None,
+                    'worst_coc_fund': {
+                        'fund_name': worst_coc_fund['fund_name'],
+                        'coc_percentage': worst_coc_fund['fund_coc_percentage'],
+                        'distributions_12m': worst_coc_fund['total_distributions_12m'],
+                        'amount_invested': worst_coc_fund['total_invested_in_fund']
+                    } if worst_coc_fund else None,
+                    'coc_range': {
+                        'highest': max(coc_values) if coc_values else 0,
+                        'lowest': min(coc_values) if coc_values else 0,
+                        'spread': max(coc_values) - min(coc_values) if coc_values else 0
+                    }
+                },
+                'fund_details': fund_coc_details,
+                'calculation_methodology': {
+                    'weighting_basis': 'Amount invested in each fund',
+                    'formula_applied': 'Σ(CoC_Fund × Weight_Fund)',
+                    'coc_calculation': '(Distributions_12M_Fund ÷ Investment_Fund) × 100',
+                    'weight_calculation': 'Amount_Invested_Fund ÷ Total_Amount_Invested × 100',
+                    'period_logic': '12 completed months only'
+                },
+                'calculation_metadata': {
+                    'calculation_date': timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'period_analyzed': f'12 months (from {start_year}-{start_month:02d} to {last_completed_year}-{last_completed_month:02d})',
+                    'analysis_scope': 'All funds with active investments',
+                    'currency': 'COP'
+                }
+            }
+            
+        except Exception as e:
+            return {
+                'error': f'Error calculando promedio ponderado de Cash on Cash para usuario {user.email}: {str(e)}',
+                'user_id': user.id,
+                'weighted_average_coc_percentage': 0.0
+            }                 
+                
+            
+            

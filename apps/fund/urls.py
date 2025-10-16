@@ -29,7 +29,13 @@ from apps.fund.views.KPIs_views import (
     user_rent_12m_per_unit,
     user_cash_on_cash,
     user_current_value,
-    user_simple_total_return
+    user_simple_total_return,
+    user_total_portfolio,
+    user_total_distributions_all_funds,
+    user_total_cash_received_all_funds,
+    user_total_simple_return_all_funds,
+    user_weighted_average_return_all_funds,
+    user_weighted_average_cash_on_cash_all_funds,
 )
 
 # ========================= FUND =========================
@@ -126,6 +132,13 @@ urlpatterns = [
     path('api/kpis/user-cash-on-cash/', user_cash_on_cash, name='user-cash-on-cash'),
     path('api/kpis/user-current-value/', user_current_value, name='user-current-value'),
     path('api/kpis/user-simple-total-return/', user_simple_total_return, name='user-simple-total-return'),
+    # portfolio
+    path('api/kpis/user-total-portfolio/', user_total_portfolio, name='user-total-portfolio'),
+    path('api/kpis/user-total-distributions-all-funds/', user_total_distributions_all_funds, name='user-total-distributions-all-funds'),
+    path('api/kpis/user-total-cash-received-all-funds/', user_total_cash_received_all_funds, name='user-total-cash-received-all-funds'),
+    path('api/kpis/user-total-simple-return-all-funds/', user_total_simple_return_all_funds, name='user-total-simple-return-all-funds'),
+    path('api/kpis/user-weighted-average-return/', user_weighted_average_return_all_funds, name='user-weighted-average-return'),
+    path('api/kpis/user-weighted-average-cash-on-cash-all-funds/', user_weighted_average_cash_on_cash_all_funds, name='user-weighted-average-cash-on-cash-all-funds'),
     
     # ======================================
     # FUND UTILS VIEWS

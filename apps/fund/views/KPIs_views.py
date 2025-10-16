@@ -12,7 +12,13 @@ from apps.fund.serializers.KPIs_serializers import (
     UserRent12mPerUnitSerializer,
     UserCashOnCashSerializer,
     UserCurrentValueSerializer,
-    UserSimpleTotalReturnSerializer
+    UserSimpleTotalReturnSerializer,
+    UserTotalPortfolioSerializer,
+    UserTotalDistributionsAllFundsSerializer,
+    UserTotalCashReceivedAllFundsSerializer,
+    UserTotalSimpleReturnAllFundsSerializer,
+    UserWeightedAverageReturnAllFundsSerializer,
+    UserWeightedAverageCashOnCashAllFundsSerializer
 )
 
 
@@ -262,5 +268,190 @@ def user_simple_total_return(request):
             'error': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)           
         
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def user_total_portfolio(request):
+    """
+    Vista para calcular el valor actual de inversión de un usuario.
+    """
+    serializer = UserTotalPortfolioSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        result = serializer.save()
+        
+        return Response(
+            serializer.to_representation(result),
+            status=status.HTTP_200_OK
+        )
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)              
+        
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def user_total_distributions_all_funds(request):
+    """
+    Vista para calcular el valor actual de inversión de un usuario.
+    """
+    serializer = UserTotalDistributionsAllFundsSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        result = serializer.save()
+        
+        return Response(
+            serializer.to_representation(result),
+            status=status.HTTP_200_OK
+        )
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)              
+        
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def user_total_cash_received_all_funds(request):
+    """
+    Vista para calcular el valor actual de inversión de un usuario.
+    """
+    serializer = UserTotalCashReceivedAllFundsSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        result = serializer.save()
+        
+        return Response(
+            serializer.to_representation(result),
+            status=status.HTTP_200_OK
+        )
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)              
+                
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def user_total_simple_return_all_funds(request):
+    """
+    Vista para calcular el valor actual de inversión de un usuario.
+    """
+    serializer = UserTotalSimpleReturnAllFundsSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        result = serializer.save()
+        
+        return Response(
+            serializer.to_representation(result),
+            status=status.HTTP_200_OK
+        )
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)                      
+                
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def user_weighted_average_return_all_funds(request):
+    """
+    Vista para calcular el valor actual de inversión de un usuario.
+    """
+    serializer = UserWeightedAverageReturnAllFundsSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        result = serializer.save()
+        
+        return Response(
+            serializer.to_representation(result),
+            status=status.HTTP_200_OK
+        )
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)                      
+            
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def user_weighted_average_cash_on_cash_all_funds(request):
+    """
+    Vista para calcular el valor actual de inversión de un usuario.
+    """
+    serializer = UserWeightedAverageCashOnCashAllFundsSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        result = serializer.save()
+        
+        return Response(
+            serializer.to_representation(result),
+            status=status.HTTP_200_OK
+        )
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)        
         
         
