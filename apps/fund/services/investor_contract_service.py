@@ -63,7 +63,7 @@ class InvestorContractService:
 
     @staticmethod
     def _validate_member_fi(fund, user):
-        from apps.financial_institution.models import FinancialInstitutionApplication
+        from apps.financial_institution.models.core import FinancialInstitutionApplication
         try:
             member = FinancialInstitutionApplication.objects.get(
                 user = user,

@@ -250,4 +250,3 @@ class TradingPermissionService:
         
         return pending_action
 
-# ❌ ELIMINAR: Todo el código duplicado de las líneas 253+ hacia abajo

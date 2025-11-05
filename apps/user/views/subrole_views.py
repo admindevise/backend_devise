@@ -1,10 +1,6 @@
-from apps.asset.models import ActivoInversion
-from apps.fiducia.models import Fiducia
-from apps.notaria.models import Notaria
-from apps.sponsor_company.models import SponsorCompany
+#from apps.asset.models import ActivoInversion
 from apps.user.models import Role
-from apps.menu.models import  MenuPermissions
-from apps.utils.permissions import CustomDjangoModelPermission
+from apps.utils.core_permissions.django_permissions import CustomDjangoModelPermission
 
 from django.contrib.auth.models import Group, Permission
 from django.contrib.auth.decorators import login_required, permission_required
@@ -20,7 +16,6 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import View, ListView, CreateView, DetailView, UpdateView
 
-from apps.user.models import User
 
 from rest_framework.decorators import permission_classes
 from rest_framework.generics import ListAPIView, RetrieveAPIView
@@ -63,8 +58,6 @@ class SubroleViewSet(viewsets.ModelViewSet):
         'flatpages',
         'cities_light',
         'druo',
-        'asset',
-        'menu',
         'weetrust',
         'authtoken',
     ]
@@ -319,7 +312,7 @@ class SubroleListView(ListView):
 # =============================================================================
 
 
-@method_decorator(login_required, name='dispatch')
+""" @method_decorator(login_required, name='dispatch')
 @method_decorator(permission_required('user.add_user', raise_exception=True), name='dispatch')
 class SubroleCreateView(SuccessMessageMixin, CreateView):
     template_name = 'user/subrole/subrole_create.html'
@@ -343,7 +336,7 @@ class SubroleCreateView(SuccessMessageMixin, CreateView):
             permissions |= Permission.objects.filter(content_type=content_type)
         context['permissions'] = permissions
         context['nav_subroles'] = True
-        return context
+        return context """
 
 # =============================================================================
 
@@ -358,7 +351,7 @@ class SubroleDetailView(DetailView):
 # =============================================================================
 
 
-@method_decorator(login_required, name='dispatch')
+""" @method_decorator(login_required, name='dispatch')
 @method_decorator(permission_required('user.change_user', raise_exception=True), name='dispatch')
 class SubroleUpdateView(SuccessMessageMixin, UpdateView):
     template_name = 'user/subrole/subrole_update.html'
@@ -384,4 +377,4 @@ class SubroleUpdateView(SuccessMessageMixin, UpdateView):
         context['permissions'] = permissions
         context['asigned_permissions'] = group.permissions.all()
         context['nav_subroles'] = True
-        return context
+        return context """

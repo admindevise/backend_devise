@@ -2,7 +2,6 @@ from django.contrib.auth.models import Permission
 from apps.user.models import User, Role, PasswordReset
 from apps.info_residential.models import Residentialplace
 from apps.info_workplace.models import Workplace
-from apps.sponsor_company.models import SponsorCompany
 from apps.info_socioeconomic.models import Socioeconomic
 from apps.kaleido.models import Wallet
 
@@ -374,11 +373,6 @@ class UserDetailView(DetailView):
             context['workplace'] = True
         else:
             context['workplace'] = None
-
-        if SponsorCompany.objects.filter(user=usuario).exists():
-            context['sponsorcompany'] = SponsorCompany.objects.get(user=usuario)
-        else:
-            context['sponsorcompany'] = None
 
         if Financial.objects.filter(user=usuario).exists():
             context['financial'] = Financial.objects.get(user=usuario)

@@ -23,7 +23,7 @@ from apps.fund.models.membership import (
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def testing(request):
-    from apps.fund.services.fund_calculations import FundCalculationService
+    from apps.fund.services.kpis.fund_calculations import FundCalculationService
     from apps.fund.models.membership import FundInvestment
     from apps.fund.models.core import Fund
     

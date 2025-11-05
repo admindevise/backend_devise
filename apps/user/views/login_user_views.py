@@ -4,7 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 
 from apps.user.models import User, IdType, Role, PasswordReset
-from apps.utils.permissions import CustomDjangoModelPermission
+from apps.utils.core_permissions.django_permissions import CustomDjangoModelPermission
 from ..serializers.create_new_user_serializer import (
     CreateUserFormSerializer, CreateUserAdminSerializer, UserBasicInfoSerializer, UserSponsorInfoSerializer, PasswordResetSerializer, PasswordResetFormSerializer, IdtypesListSerializer
     )

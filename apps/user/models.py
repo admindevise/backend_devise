@@ -209,18 +209,18 @@ class User(AbstractUser,):
     )
     
     slug = models.SlugField(blank=True)
-    fiducia = models.ForeignKey( #Si es Sponsor o Fiducia debemos saber a cual pertenece
+    """ fiducia = models.ForeignKey( #Si es Sponsor o Fiducia debemos saber a cual pertenece
         'fiducia.Fiducia',
         on_delete = models.PROTECT,
         null = True,
         blank = True,
-    )
-    notaria = models.ForeignKey( #Si es Notaria debemos saber a cual pertenece
+    ) """
+    """ notaria = models.ForeignKey( #Si es Notaria debemos saber a cual pertenece
         'notaria.Notaria',
         on_delete = models.PROTECT,
         null = True,
         blank = True,
-    )
+    ) """
     entity_nit = models.CharField(max_length=128, unique=True,  blank=True, null=True) #NIT en caso de que sea una empresa
     
     last_password_change = models.DateField(blank=True, null=True)

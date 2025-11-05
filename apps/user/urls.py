@@ -7,7 +7,7 @@ from .views.backoffice_user_views import (  UserListView,  UserCreateView, UserD
 
 from .views.roles_views import (RoleApiListView, RoleViewSet, RoleListView, RoleAddView, RoleDetailView, RoleUpdateView, RoleDeleteView)
 
-from .views.subrole_views import (SubRoleApiListView, SubroleViewSet, SubroleListView, SubroleCreateView, SubroleDetailView, SubroleUpdateView)
+from .views.subrole_views import (SubRoleApiListView, SubroleViewSet, SubroleListView, SubroleDetailView)
 
 from .views.api_user_views import ( VerifyReferredCode, UpdateReadUserBasicInfo, AdminUpdateUserBasicInfo)
 
@@ -45,9 +45,9 @@ urlpatterns = [
 
     # ============================= Templates Views SubRole extends from GROUP ===========
     path('subrole/list/', SubroleListView.as_view(), name=SubroleListView.url_name),
-    path('subrole/create/', SubroleCreateView.as_view(), name=SubroleCreateView.url_name),
+    #path('subrole/create/', SubroleCreateView.as_view(), name=SubroleCreateView.url_name),
     path('subrole/<int:pk>/detail/', SubroleDetailView.as_view(), name=SubroleDetailView.url_name),
-    path('subrole/<int:pk>/update/', SubroleUpdateView.as_view(), name=SubroleUpdateView.url_name),
+    #path('subrole/<int:pk>/update/', SubroleUpdateView.as_view(), name=SubroleUpdateView.url_name),
     
     #============================= Templates Views Usuarios =================================
     path('viewlist/', UserListView.as_view(), name=UserListView.url_name),

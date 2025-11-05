@@ -15,12 +15,24 @@ from apps.financial_institution.views.utils_views import (
     FinancialInstitutionApplicationViewSet,
     PendingFinancialInstitutionApplicationViewSet,
 )
+from apps.financial_institution.views.permission_views import (
+    FIPermissionViewSet,
+    FICustomGroupViewSet,
+    FIUserGroupMembershipViewSet,
+    assign_user_to_group,
+    remove_user_from_group,
+    my_fi_permissions
+)
 
 router = DefaultRouter()
 router.register(r'institutions', FinancialInstitutionViewSet, basename='financial_institution')
 router.register(r'list-applications', FinancialInstitutionApplicationViewSet, basename='financial_institution_application')
 router.register(r'members', MembersFinancialInstitutionViewSet, basename='members_financial_institution')
 router.register(r'pending-applications', PendingFinancialInstitutionApplicationViewSet, basename='pending_financial_institution_application')
+
+router.register(r'permissions', FIPermissionViewSet, basename='fi-permissions'),
+router.register(r'groups', FICustomGroupViewSet, basename='fi-groups'),
+router.register(r'memberships', FIUserGroupMembershipViewSet, basename='fi-memberships')
 
 urlpatterns = [
     path('api/', include(router.urls)),
@@ -34,5 +46,12 @@ urlpatterns = [
     path('api/applications/<int:application_id>/sign-contract/', sign_contract_fi_application, name='financial_institution_sign_contract'),
     
     path('api/applications/<int:application_id>/approve/', approve_application, name='financial_institution_approve'),
-    path('api/applications/<int:application_id>/reject/', reject_application, name='financial_institution_reject')
+    path('api/applications/<int:application_id>/reject/', reject_application, name='financial_institution_reject'),
+    
+    # ================================
+    # PERMISSIONS
+    # ================================
+    path('api/permission/assing-user-to-group/', assign_user_to_group, name='assing-user-from-group'),
+    path('api/permission/remove-user-from-group/', remove_user_from_group, name='rermove-user-from-group'),
+    path('api/permission/my-permissions/', my_fi_permissions, name='my-permissions')
 ]

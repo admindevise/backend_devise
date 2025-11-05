@@ -1,7 +1,7 @@
 from decimal import Decimal
 from django.utils import timezone
 
-from apps.financial_institution.service.actions_application_service import FIActionsService
+from apps.financial_institution.services.actions_application_service import FIActionsService
 from apps.fund.models.membership import InvestmentApplication
 from apps.fund.models.core import Fund
 

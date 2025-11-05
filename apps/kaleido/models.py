@@ -1,7 +1,7 @@
 from django.db import models
 from apps.utils.models import base_model
 from apps.user.models import User
-from apps.asset.models import ActivoInversion
+#from apps.asset.models import ActivoInversion
 
 class AppContract(base_model.BaseModel):
     """
@@ -84,7 +84,7 @@ class Wallet(base_model.BaseModel):
         return f"{self.id_wallet}"
     
 class WalletSmartContract(base_model.BaseModel):
-    activo_inversion = models.ForeignKey(ActivoInversion, on_delete=models.CASCADE)
+    #activo_inversion = models.ForeignKey(ActivoInversion, on_delete=models.CASCADE)
     id_wallet = models.CharField(
         max_length=50,
         null = False,

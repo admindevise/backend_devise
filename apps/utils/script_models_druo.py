@@ -1,8 +1,12 @@
 import csv
 from apps.druo.models import Bank
 
+"""
+python manage.py shell < apps/utils/script_models_druo.py
+"""
+
 #Create banks
-with open('/home/andres/django/devise/devise_backend/apps/utils/Institutions.csv') as f:
+with open('/home/fabian/devise/backend_devise/apps/utils/Institutions.csv') as f:
     reader = csv.reader(f)
 
     for row in reader:
@@ -21,7 +25,7 @@ import csv
 from apps.druo.models import AccountType
 
 #Create account types of banks
-with open('/home/andres/django/devise/devise_backend/apps/utils/account_type.csv') as f:
+with open('/home/fabian/devise/backend_devise/apps/utils/account_type.csv') as f:
     reader = csv.reader(f)
 
     for row in reader:
@@ -38,8 +42,7 @@ import csv
 from apps.druo.models import AccountSubtype
 
 #Create account sub types of banks
-
-with open('/home/andres/django/devise/devise_backend/apps/utils/account_subtype.csv') as f:
+with open('/home/fabian/devise/backend_devise/apps/utils/account_subtype.csv') as f:
     reader = csv.reader(f)
 
     for row in reader:
@@ -56,8 +59,7 @@ import csv
 from apps.user.models import IdType
 
 #Create account sub types of banks
-
-with open('/home/andres/django/devise/devise_backend/apps/utils/identification_types.csv') as f:
+with open('/home/fabian/devise/backend_devise/apps/utils/identification_types.csv') as f:
     reader = csv.reader(f)
 
     for row in reader:
@@ -70,44 +72,3 @@ with open('/home/andres/django/devise/devise_backend/apps/utils/identification_t
         print("creating IdType ", a)
     f.close()
 
-from apps.asset.models import TipoProyecto, Categoria
-
-TipoProyecto.objects.create(
-    nombre="Proyecto Oficinas",
-    color='#2cc7e2' 
-)
-
-TipoProyecto.objects.create(
-    nombre="Proyecto Residencial",
-    color='#bae31a' 
-)
-
-TipoProyecto.objects.create(
-    nombre="Proyecto Comercial",
-    color='#6a329f' 
-)
-
-TipoProyecto.objects.create(
-    nombre="Proyecto Industrial",
-    color='#f09615' 
-)
-
-Categoria.objects.create(
-    nombre="AAA",
-    color='#2cc7e2' 
-)
-
-Categoria.objects.create(
-    nombre="A",
-    color='#bae31a' 
-)
-
-Categoria.objects.create(
-    nombre="B",
-    color='#6a329f' 
-)
-
-Categoria.objects.create(
-    nombre="C",
-    color='#f09615' 
-)

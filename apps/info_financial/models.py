@@ -19,13 +19,13 @@ class Financial(base_model.BaseModel):
         null = True,
         blank = True,
     )
-    fiducia = models.ForeignKey(
+    """ fiducia = models.ForeignKey(
         'fiducia.Fiducia',
         on_delete = models.PROTECT,
         null = True,
         blank = True,
         related_name = 'pertenece_a_fiducia',
-    )
+    ) """
     #Account info
     bank = models.ForeignKey(
         Bank,

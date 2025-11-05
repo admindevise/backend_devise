@@ -1,5 +1,5 @@
 from decimal import Decimal, ROUND_HALF_UP
-from apps.fund.services.fund_calculations import FundCalculationService
+from apps.fund.services.kpis_old.fund_calculations import FundCalculationService
 from apps.fund.models.core import Fund
 
 class InvestmentCalculator:
@@ -108,7 +108,7 @@ class InvestmentCalculator:
     
     
     def _calculate_tkn_cost(application):
-        from apps.fund.services.fund_calculations import FundCalculationService
+        from apps.fund.services.kpis.fund_calculations import FundCalculationService
         
         calc_service = FundCalculationService(application.fund)
         price_per_token = application.fund.price_per_unit

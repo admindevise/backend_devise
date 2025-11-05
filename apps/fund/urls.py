@@ -21,7 +21,7 @@ from apps.fund.views.distributions_views import (
 )
 
 # ========================= KPIs =========================
-from apps.fund.views.KPIs_views import (
+from apps.fund.views.KPIs_old_views import (
     calculate_token_value_change,
     get_fund_distributions_12m,
     calculate_yield_from_distributions,
@@ -36,6 +36,9 @@ from apps.fund.views.KPIs_views import (
     user_total_simple_return_all_funds,
     user_weighted_average_return_all_funds,
     user_weighted_average_cash_on_cash_all_funds,
+    dividend_yield_historical,
+    dividend_yield_current,
+    accumulated_investment
 )
 
 # ========================= FUND =========================
@@ -139,6 +142,10 @@ urlpatterns = [
     path('api/kpis/user-total-simple-return-all-funds/', user_total_simple_return_all_funds, name='user-total-simple-return-all-funds'),
     path('api/kpis/user-weighted-average-return/', user_weighted_average_return_all_funds, name='user-weighted-average-return'),
     path('api/kpis/user-weighted-average-cash-on-cash-all-funds/', user_weighted_average_cash_on_cash_all_funds, name='user-weighted-average-cash-on-cash-all-funds'),
+    # Dividend Yield
+    path('api/kpis/dividend-yield/historical/', dividend_yield_historical,name='dividend-yield-historical'),
+    path('api/kpis/dividend-yield/current/', dividend_yield_current,name='dividend-yield-current'),
+    path('api/kpis/accumulated-investment/', accumulated_investment,name='accumulated-investment'),
     
     # ======================================
     # FUND UTILS VIEWS

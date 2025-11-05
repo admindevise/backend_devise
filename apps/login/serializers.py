@@ -1,15 +1,10 @@
 from django.utils import timezone
-import json
-from django.db import models
-from requests import Response
 from rest_framework.exceptions import ValidationError
-from rest_framework import status
 
 from apps.user.models import User
 from apps.security.models import SecurityConfiguration
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework import serializers
 
 # El número máximo de intentos permitidos antes de levantar una excepción
 config = SecurityConfiguration.objects.first()

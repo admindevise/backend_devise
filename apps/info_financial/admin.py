@@ -3,4 +3,4 @@ from .models import Financial
 
 @admin.register(Financial)
 class FinancialAdmin(admin.ModelAdmin):
-    list_display = ['pk', 'user', 'fiducia']
+    list_display = ['pk', 'user', 'bank']

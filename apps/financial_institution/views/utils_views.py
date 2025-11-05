@@ -2,11 +2,12 @@ from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 
-from apps.financial_institution.models import (
+from apps.financial_institution.models.core import (
     FinancialInstitutionApplication,
     FinancialInstitutionApproval
 )
 from apps.financial_institution.serializers.core_serializers import FIApplicationSerializer
+from apps.utils.core_permissions.api_permissions import RegistryPermission
 from apps.financial_institution.serializers.utils_serializers import MembersFinancialInstitutionSerializer
 
 from apps.utils.views.Mixins import DateFilterMixin
@@ -14,7 +15,7 @@ from apps.utils.views.Mixins import DateFilterMixin
 
 class MembersFinancialInstitutionViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = MembersFinancialInstitutionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [RegistryPermission]
     date_field = 'approval_date'
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]

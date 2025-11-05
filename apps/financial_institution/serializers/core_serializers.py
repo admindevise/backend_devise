@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from apps.financial_institution.models import FinancialInstitution, FinancialInstitutionApplication
-from apps.financial_institution.service.fi_application_service import FinancialInstitutionApplicationService
-from apps.financial_institution.service.actions_application_service import FIActionsService
+from apps.financial_institution.models.core import FinancialInstitution, FinancialInstitutionApplication
+from apps.financial_institution.services.fi_application_service import FinancialInstitutionApplicationService
+from apps.financial_institution.services.actions_application_service import FIActionsService
 
 class FISerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)

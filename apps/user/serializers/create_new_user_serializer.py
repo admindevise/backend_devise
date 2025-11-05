@@ -5,7 +5,6 @@ from apps.info_residential.models import Residentialplace
 from apps.info_workplace.models import Workplace
 from apps.info_financial.models import Financial
 from apps.info_socioeconomic.models import Socioeconomic
-from apps.sponsor_company.models import SponsorCompany
 
 from rest_framework import serializers
 from .role_serializer import RoleSerializerDetail
@@ -162,12 +161,6 @@ class UserSponsorInfoSerializer(serializers.ModelSerializer):
     
     def financial_info(self, obj):
         if Financial.objects.filter(user = obj).exists():
-            return True
-        return False
-    
-    
-    def sponsor_company_info(self, obj):
-        if SponsorCompany.objects.filter(user = obj).exists():
             return True
         return False
     

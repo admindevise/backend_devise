@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 
 from apps.fund.models.core import Fund
 from apps.fund.models.distributions import DistributionPeriod
-from apps.fund.services.fund_calculations import FundCalculationService
+from apps.fund.services.kpis_old.fund_calculations import FundCalculationService
 from apps.audit.audit_service import AuditService
 
 
@@ -85,7 +85,7 @@ class DistributionService:
                 )
             
             # 2. Validar datos de entrada
-            self._validate_distribution_data(
+            calculated_amount = self._validate_distribution_data(
                 total_amount, distribution_type, period_year, 
                 period_month, period_quarter
             )
@@ -119,7 +119,7 @@ class DistributionService:
                     period_year=period_year,
                     period_month=period_month,
                     period_quarter=period_quarter,
-                    total_distribution_amount=total_amount,
+                    total_distribution_amount=calculated_amount,
                     total_tokens_outstanding=distribution_info['total_issued_tokens'],
                     distribution_per_token=distribution_info['rent_per_token'],
                     record_date=record_date,
@@ -177,9 +177,32 @@ class DistributionService:
         """Valida los datos de entrada para crear distribución"""
         
         # Validar monto
-        if total_amount <= 0:
-            raise DistributionServiceError("El monto total debe ser mayor a cero")
-        
+        if total_amount < 100:
+            # Calcular valor total del fondo
+            total_tokens = self.fund.amount_tokens
+            price_per_unit = self.fund.price_per_unit
+            
+            total_fund_value = total_tokens*price_per_unit
+            
+            if total_amount <= 0 or total_amount >= 100:
+                raise DistributionServiceError(
+                    f"El porcentaje debe estar entre 0 y 100 (recibido: {total_amount})"
+                )
+                
+            calculated_amount = (total_amount/Decimal('100')) * total_fund_value
+            
+            print(f"💡 Interpretando {total_amount}% como porcentaje:")
+            print(f"   Total tokens: {total_tokens}")
+            print(f"   Precio por unidad: {price_per_unit}")
+            print(f"   Valor total fondo: {total_fund_value:,.2f} COP")
+            print(f"   Monto calculado ({total_amount}%): {calculated_amount:,.2f} COP")     
+            
+            final_amount = calculated_amount
+        else:
+            if total_amount <= 0:
+                raise DistributionServiceError("El monto total debe ser mayor a cero")
+            final_amount = total_amount
+            
         # Validar tipo de distribución
         valid_types = [choice[0] for choice in DistributionPeriod.DistributionType.choices]
         if distribution_type not in valid_types:
@@ -199,6 +222,8 @@ class DistributionService:
         if distribution_type == DistributionPeriod.DistributionType.QUARTERLY:
             if not period_quarter or period_quarter < 1 or period_quarter > 4:
                 raise DistributionServiceError("Distribuciones trimestrales requieren un trimestre válido (1-4)")
+        
+        return final_amount
     
     def _check_duplicate_distribution(
         self,

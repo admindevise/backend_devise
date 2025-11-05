@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 
-from apps.financial_institution.models import (
+from apps.financial_institution.models.core import (
     FinancialInstitution
 )
 from apps.financial_institution.serializers.core_serializers import (

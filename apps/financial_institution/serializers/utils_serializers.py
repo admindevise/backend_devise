@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.financial_institution.models import (
+from apps.financial_institution.models.core import (
     FinancialInstitutionApproval
 )
 from apps.user.serializers.basic_info_user_serializer import UserShortInfoSerializer

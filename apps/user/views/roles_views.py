@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
-from apps.utils.permissions import CustomDjangoModelPermission
+from apps.utils.core_permissions.django_permissions import CustomDjangoModelPermission
 from django.views.generic import View, ListView, CreateView, DetailView, UpdateView
 
 from rest_framework.decorators import permission_classes, action

@@ -1241,12 +1241,13 @@ class PurchaseTokenBatchSerializer(BaseTokenOperationSerializer):
     
     def _get_batch_available_tokens(self, fund, quantity, initial_audit):
         """Obtiene múltiples tokens disponibles para compra en lote"""
+        fi_owner = fund.financial_institution.created_by
         try:
             # Obtener tokens disponibles para compra ordenados por token_id
             available_tokens = FundToken.objects.filter(
                 fund=fund,
                 status=True,
-                owner_user=24
+                owner_user=fi_owner
             ).order_by('created_at', 'token_id')[:quantity]
             
             if len(available_tokens) < quantity:

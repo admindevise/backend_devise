@@ -7,7 +7,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from apps.kaleido.serializers.serializer_wallet import WalletSerializer
 from apps.kaleido.models import Wallet, WalletSmartContract
-from apps.asset.models import ActivoInversionSmartContract2
+#from apps.asset.models import ActivoInversionSmartContract2
 from django.http import JsonResponse
 import requests
 from requests.auth import HTTPBasicAuth 
@@ -15,7 +15,7 @@ from config.settings import ENVIRONMENT_ID, PASSWORD, USERNAME, ZONE_DOMAIN, WAL
 
 from django.shortcuts import get_object_or_404
 import json
-from apps.asset.models import ActivoInversion, EstadoAprobacion
+#from apps.asset.models import ActivoInversion, EstadoAprobacion
 
 @permission_classes([AllowAny])
 class KaleidoApiListView(generics.ListAPIView):
