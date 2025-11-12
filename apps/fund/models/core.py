@@ -1,5 +1,7 @@
+from decimal import Decimal
 from django.db import models
 from django.utils import timezone
+from django.core.validators import MinValueValidator
 
 from apps.user.models import User
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
@@ -132,7 +134,7 @@ class Fund(models.Model):
         default=0,
         verbose_name="Precio por unidad actual"
     )
-    initial_unit_value = models.DecimalField(
+    initial_price_per_unit = models.DecimalField(
         max_digits=14, 
         decimal_places=2, 
         blank=True, 
@@ -187,6 +189,15 @@ class Fund(models.Model):
     # ========================================
     # PARÁMETROS FINANCIEROS - ACTIVOS Y COMISIONES
     # ========================================
+    acquisition_value = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name="Valor de adquisición del fondo (COP)",
+        help_text="Valor total de compra/adquisición de los activos del fondo"
+    )        
     total_assets = models.DecimalField(
         max_digits=18, 
         decimal_places=2, 
@@ -210,6 +221,28 @@ class Fund(models.Model):
         help_text="Porcentaje de comisión por desempeño",
         verbose_name="Comisión de éxito (%)"
     )
+    
+    # ========================================
+    # ÁREAS Y DIMENSIONES (PARA NOI, CASH ON CASH)
+    # ========================================    
+    total_area_m2 = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name="Área total (m²)",
+        help_text="Suma del área total de todos los activos del fondo"
+    )        
+    rentable_area_m2 = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name="Área arrendable (m²)",
+        help_text="Suma del área arrendable de todos los activos del fondo"
+    )  
     
     # ========================================
     # INFORMACIÓN REGULATORIA

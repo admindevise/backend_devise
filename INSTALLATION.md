@@ -184,32 +184,100 @@ python manage.py migrate
 
 ```
 backend_devise/
-├── manage.py              # Main Django command
-├── requirements.txt       # Project dependencies
-├── config/               # Main configuration
-│   ├── settings.py       # Django settings
-│   ├── urls.py          # Main URLs
-│   └── wsgi.py          # WSGI configuration
-├── apps/                # Project applications
-│   ├── user/            # User management
-│   ├── dashboard/       # Dashboard
-│   ├── asset/           # Asset management
-│   ├── fiducia/         # Fiduciary module
-│   └── ...              # Other applications
-├── static/              # Static files
-├── templates/           # HTML templates
-└── env/                 # Virtual environment
+├── manage.py                      # Django management command
+├── requirements.txt               # Project dependencies
+├── INSTALLATION.md               # This file
+├── README.md                     # Project documentation
+├── config/                       # Main configuration
+│   ├── settings.py               # Django settings
+│   ├── urls.py                   # Main URL patterns
+│   └── wsgi.py                   # WSGI configuration
+├── apps/                         # Django applications
+│   ├── user/                     # User management
+│   ├── fund/                     # Investment fund management
+│   ├── druo/                     # Banking module
+│   ├── financial_institution/    # Financial institutions
+│   ├── kaleido/                  # Blockchain integration
+│   ├── trading/                  # Trading operations
+│   ├── audit/                    # Audit trails
+│   ├── security/                 # Security module
+│   └── utils/                    # Utilities and CSV data
+│       ├── Institutions.csv      # Bank data
+│       ├── account_type.csv      # Account types
+│       ├── account_subtype.csv   # Account subtypes
+│       └── identification_types.csv  # ID types
+├── static/                       # Static files (CSS, JS, images)
+├── templates/                    # HTML templates
+├── media/                        # User-uploaded files
+└── env/                          # Virtual environment (not in git)
 ```
+
+## Initial Data Files
+
+The project includes the following CSV files for initial data:
+
+- **`apps/utils/Institutions.csv`**: Banks from Colombia and Peru (46 institutions)
+- **`apps/utils/account_type.csv`**: Banking account types
+- **`apps/utils/account_subtype.csv`**: Account subtypes (Savings, Checking, Electronic Deposit)
+- **`apps/utils/identification_types.csv`**: Identification document types
+
+## Security Recommendations
+
+### For Production:
+
+1. **Change SECRET_KEY**: Generate a new secret key
+   ```bash
+   python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+   ```
+
+2. **Disable DEBUG mode**:
+   ```env
+   DEBUG=False
+   ```
+
+3. **Configure ALLOWED_HOSTS**:
+   ```env
+   ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+   ```
+
+4. **Use a production database** (PostgreSQL recommended):
+   ```env
+   DATABASE_URL=postgresql://user:password@localhost:5432/devise_db
+   ```
+
+5. **Configure HTTPS** and SSL certificates
+
+6. **Set up proper CORS headers** in `config/settings.py`
 
 ## Next Steps
 
-Once you have the project running, you can:
+Once you have the project running:
 
-1. Explore the API documentation at `/swagger/`
-2. Review the different applications in the `apps/` folder
-3. Configure your production database
-4. Customize the settings according to your needs
+1. ✅ Explore the API documentation at `/docs/`
+2. ✅ Review the different applications in the `apps` folder
+3. ✅ Configure your production database
+4. ✅ Load sample data or create test records
+5. ✅ Set up JWT authentication for API access
+6. ✅ Configure email settings for notifications
+7. ✅ Review and customize permission settings
 
-## Contact
+## Additional Resources
 
-If you encounter any problems during installation, check the troubleshooting section or contact the development team.
+- Django Documentation: https://docs.djangoproject.com/
+- Django REST Framework: https://www.django-rest-framework.org/
+- Project GitHub: <REPOSITORY_URL>
+
+## Support
+
+If you encounter any problems during installation:
+
+1. Check the **Common Troubleshooting** section above
+2. Review the application logs
+3. Verify all dependencies are correctly installed
+4. Contact the development team
+
+---
+
+**Last Updated**: October 2025  
+**Django Version**: 5.2.1  
+**Python Version**: 3.10+

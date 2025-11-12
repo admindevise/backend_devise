@@ -6,6 +6,8 @@ from apps.fund.models.tokens import FundToken, TokenTransaction
 
 from apps.fund.models.distributions import DistributionPeriod, InvestmentDistributionRecord, TokenDistributionDetail
 
+from apps.fund.models.operating import FundOperatingIncome, FundOperatingExpense
+
 class FundAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'amount_units', 'amount_tokens', 'created_at')
     search_fields = ('name', 'description')
@@ -44,13 +46,24 @@ class TokenTransactionAdmin(admin.ModelAdmin):
     list_filter = ('created_at',)
     ordering = ('-created_at',)
     
+class FundOperatingIncomeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'period_month','period_year', 'total_operating_income',)
+    search_fields = ('period_year', 'period_month')
+    list_filter = ('created_at',)
+    ordering = ('-created_at',)
+    
+class FundOperatingExpenseAdmin(admin.ModelAdmin):
+    list_display = ('id', 'period_month','period_year', 'total_operating_expense',)
+    search_fields = ('period_year', 'period_month')
+    list_filter = ('created_at',)
+    ordering = ('-created_at',)
 
 # ===================================
 # DISTRIBUTIONS
 # ===================================
 
 class DistributionPeriodAdmin(admin.ModelAdmin):
-    list_display = ('id', 'fund')
+    list_display = ('id', 'fund', 'period_month', 'period_year')
     list_filter = ('fund',)
     
 class InvestmentDistributionRecordAdmin(admin.ModelAdmin):
@@ -72,3 +85,7 @@ admin.site.register(TokenTransaction, TokenTransactionAdmin)
 admin.site.register(DistributionPeriod, DistributionPeriodAdmin)
 admin.site.register(InvestmentDistributionRecord, InvestmentDistributionRecordAdmin)
 admin.site.register(TokenDistributionDetail, TokenDistributionDetailAdmin)
+
+# operating
+admin.site.register(FundOperatingIncome, FundOperatingIncomeAdmin)
+admin.site.register(FundOperatingExpense, FundOperatingExpenseAdmin)

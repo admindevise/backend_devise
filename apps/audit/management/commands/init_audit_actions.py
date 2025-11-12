@@ -387,7 +387,20 @@ class Command(BaseCommand):
                         'severity': 'MEDIUM',
                         'description': 'Creación de un registro de distribucion según el periodo especificado'
                     },
-                ]                
+                ]              
+            },
+            {
+                'name': 'Activos',
+                'code': 'ASSETS',
+                'description': 'Activos vinculados a fondos',
+                'actions': [
+                    {
+                        'name': 'Crear activo',
+                        'code': 'ASSET_CREATE',
+                        'severity': 'MEDIUM',
+                        'description': 'Creación de un activo'
+                    }
+                ]
             }
         ]
         

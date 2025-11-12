@@ -1,0 +1,315 @@
+"""
+Output Value Calculation Strategy
+"""
+
+from typing import Dict, Any, Optional
+from decimal import Decimal
+from django.utils import timezone
+
+from ..core.base_strategy import BaseKPIStrategy
+from apps.asset.models.core import Asset
+from .noi_strategy import NOICalculationStrategy
+
+
+class OutputValueCalculationStrategy(BaseKPIStrategy):
+    """
+    Strategy para calcular Output Value (Valor de Salida).
+    
+    El valor de salida es el precio estimado al que se podrá vender el activo en el futuro.
+    
+    Formula:
+    Valor de Salida = NOI Proyectado / Cap Rate de Salida
+    
+    Donde:
+    - NOI Proyectado: NOI estimado al momento de venta (típicamente año 5-10)
+    - Cap Rate de Salida: Tasa de mercado estimada al momento de venta
+    
+    Interpretación:
+    - Mayor NOI proyectado → Mayor valor de salida
+    - Menor Cap Rate de salida → Mayor valor de salida (activo más atractivo)
+    
+    Example:
+        >>> strategy = OutputValueCalculationStrategy(asset)
+        >>> result = strategy.calculate(
+        ...     projected_noi=100000,
+        ...     exit_cap_rate=6.5
+        ... )
+        >>> print(f"Valor de Salida: ${result['output_value']:,.2f}")
+    """
+    
+    def __init__(self, asset: Asset):
+        super().__init__(asset)
+        self.noi_strategy = NOICalculationStrategy(asset)
+    
+    def validate_prerequisites(self) -> Dict[str, bool]:
+        """Valida que el asset tenga los datos necesarios"""
+        validations = {
+            'asset_exists': self.asset is not None,
+            'asset_has_id': bool(self.asset.pk if self.asset else False),
+            'asset_is_active': self.asset.status == 'active' if self.asset else False
+        }
+        
+        return {
+            'is_valid': all(validations.values()),
+            'validations': validations
+        }
+    
+    def calculate(
+        self,
+        projected_noi: Optional[Decimal] = None,
+        exit_cap_rate: Optional[Decimal] = None,
+        projection_years: int = 5,
+        annual_noi_growth_rate: Optional[Decimal] = None
+    ) -> Dict[str, Any]:
+        """
+        Calcula el Valor de Salida del activo.
+        
+        Args:
+            projected_noi: NOI proyectado al momento de salida (opcional)
+            exit_cap_rate: Cap Rate de salida esperado (opcional)
+            projection_years: Años hacia adelante para proyección (default: 5)
+            annual_noi_growth_rate: Tasa de crecimiento anual del NOI (opcional)
+            
+        Returns:
+            dict: Resultado del cálculo de Output Value
+            
+        Flows:
+        1. Si se proporciona projected_noi y exit_cap_rate → Cálculo directo
+        2. Si no se proporciona projected_noi → Calcular usando NOI actual + growth rate
+        3. Si no se proporciona exit_cap_rate → Usar cap rate actual + spread
+        """
+        
+        # 1. Validar prerequisites
+        prereq = self.validate_prerequisites()
+        if not prereq['is_valid']:
+            return {
+                'error': 'Asset prerequisites not met',
+                'asset_id': self.asset.id if self.asset else None,
+                'validations': prereq['validations']
+            }
+        
+        try:
+            # 2. Obtener NOI proyectado
+            if projected_noi is None:
+                # Calcular NOI proyectado basado en NOI actual
+                noi_calculation = self._calculate_projected_noi(
+                    projection_years=projection_years,
+                    annual_growth_rate=annual_noi_growth_rate
+                )
+                
+                if 'error' in noi_calculation:
+                    return noi_calculation
+                
+                projected_noi = noi_calculation['projected_noi']
+                noi_current = noi_calculation['noi_current']
+                growth_rate_used = noi_calculation['growth_rate_used']
+            else:
+                projected_noi = Decimal(str(projected_noi))
+                noi_current = None
+                growth_rate_used = None
+            
+            # 3. Validar projected_noi
+            if projected_noi <= 0:
+                return {
+                    'error': 'NOI proyectado debe ser mayor a cero',
+                    'asset_id': self.asset.id,
+                    'projected_noi': float(projected_noi)
+                }
+            
+            # 4. Obtener Cap Rate de salida
+            if exit_cap_rate is None:
+                # Estimar cap rate de salida basado en cap rate actual
+                cap_rate_calculation = self._estimate_exit_cap_rate()
+                
+                if 'error' in cap_rate_calculation:
+                    return cap_rate_calculation
+                
+                exit_cap_rate = cap_rate_calculation['exit_cap_rate']
+                current_cap_rate = cap_rate_calculation['current_cap_rate']
+                cap_rate_spread = cap_rate_calculation['spread']
+            else:
+                exit_cap_rate = Decimal(str(exit_cap_rate))
+                current_cap_rate = None
+                cap_rate_spread = None
+            
+            # 5. Validar exit_cap_rate
+            if exit_cap_rate <= 0:
+                return {
+                    'error': 'Cap Rate de salida debe ser mayor a cero',
+                    'asset_id': self.asset.id,
+                    'exit_cap_rate': float(exit_cap_rate)
+                }
+            
+            # 6. Calcular Output Value
+            # Formula: Valor de Salida = NOI Proyectado / Cap Rate de Salida
+            output_value = (projected_noi / exit_cap_rate) * 100
+            
+            # 7. Calcular métricas adicionales
+            acquisition_value = self.asset.acquisition_value
+            
+            # Ganancia/pérdida de capital
+            capital_gain_loss = output_value - acquisition_value if acquisition_value else None
+            capital_gain_percentage = (
+                (capital_gain_loss / acquisition_value * 100) if acquisition_value and acquisition_value > 0 else None
+            )
+            
+            # Multiple on Invested Capital (MOIC)
+            moic = (output_value / acquisition_value) if acquisition_value and acquisition_value > 0 else None
+            
+            return {
+                'asset_id': self.asset.id,
+                'asset_code': self.asset.asset_code,
+                'asset_name': self.asset.name,
+                'fund_id': self.asset.fund.id,
+                'fund_name': self.asset.fund.name,
+                
+                # Output Value
+                'output_value': float(output_value),
+                'projected_noi': float(projected_noi),
+                'exit_cap_rate': float(exit_cap_rate),
+                
+                # Contexto de proyección
+                'projection_context': {
+                    'projection_years': projection_years,
+                    'noi_current': float(noi_current) if noi_current else None,
+                    'annual_noi_growth_rate': float(growth_rate_used) if growth_rate_used else None,
+                    'current_cap_rate': float(current_cap_rate) if current_cap_rate else None,
+                    'cap_rate_spread': float(cap_rate_spread) if cap_rate_spread else None
+                },
+                
+                # Métricas de retorno
+                'return_metrics': {
+                    'acquisition_value': float(acquisition_value) if acquisition_value else None,
+                    'capital_gain_loss': float(capital_gain_loss) if capital_gain_loss else None,
+                    'capital_gain_percentage': float(capital_gain_percentage) if capital_gain_percentage else None,
+                    'moic': float(moic) if moic else None,
+                    'interpretation': self._interpret_moic(moic) if moic else None
+                },
+                
+                # Métricas del activo
+                'asset_metrics': {
+                    'total_area_m2': float(self.asset.total_area_m2),
+                    'output_value_per_m2': float(output_value / self.asset.total_area_m2) if self.asset.total_area_m2 > 0 else None
+                },
+                
+                # Metadata
+                'calculation_date': timezone.now().isoformat(),
+                'calculation_method': 'projected_noi' if noi_current else 'provided_noi'
+            }
+            
+        except Exception as e:
+            return {
+                'error': f'Error calculando Output Value: {str(e)}',
+                'asset_id': self.asset.id,
+                'asset_code': self.asset.asset_code
+            }
+    
+    def _calculate_projected_noi(
+        self,
+        projection_years: int,
+        annual_growth_rate: Optional[Decimal]
+    ) -> Dict[str, Any]:
+        """
+        Calcula el NOI proyectado basado en el NOI actual y tasa de crecimiento.
+        
+        Formula: NOI Proyectado = NOI Actual × (1 + tasa_crecimiento)^años
+        """
+        
+        # Obtener NOI actual (últimos 12 meses)
+        noi_result = self.noi_strategy.calculate(months_back=12, include_breakdown=False)
+        
+        if 'error' in noi_result:
+            return {
+                'error': f'Error obteniendo NOI actual: {noi_result["error"]}',
+                'asset_id': self.asset.id
+            }
+        
+        noi_current = Decimal(str(noi_result.get('total_noi_12m', 0)))
+        
+        if noi_current <= 0:
+            return {
+                'error': 'NOI actual debe ser mayor a cero para proyección',
+                'asset_id': self.asset.id,
+                'noi_current': float(noi_current)
+            }
+        
+        # Tasa de crecimiento (default: 3% anual - inflación típica Colombia)
+        if annual_growth_rate is None:
+            annual_growth_rate = Decimal('3.0')  # 3% default
+        else:
+            annual_growth_rate = Decimal(str(annual_growth_rate))
+        
+        # Calcular NOI proyectado
+        # NOI_futuro = NOI_actual × (1 + r)^n
+        growth_factor = (1 + (annual_growth_rate / 100)) ** projection_years
+        projected_noi = noi_current * Decimal(str(growth_factor))
+        
+        return {
+            'projected_noi': projected_noi,
+            'noi_current': noi_current,
+            'growth_rate_used': annual_growth_rate,
+            'projection_years': projection_years,
+            'growth_factor': float(growth_factor)
+        }
+    
+    def _estimate_exit_cap_rate(self) -> Dict[str, Any]:
+        """
+        Estima el Cap Rate de salida basado en el Cap Rate actual.
+        
+        Asume un spread de +0.5% sobre el cap rate actual (mercado puede volverse
+        menos atractivo o el activo puede envejecer).
+        """
+        
+        # Obtener NOI actual para calcular cap rate actual
+        noi_result = self.noi_strategy.calculate(months_back=12, include_breakdown=False)
+        
+        if 'error' in noi_result:
+            return {
+                'error': f'Error obteniendo NOI para cap rate: {noi_result["error"]}',
+                'asset_id': self.asset.id
+            }
+        
+        noi_current = Decimal(str(noi_result.get('total_noi_12m', 0)))
+        acquisition_value = self.asset.acquisition_value
+        
+        if not acquisition_value or acquisition_value <= 0:
+            return {
+                'error': 'Valor de adquisición no disponible',
+                'asset_id': self.asset.id
+            }
+        
+        # Calcular cap rate actual
+        current_cap_rate = (noi_current / acquisition_value) * 100
+        
+        # Spread de salida (asumiendo que el activo será menos atractivo)
+        # Típicamente +0.5% a +1.0%
+        spread = Decimal('0.5')
+        
+        exit_cap_rate = current_cap_rate + spread
+        
+        return {
+            'exit_cap_rate': exit_cap_rate,
+            'current_cap_rate': current_cap_rate,
+            'spread': spread
+        }
+    
+    def _interpret_moic(self, moic: Decimal) -> str:
+        """
+        Interpreta el Multiple on Invested Capital (MOIC).
+        
+        Args:
+            moic: Múltiplo sobre capital invertido
+            
+        Returns:
+            str: Interpretación
+        """
+        if moic >= 2.0:
+            return "Excelente retorno: Duplica o más la inversión inicial"
+        elif moic >= 1.5:
+            return "Muy buen retorno: 50% o más sobre la inversión"
+        elif moic >= 1.2:
+            return "Buen retorno: 20% o más sobre la inversión"
+        elif moic >= 1.0:
+            return "Retorno positivo: Recupera la inversión con ganancia"
+        else:
+            return "Pérdida de capital: No recupera la inversión inicial"

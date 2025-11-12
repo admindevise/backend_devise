@@ -1,4 +1,4 @@
-from apps.asset.models import EstadoAprobacion, Fideicomiso
+from apps.asset.models.core import EstadoAprobacion, Fideicomiso
 from ...models import DocumentSesionResult, AccessTokenWeetrust
 from apps.user.models import User
 from django.core.management.base import BaseCommand, CommandError
