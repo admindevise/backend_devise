@@ -1,71 +1,39 @@
 """
-IRR (Internal Rate of Return) Calculation Strategy para Fund
+IRR (Internal Rate of Return) Calculation Strategy para Inversión de Usuario
 """
 
 from typing import Dict, Any, List, Optional
 from decimal import Decimal
 from django.utils import timezone
-from datetime import timedelta
+from django.db.models import Q
 import numpy as np
 from numpy_financial import irr
 
 from ..core.base_strategy import BaseKPIStrategy
 from apps.fund.models.core import Fund
+from apps.fund.models.membership import FundInvestment
+from apps.fund.models.distributions import InvestmentDistributionRecord
 
 
 class IRRCalculationStrategy(BaseKPIStrategy):
     """
-    Strategy para calcular TIR (Tasa Interna de Retorno / IRR) del fondo.
+    Strategy para calcular TIR (Tasa Interna de Retorno / IRR) de una inversión específica.
     
-    El retorno anualizado total considerando TODAS las entradas y salidas de efectivo
-    durante la vida de la inversión, incluyendo el valor de salida.
-    
-    Formula:
-    0 = Σ [Flujos de Caja / (1 + TIR)^t] - Inversión Inicial
-    
-    Donde:
-    - Inversión Inicial: Capital invertido por token (negativo)
-    - Flujos de Caja: Dividendos/distribuciones recibidos por período
-    - Valor de Salida: Precio de venta final del token
-    - t: Período de tiempo
-    
-    Nota:
-    - TIR se calcula usando método iterativo (Newton-Raphson)
-    - Considera todas las distribuciones recibidas + ganancia/pérdida de capital al vender
-    - Es una métrica anualizada que refleja el retorno real del inversionista
-    
-    Interpretación:
-    - TIR > 15%: Excelente inversión
-    - TIR 10-15%: Muy buena inversión
-    - TIR 7-10%: Buena inversión
-    - TIR < 7%: Inversión moderada/baja
-    
-    Example:
-        >>> strategy = IRRCalculationStrategy(fund)
-        >>> result = strategy.calculate(
-        ...     exit_price_per_token=1100000,
-        ...     holding_period_years=5
-        ... )
-        >>> print(f"TIR: {result['irr_percentage']:.2f}%")
+    Calcula el retorno anualizado considerando:
+    - Inversión inicial
+    - Distribuciones reales recibidas (ajustadas por días de tenencia en el primer mes)
+    - Valor de salida de los tokens
     """
     
     def __init__(self, fund: Fund):
         super().__init__(fund)
     
     def validate_prerequisites(self) -> Dict[str, bool]:
-        """Valida que el fondo tenga los datos necesarios"""
+        """Valida que el fondo sea válido"""
         validations = {
             'fund_exists': self.fund is not None,
             'fund_has_id': bool(self.fund.pk if self.fund else False),
-            'fund_is_active': self.fund.status == 'active' if self.fund else False,
-            'has_units': bool(
-                hasattr(self.fund, 'amount_tokens') and 
-                self.fund.amount_tokens > 0
-            ) if self.fund else False,
-            'has_acquisition_value': bool(
-                hasattr(self.fund, 'acquisition_value') and 
-                self.fund.acquisition_value
-            ) if self.fund else False
+            'fund_is_active': self.fund.status == 'active' if self.fund else False
         }
         
         return {
@@ -75,319 +43,473 @@ class IRRCalculationStrategy(BaseKPIStrategy):
     
     def calculate(
         self,
-        annual_dividends_per_token: Optional[Decimal] = None,
-        exit_price_per_token: Optional[Decimal] = None,
-        holding_period_years: int = 5,
-        use_historical_dividends: bool = False
+        investment_id: int,
+        exit_price_per_unit: Optional[Decimal] = None,
+        exit_date: Optional[timezone.datetime] = None
     ) -> Dict[str, Any]:
-        """
-        Calcula TIR del fondo.
-        
-        Args:
-            annual_dividends_per_token: Dividendos anuales por token (opcional)
-            exit_price_per_token: Precio de venta final del token (opcional)
-            holding_period_years: Años de tenencia (default: 5)
-            use_historical_dividends: Usar dividendos históricos si están disponibles
-            
-        Returns:
-            dict: Resultado del TIR con flujos de caja y métricas
-        """
-        
-        # 1. Validar prerequisites
+        """Calcula TIR de una inversión específica del usuario."""
+        # 1. Validaciones previas
         prereq = self.validate_prerequisites()
         if not prereq['is_valid']:
-            return {
-                'error': 'Fund prerequisites not met',
-                'fund_id': self.fund.id if self.fund else None,
-                'validations': prereq['validations']
-            }
+            return self._build_error_response('Fund prerequisites not met', prereq['validations'])
+        
+        # 2. Obtener inversión
+        investment = self._get_investment(investment_id)
+        if isinstance(investment, dict):
+            return investment
         
         try:
-            # 2. Obtener inversión inicial por token
-            total_units = self.fund.amount_tokens
+            # 3. Preparar parámetros
+            params = self._prepare_calculation_parameters(investment, exit_price_per_unit, exit_date)
             
-            # Usar initial_price_per_unit si existe, sino usar acquisition_value / units
-            if hasattr(self.fund, 'initial_price_per_unit') and self.fund.initial_price_per_unit:
-                initial_investment_per_token = self.fund.initial_price_per_unit
-            else:
-                acquisition_value = self.fund.acquisition_value
-                initial_investment_per_token = acquisition_value / Decimal(str(total_units))
+            # 4. Obtener distribuciones filtradas
+            distributions = self._get_filtered_distributions(investment, params['investment_date'])
             
-            # 3. Determinar dividendos anuales por token
-            if use_historical_dividends:
-                # Calcular dividendos reales usando DistributionPeriod
-                annual_dividends = self._calculate_historical_annual_dividends()
-            elif annual_dividends_per_token:
-                annual_dividends = annual_dividends_per_token
-            else:
-                # Proyección: usar FCF como estimación
-                annual_dividends = self._estimate_annual_dividends_from_fcf()
+            # 5. Construir flujos de caja
+            cash_flows_result = self._build_cash_flows(
+                investment,
+                distributions,
+                params
+            )
             
-            # 4. Determinar precio de salida
-            if exit_price_per_token:
-                exit_price = exit_price_per_token
-            else:
-                # Usar Output Value proyectado
-                exit_price = self._estimate_exit_price(holding_period_years)
+            # 6. Calcular TIR
+            irr_result = self._calculate_irr(
+                cash_flows_result['annual_distributions'],
+                params['initial_investment'],
+                params['exit_value']
+            )
             
-            # 5. Construir flujo de caja
-            # Período 0: Inversión inicial (negativo)
-            # Períodos 1-N: Dividendos anuales
-            # Período N: Dividendos + Precio de venta
+            if 'error' in irr_result:
+                return {**irr_result, **self._get_fund_info(), 'investment_id': investment.id}
             
-            cash_flows = []
-            cash_flows.append(-float(initial_investment_per_token))  # Período 0: Inversión
-            
-            for year in range(1, holding_period_years + 1):
-                if year < holding_period_years:
-                    # Años intermedios: solo dividendos
-                    cash_flows.append(float(annual_dividends))
-                else:
-                    # Último año: dividendos + precio de venta
-                    final_cash_flow = float(annual_dividends) + float(exit_price)
-                    cash_flows.append(final_cash_flow)
-            
-            # 6. Calcular TIR usando numpy_financial
-            try:
-                irr_decimal = irr(cash_flows)
-                irr_percentage = irr_decimal * 100
-                
-                # Validar que TIR sea un número válido
-                if np.isnan(irr_percentage) or np.isinf(irr_percentage):
-                    return {
-                        'error': 'No se pudo calcular TIR (flujos de caja no convergen)',
-                        **self._get_fund_info(),
-                        'cash_flows': cash_flows
-                    }
-                
-            except Exception as e:
-                return {
-                    'error': f'Error calculando TIR: {str(e)}',
-                    **self._get_fund_info(),
-                    'cash_flows': cash_flows
-                }
-            
-            # 7. Calcular métricas adicionales
-            total_dividends_received = annual_dividends * holding_period_years
-            capital_gain = exit_price - initial_investment_per_token
-            total_return = total_dividends_received + capital_gain
-            
-            # Multiple on Invested Capital (MOIC)
-            moic = (exit_price + total_dividends_received) / initial_investment_per_token
-            
-            # 8. Interpretación
-            interpretation = self._interpret_irr(float(irr_percentage))
-            
-            return {
-                **self._get_fund_info(),
-                
-                # TIR principal
-                'irr_percentage': float(irr_percentage),
-                'irr_decimal': float(irr_decimal),
-                
-                # Componentes de entrada
-                'investment_parameters': {
-                    'initial_investment_per_token': float(initial_investment_per_token),
-                    'annual_dividends_per_token': float(annual_dividends),
-                    'exit_price_per_token': float(exit_price),
-                    'holding_period_years': holding_period_years
-                },
-                
-                # Flujo de caja
-                'cash_flows': {
-                    'period_0_investment': cash_flows[0],
-                    'annual_cash_flows': cash_flows[1:],
-                    'all_cash_flows': cash_flows
-                },
-                
-                # Métricas de retorno
-                'return_metrics': {
-                    'total_dividends_received': float(total_dividends_received),
-                    'capital_gain_loss': float(capital_gain),
-                    'total_return': float(total_return),
-                    'moic': float(moic),
-                    'total_return_percentage': float((total_return / initial_investment_per_token) * 100)
-                },
-                
-                # Desglose anual
-                'annual_breakdown': self._build_annual_breakdown(
-                    initial_investment_per_token,
-                    annual_dividends,
-                    exit_price,
-                    holding_period_years,
-                    irr_decimal
-                ),
-                
-                # Interpretación
-                'interpretation': interpretation,
-                'performance_level': self._get_performance_level(float(irr_percentage)),
-                
-                # Información del fondo
-                'fund_metrics': {
-                    'total_tokens_issued': total_units,
-                    'acquisition_value': float(self.fund.acquisition_value) if hasattr(self.fund, 'acquisition_value') else None,
-                    'current_price_per_unit': float(self.fund.price_per_unit) if hasattr(self.fund, 'price_per_unit') else None,
-                    'initial_price_per_unit': float(self.fund.initial_price_per_unit) if hasattr(self.fund, 'initial_price_per_unit') and self.fund.initial_price_per_unit else None
-                },
-                
-                # Metadata
-                'calculation_date': timezone.now().isoformat(),
-                'calculation_method': 'numpy_financial.irr (Newton-Raphson)',
-                'data_source': 'historical' if use_historical_dividends else 'projected'
-            }
+            # 7. Construir respuesta completa
+            return self._build_success_response(investment, params, cash_flows_result, irr_result)
             
         except Exception as e:
             return {
                 'error': f'Error: {str(e)}',
-                **self._get_fund_info()
+                **self._get_fund_info(),
+                'investment_id': investment.id
             }
     
-    def _calculate_historical_annual_dividends(self) -> Decimal:
-        """Calcula dividendos anuales totales usando distribuciones reales de DistributionPeriod"""
-        from apps.fund.models.distributions import DistributionPeriod
-        from django.db.models import Sum
-        
-        # Obtener últimos 12 meses
-        end_date = timezone.now()
-        start_date = end_date - timedelta(days=365)
-        
-        # Sumar todas las distribuciones por token en los últimos 12 meses
-        distributions = DistributionPeriod.objects.filter(
-            fund=self.fund,
-            status='completed',
-            period_year__gte=start_date.year,
-            period_year__lte=end_date.year
-        ).aggregate(
-            total_per_token=Sum('distribution_per_token')
+    # ========================================
+    # OBTENCIÓN DE DATOS
+    # ========================================
+    
+    def _get_investment(self, investment_id: int):
+        """Obtiene la inversión o retorna error"""
+        try:
+            return FundInvestment.objects.select_related(
+                'application__fund',
+                'application__user'
+            ).get(id=investment_id, application__fund=self.fund)
+        except FundInvestment.DoesNotExist:
+            return {
+                'error': f'Inversión con ID {investment_id} no encontrada',
+                **self._get_fund_info(),
+                'investment_id': investment_id
+            }
+    
+    def _get_filtered_distributions(self, investment, investment_date):
+        """Obtiene distribuciones posteriores a la fecha de inversión"""
+        return InvestmentDistributionRecord.objects.filter(
+            investment=investment
+        ).filter(
+            Q(distribution_period__period_year__gt=investment_date.year) |
+            Q(distribution_period__period_year=investment_date.year, 
+              distribution_period__period_month__gte=investment_date.month)
+        ).select_related('distribution_period').order_by(
+            'distribution_period__period_year',
+            'distribution_period__period_month'
         )
-        
-        total_distributed_per_token = distributions.get('total_per_token') or Decimal('0.00')
-        
-        if total_distributed_per_token == 0:
-            # Fallback: usar FCF como proyección
-            return self._estimate_annual_dividends_from_fcf()
-        
-        return total_distributed_per_token
     
-    def _estimate_annual_dividends_from_fcf(self) -> Decimal:
-        """Estima dividendos anuales desde FCF"""
-        from .free_cash_flow_strategy import FreeCashFlowCalculationStrategy
-        
-        fcf_strategy = FreeCashFlowCalculationStrategy(self.fund)
-        fcf_result = fcf_strategy.calculate(months_back=12, include_breakdown=False)
-        
-        if 'error' in fcf_result:
-            return Decimal('0.00')
-        
-        fcf_per_unit = Decimal(str(fcf_result.get('fcf_per_unit', 0)))
-        return fcf_per_unit
+    # ========================================
+    # PREPARACIÓN DE PARÁMETROS
+    # ========================================
     
-    def _estimate_exit_price(self, years: int) -> Decimal:
-        """Estima precio de salida usando Output Value"""
-        from .output_value_strategy import OutputValueCalculationStrategy
+    def _prepare_calculation_parameters(self, investment, exit_price_per_unit, exit_date):
+        """Prepara parámetros de cálculo"""
+        initial_investment = investment.final_invested_amount or Decimal('0.00')
         
-        output_value_strategy = OutputValueCalculationStrategy(self.fund)
-        output_result = output_value_strategy.calculate(projection_years=years)
+        if initial_investment == 0:
+            raise ValueError('Inversión inicial es cero o inválida')
         
-        if 'error' in output_result:
-            # Fallback: usar precio actual
-            if hasattr(self.fund, 'price_per_unit') and self.fund.price_per_unit:
-                return self.fund.price_per_unit
-            elif hasattr(self.fund, 'initial_price_per_unit') and self.fund.initial_price_per_unit:
-                return self.fund.initial_price_per_unit
-            else:
-                acquisition_value = self.fund.acquisition_value
-                total_units = self.fund.amount_tokens
-                return acquisition_value / Decimal(str(total_units))
+        investment_date = investment.created_at or timezone.now()
+        exit_date = exit_date or timezone.now()
         
-        output_value = Decimal(str(output_result.get('output_value', 0)))
-        total_units = self.fund.amount_tokens
-        exit_price_per_token = output_value / Decimal(str(total_units))
+        if exit_price_per_unit is None:
+            exit_price_per_unit = self.fund.price_per_unit
+        else:
+            exit_price_per_unit = Decimal(str(exit_price_per_unit))
         
-        return exit_price_per_token
+        exit_value = Decimal(str(investment.units_owned)) * exit_price_per_unit
+        
+        return {
+            'initial_investment': initial_investment,
+            'investment_date': investment_date,
+            'exit_date': exit_date,
+            'exit_price_per_unit': exit_price_per_unit,
+            'exit_value': exit_value,
+            'units_owned': investment.units_owned
+        }
     
-    def _build_annual_breakdown(
-        self,
-        initial_investment: Decimal,
-        annual_dividend: Decimal,
-        exit_price: Decimal,
-        years: int,
-        irr_decimal: float
-    ) -> List[Dict[str, Any]]:
-        """Construye desglose anual de flujos de caja"""
-        breakdown = []
+    # ========================================
+    # CONSTRUCCIÓN DE FLUJOS DE CAJA
+    # ========================================
+    
+    def _build_cash_flows(self, investment, distributions, params):
+        """Construye flujos de caja con ajustes"""
+        cash_flows_data = []
         
-        # Año 0: Inversión
-        breakdown.append({
-            'year': 0,
-            'cash_flow': float(-initial_investment),
-            'cash_flow_type': 'investment',
-            'cumulative_dividends': 0.0,
-            'present_value': float(-initial_investment)
+        # Inversión inicial
+        cash_flows_data.append({
+            'date': params['investment_date'],
+            'cash_flow': -params['initial_investment'],
+            'original_amount': -params['initial_investment'],
+            'type': 'investment',
+            'description': 'Inversión inicial',
+            'days_held_in_period': 0,
+            'days_in_month': None,
+            'holding_fraction': 0
         })
         
-        cumulative_dividends = Decimal('0.00')
+        # Procesar distribuciones
+        distributions_result = self._process_distributions(distributions, params)
+        cash_flows_data.extend(distributions_result['cash_flows'])
         
-        for year in range(1, years + 1):
-            if year < years:
-                cash_flow = annual_dividend
-                cash_flow_type = 'dividends'
+        # Salida
+        cash_flows_data.append({
+            'date': params['exit_date'],
+            'cash_flow': params['exit_value'],
+            'original_amount': params['exit_value'],
+            'type': 'exit',
+            'description': f"Valor de salida ({params['units_owned']} tokens × ${float(params['exit_price_per_unit']):,.2f})",
+            'days_held_in_period': None,
+            'days_in_month': None,
+            'holding_fraction': 1.0
+        })
+        
+        # Añadir períodos de tiempo
+        cash_flows_with_periods = self._add_time_periods(cash_flows_data, params['investment_date'])
+        
+        # Agrupar por año
+        annual_distributions = self._group_by_year(
+            distributions_result['distributions_with_adjustments'],
+            params['investment_date'],
+            params['exit_date']
+        )
+        
+        return {
+            'cash_flows_detailed': cash_flows_with_periods,
+            'total_distributions': distributions_result['total_distributions'],
+            'distributions_with_adjustments': distributions_result['distributions_with_adjustments'],
+            'annual_distributions': annual_distributions
+        }
+    
+    def _process_distributions(self, distributions, params):
+        """Procesa distribuciones con ajuste solo en primer mes"""
+        total_distributions = Decimal('0.00')
+        distributions_with_adjustments = []
+        cash_flows = []
+        
+        investment_date = params['investment_date']
+        exit_date = params['exit_date']
+        
+        for dist in distributions:
+            distribution_amount = dist.net_distribution_amount_cop or Decimal('0.00')
+            
+            if distribution_amount <= 0:
+                continue
+            
+            dist_date = dist.created_at or timezone.now()
+            
+            if dist_date < investment_date:
+                continue
+            
+            period_year = dist.distribution_period.period_year
+            period_month = dist.distribution_period.period_month
+            
+            # ✅ Determinar si es primer mes
+            is_first_month = (
+                period_year == investment_date.year and 
+                period_month == investment_date.month
+            )
+            
+            if is_first_month:
+                # ✅ Ajustar por días
+                dist_data = self._create_adjusted_distribution(
+                    dist_date,
+                    distribution_amount,
+                    investment_date,
+                    period_year,
+                    period_month,
+                    exit_date
+                )
             else:
-                cash_flow = annual_dividend + exit_price
-                cash_flow_type = 'dividends_and_exit'
+                # ✅ Mes completo
+                dist_data = self._create_full_distribution(
+                    dist_date,
+                    distribution_amount,
+                    period_year,
+                    period_month
+                )
             
-            cumulative_dividends += annual_dividend
+            if dist_data:
+                distributions_with_adjustments.append(dist_data)
+                cash_flows.append(dist_data)
+                total_distributions += dist_data['cash_flow']
+        
+        return {
+            'total_distributions': total_distributions,
+            'distributions_with_adjustments': distributions_with_adjustments,
+            'cash_flows': cash_flows
+        }
+    
+    def _create_adjusted_distribution(self, dist_date, amount, investment_date, year, month, exit_date):
+        """Crea distribución ajustada por días (primer mes)"""
+        days_in_month = self._get_days_in_month(year, month)
+        days_held = self._calculate_days_held(investment_date, year, month, exit_date)
+        
+        if days_held == 0:
+            return None
+        
+        fraction = days_held / days_in_month if days_in_month > 0 else 1.0
+        adjusted = amount * Decimal(str(fraction))
+        
+        return {
+            'date': dist_date,
+            'cash_flow': adjusted,
+            'original_distribution': amount,
+            'type': 'distribution',
+            'description': f'Distribución {year}-{month:02d} (proporcional)',
+            'period_year': year,
+            'period_month': month,
+            'days_in_month': days_in_month,
+            'days_held': days_held,
+            'holding_fraction': fraction,
+            'is_first_month': True,
+            'is_full_month': False,
+            'adjustment_reason': f'Inversión realizada el día {investment_date.day}'
+        }
+    
+    def _create_full_distribution(self, dist_date, amount, year, month):
+        """Crea distribución de mes completo"""
+        return {
+            'date': dist_date,
+            'cash_flow': amount,
+            'original_distribution': amount,
+            'type': 'distribution',
+            'description': f'Distribución {year}-{month:02d}',
+            'period_year': year,
+            'period_month': month,
+            'days_in_month': None,
+            'days_held': None,
+            'holding_fraction': 1.0,
+            'is_first_month': False,
+            'is_full_month': True,
+            'adjustment_reason': None
+        }
+    
+    def _add_time_periods(self, cash_flows, base_date):
+        """Agrega años fraccionados desde la inversión"""
+        return [
+            {
+                **cf,
+                'years_from_start': (cf['date'] - base_date).days / 365.25
+            }
+            for cf in cash_flows
+        ]
+    
+    def _group_by_year(self, distributions, investment_date, exit_date):
+        """Agrupa distribuciones por año"""
+        total_years = (exit_date - investment_date).days / 365.25
+        holding_years = int(np.ceil(total_years))
+        
+        annual_distributions = [Decimal('0.00')] * holding_years
+        
+        for dist in distributions:
+            year_index = int((dist['date'] - investment_date).days / 365.25)
             
-            # Calcular valor presente
-            present_value = float(cash_flow) / ((1 + irr_decimal) ** year)
+            if 0 <= year_index < holding_years:
+                annual_distributions[year_index] += dist['cash_flow']
+        
+        return annual_distributions
+    
+    # ========================================
+    # CÁLCULO DE TIR
+    # ========================================
+    
+    def _calculate_irr(self, annual_distributions, initial_investment, exit_value):
+        """Calcula TIR usando numpy"""
+        cash_flows = [-float(initial_investment)]
+        
+        for year_idx, annual_dist in enumerate(annual_distributions):
+            if year_idx < len(annual_distributions) - 1:
+                cash_flows.append(float(annual_dist))
+            else:
+                cash_flows.append(float(annual_dist + exit_value))
+        
+        try:
+            irr_decimal = irr(cash_flows)
+            irr_percentage = irr_decimal * 100
+            
+            if np.isnan(irr_percentage) or np.isinf(irr_percentage):
+                return {'error': 'TIR no convergió'}
+            
+            return {
+                'irr_decimal': float(irr_decimal),
+                'irr_percentage': float(irr_percentage),
+                'cash_flows_simple': cash_flows
+            }
+        except Exception as e:
+            return {'error': f'Error calculando TIR: {str(e)}'}
+    
+    # ========================================
+    # CONSTRUCCIÓN DE RESPUESTAS
+    # ========================================
+    
+    def _build_success_response(self, investment, params, cash_flows_result, irr_result):
+        """Construye respuesta exitosa"""
+        total_years = (params['exit_date'] - params['investment_date']).days / 365.25
+        capital_gain = params['exit_value'] - params['initial_investment']
+        total_return = cash_flows_result['total_distributions'] + capital_gain
+        moic = (cash_flows_result['total_distributions'] + params['exit_value']) / params['initial_investment']
+        roi_percentage = (total_return / params['initial_investment']) * 100
+        
+        return {
+            **self._get_fund_info(),
+            'investment_info': {
+                'investment_id': investment.id,
+                'user_id': investment.application.user.id,
+                'user_email': investment.application.user.email,
+                'units_owned': params['units_owned'],
+                'investment_date': params['investment_date'].isoformat(),
+                'exit_date': params['exit_date'].isoformat(),
+                'holding_period_days': (params['exit_date'] - params['investment_date']).days,
+                'holding_period_years': round(total_years, 2)
+            },
+            'irr_percentage': irr_result['irr_percentage'],
+            'irr_decimal': irr_result['irr_decimal'],
+            'investment_parameters': {
+                'initial_investment': float(params['initial_investment']),
+                'total_distributions_received': float(cash_flows_result['total_distributions']),
+                'total_distributions_original': float(sum(
+                    d['original_distribution'] for d in cash_flows_result['distributions_with_adjustments']
+                )),
+                'exit_price_per_unit': float(params['exit_price_per_unit']),
+                'exit_value_total': float(params['exit_value'])
+            },
+            'cash_flows_detailed': [
+                {
+                    'date': cf['date'].isoformat(),
+                    'years_from_start': round(cf['years_from_start'], 2),
+                    'cash_flow': float(cf['cash_flow']),
+                    'original_amount': float(cf.get('original_distribution', cf.get('original_amount', cf['cash_flow']))),
+                    'type': cf['type'],
+                    'description': cf['description'],
+                    'days_held_in_period': cf.get('days_held'),
+                    'days_in_month': cf.get('days_in_month'),
+                    'holding_fraction': round(cf.get('holding_fraction', 1.0), 4) if cf.get('holding_fraction') is not None else None
+                }
+                for cf in cash_flows_result['cash_flows_detailed']
+            ],
+            'cash_flows_simple': {
+                'period_0_investment': irr_result['cash_flows_simple'][0],
+                'annual_cash_flows': irr_result['cash_flows_simple'][1:],
+                'all_cash_flows': irr_result['cash_flows_simple']
+            },
+            'return_metrics': {
+                'total_distributions_received': float(cash_flows_result['total_distributions']),
+                'capital_gain_loss': float(capital_gain),
+                'total_return': float(total_return),
+                'moic': float(moic),
+                'roi_percentage': float(roi_percentage),
+                'distributions_count': len(cash_flows_result['distributions_with_adjustments'])
+            },
+            'annual_breakdown': self._build_annual_breakdown(
+                cash_flows_result['annual_distributions'],
+                params['exit_value'],
+                irr_result['irr_decimal']
+            ),
+            'interpretation': self._interpret_irr(irr_result['irr_percentage']),
+            'performance_level': self._get_performance_level(irr_result['irr_percentage']),
+            'calculation_date': timezone.now().isoformat(),
+            'calculation_method': 'numpy_financial.irr con ajuste por días (solo primer mes)',
+            'data_source': 'historical_real_distributions_adjusted'
+        }
+    
+    def _build_error_response(self, error_message, validations=None):
+        """Construye respuesta de error"""
+        response = {'error': error_message, **self._get_fund_info()}
+        if validations:
+            response['validations'] = validations
+        return response
+    
+    def _build_annual_breakdown(self, annual_distributions, exit_value, irr_decimal):
+        """Desglose anual"""
+        breakdown = []
+        cumulative = Decimal('0.00')
+        
+        for year_idx, annual_dist in enumerate(annual_distributions):
+            year_number = year_idx + 1
+            is_last = (year_idx == len(annual_distributions) - 1)
+            
+            cash_flow = annual_dist + exit_value if is_last else annual_dist
+            exit_component = exit_value if is_last else Decimal('0.00')
+            cumulative += annual_dist
             
             breakdown.append({
-                'year': year,
+                'year': year_number,
                 'cash_flow': float(cash_flow),
-                'cash_flow_type': cash_flow_type,
-                'dividends_component': float(annual_dividend),
-                'exit_price_component': float(exit_price) if year == years else 0.0,
-                'cumulative_dividends': float(cumulative_dividends),
-                'present_value': present_value
+                'cash_flow_type': 'distributions_and_exit' if is_last else 'distributions',
+                'distributions_component': float(annual_dist),
+                'exit_value_component': float(exit_component),
+                'cumulative_distributions': float(cumulative),
+                'present_value': float(cash_flow) / ((1 + irr_decimal) ** year_number)
             })
         
         return breakdown
     
-    def _interpret_irr(self, irr: float) -> str:
-        """
-        Interpreta el TIR según rangos estándar.
+    # ========================================
+    # UTILIDADES
+    # ========================================
+    
+    def _get_days_in_month(self, year: int, month: int) -> int:
+        """Días en un mes"""
+        import calendar
+        return calendar.monthrange(year, month)[1]
+    
+    def _calculate_days_held(self, investment_date, year, month, exit_date) -> int:
+        """Calcula días de tenencia en un mes"""
+        period_start = timezone.datetime(year, month, 1, tzinfo=investment_date.tzinfo)
+        days_in_month = self._get_days_in_month(year, month)
+        period_end = timezone.datetime(year, month, days_in_month, 23, 59, 59, tzinfo=investment_date.tzinfo)
         
-        Args:
-            irr: Valor del TIR en porcentaje
-            
-        Returns:
-            str: Interpretación textual
-        """
+        effective_start = max(investment_date, period_start)
+        effective_end = min(exit_date, period_end)
+        
+        if effective_start > period_end or effective_end < period_start:
+            return 0
+        
+        return max(0, (effective_end.date() - effective_start.date()).days + 1)
+    
+    def _interpret_irr(self, irr: float) -> str:
+        """Interpretación del TIR"""
         if irr >= 15:
-            return f"Excelente inversión: TIR de {irr:.2f}% supera ampliamente el retorno esperado del mercado. La inversión genera valor significativo considerando todos los flujos de caja."
+            return f"Excelente: TIR de {irr:.2f}%"
         elif irr >= 10:
-            return f"Muy buena inversión: TIR de {irr:.2f}% está por encima del retorno promedio del mercado inmobiliario. Inversión sólida con buenos retornos totales."
+            return f"Muy bueno: TIR de {irr:.2f}%"
         elif irr >= 7:
-            return f"Buena inversión: TIR de {irr:.2f}% está en línea con el mercado. Retorno aceptable considerando dividendos y apreciación."
+            return f"Bueno: TIR de {irr:.2f}%"
         elif irr >= 5:
-            return f"Inversión moderada: TIR de {irr:.2f}% es conservador. Retorno bajo pero estable."
+            return f"Moderado: TIR de {irr:.2f}%"
         elif irr > 0:
-            return f"Inversión con retorno bajo: TIR de {irr:.2f}% está por debajo de expectativas. Requiere revisión de estrategia."
-        elif irr == 0:
-            return "Inversión en punto de equilibrio: TIR de 0% indica que no hay ganancia ni pérdida."
+            return f"Bajo: TIR de {irr:.2f}%"
         else:
-            return f"Inversión con pérdida: TIR negativo de {irr:.2f}% indica que se pierde valor. La inversión destruye capital."
+            return f"Negativo: TIR de {irr:.2f}%"
     
     def _get_performance_level(self, irr: float) -> str:
-        """
-        Determina el nivel de desempeño basado en TIR.
-        
-        Args:
-            irr: Valor del TIR en porcentaje
-            
-        Returns:
-            str: 'excellent', 'very_good', 'good', 'moderate', 'poor', 'negative'
-        """
+        """Nivel de desempeño"""
         if irr >= 15:
             return "excellent"
         elif irr >= 10:

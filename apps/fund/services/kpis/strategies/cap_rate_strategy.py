@@ -28,11 +28,6 @@ class CapRateCalculationStrategy(BaseKPIStrategy):
     
     Formula:
     Cap Rate = (NOI Anual / Valor del Fondo) × 100
-    
-    Example:
-        >>> strategy = CapRateCalculationStrategy(fund)
-        >>> result = strategy.calculate(months_back=12)
-        >>> print(f"Cap Rate: {result['cap_rate']:.2f}%")
     """
     
     def __init__(self, fund: Fund):
@@ -151,7 +146,7 @@ class CapRateCalculationStrategy(BaseKPIStrategy):
             }
             
             # Métricas por unidad
-            total_units = getattr(self.fund, 'total_units_issued', 0)
+            total_units = getattr(self.fund, 'amount_tokens', 0)
             cap_rate_per_unit = float(noi_anual / Decimal(str(total_units))) if total_units > 0 else None
             
             # Métricas por área (si existe)
@@ -182,13 +177,6 @@ class CapRateCalculationStrategy(BaseKPIStrategy):
                     'interpretation': interpretation,
                     'risk_level': self._get_risk_level(float(cap_rate)),
                     'performance_rating': self._get_performance_rating(float(cap_rate))
-                },
-                
-                # Comparación con mercado
-                'market_comparison': {
-                    'market_cap_rate': float(market_cap_rate) if market_cap_rate else None,
-                    'spread_to_market': spread_to_market,
-                    'relative_performance': self._get_relative_performance(spread_to_market) if spread_to_market else None
                 },
                 
                 # Métricas del NOI

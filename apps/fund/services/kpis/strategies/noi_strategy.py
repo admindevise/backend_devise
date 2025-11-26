@@ -137,22 +137,24 @@ class NOICalculationStrategy(BaseKPIStrategy):
         """Calcula NOI de los ÚLTIMOS 12 MESES"""
         
         try:
+            from dateutil.relativedelta import relativedelta
+            
             current_date = timezone.now()
             
-            # Lógica día 30
+            # Determinar último mes completo
             if current_date.day < 30:
-                if current_date.month == 1:
-                    last_completed_year = current_date.year - 1
-                    last_completed_month = 12
-                else:
-                    last_completed_year = current_date.year
-                    last_completed_month = current_date.month - 1
+                # Si estamos antes del día 30, tomar mes anterior como último completo
+                last_completed_date = current_date.replace(day=1) - timezone.timedelta(days=1)
             else:
-                last_completed_year = current_date.year
-                last_completed_month = current_date.month
+                # Si es día 30 o posterior, el mes actual ya está completo
+                last_completed_date = current_date.replace(day=1)
             
-            start_month = last_completed_month
-            start_year = last_completed_year - 1
+            last_completed_year = last_completed_date.year
+            last_completed_month = last_completed_date.month
+            
+            start_date = last_completed_date - relativedelta(months=11)
+            start_year = start_date.year
+            start_month = start_date.month
             
             # Obtener datos
             incomes = self.repository.get_income_range(

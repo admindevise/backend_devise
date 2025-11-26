@@ -6,8 +6,9 @@ sin necesidad de conocer la complejidad interna del sistema.
 """
 
 from typing import Dict, Any, Optional, List
+from django.utils import timezone
 from decimal import Decimal
-from apps.asset.models.core import Asset
+from apps.fund.models.core import Fund
 from .calculator import FundKPICalculator
 
 
@@ -19,9 +20,9 @@ class FundKPIFacade:
     sin necesidad de instanciar strategies individuales.
     """
     
-    def __init__(self, asset: Asset):
-        self.asset = asset
-        self.calculator = FundKPICalculator(asset)
+    def __init__(self, fund:Fund):
+        self.fund = fund
+        self.calculator = FundKPICalculator(fund)
     
     # ========================================
     # NOI
@@ -58,6 +59,38 @@ class FundKPIFacade:
         return self.calculator.get_noi_summary(months=months)     
     
     # ========================================
+    # FUND VALUATION
+    # ========================================    
+    
+    def calculate_fund_valuation(
+        self,
+        target_cap_rate: Decimal,
+        months_back: int = 12,
+        noi_override: Optional[Decimal] = None
+    ) -> Dict[str, Any]:
+        """
+        Calcula el Valor del Fondo basado en Cap Rate objetivo.
+        
+        Example:
+            >>> facade = FundKPIFacade(fund)
+            >>> 
+            >>> # Valoración con cap rate de mercado (7%)
+            >>> valuation = facade.calculate_fund_valuation(target_cap_rate=7.0)
+            >>> print(f"Valor del Fondo: ${valuation['fund_value']:,.2f}")
+            >>> 
+            >>> # Valoración con NOI manual
+            >>> valuation = facade.calculate_fund_valuation(
+            ...     target_cap_rate=6.5,
+            ...     noi_override=5000000
+            ... )
+        """
+        return self.calculator.calculate_fund_valuation(
+            target_cap_rate=target_cap_rate,
+            months_back=months_back,
+            noi_override=noi_override
+        )    
+    
+    # ========================================
     # CAP RATE
     # ========================================
     
@@ -84,30 +117,29 @@ class FundKPIFacade:
     
     def calculate_output_value(
         self,
+        exit_cap_rate: Decimal,
+        current_cap_rate: calculate_cap_rate,
         projected_noi: Optional[Decimal] = None,
-        exit_cap_rate: Optional[Decimal] = None,
+        use_projection: bool = False,
+        projection_start_year: Optional[int] = None,
         projection_years: int = 5,
-        annual_noi_growth_rate: Optional[Decimal] = None
+        annual_noi_growth_rate: Optional[Decimal] = None,
+        growth_rates_by_year: Optional[Dict[int, Decimal]] = None  
     ) -> Dict[str, Any]:
         """
-        Calcula el Valor de Salida (Output Value) del activo.
+        Calcula el Valor de Salida (Output Value) del fondo.
         
-        Precio estimado al que se podrá vender el activo en el futuro.
-        
-        Args:
-            projected_noi: NOI proyectado al momento de salida
-            exit_cap_rate: Cap Rate de salida esperado
-            projection_years: Años hacia adelante para proyección
-            annual_noi_growth_rate: Tasa de crecimiento anual del NOI
-            
-        Returns:
-            dict: Resultado del Output Value
+        Output Value = (NOI Proyectado / Cap Rate de Salida) × 100
         """
         return self.calculator.calculate_output_value(
-            projected_noi=projected_noi,
             exit_cap_rate=exit_cap_rate,
+            current_cap_rate=current_cap_rate,
+            projected_noi=projected_noi,
+            use_projection=use_projection,
+            projection_start_year=projection_start_year,
             projection_years=projection_years,
-            annual_noi_growth_rate=annual_noi_growth_rate
+            annual_noi_growth_rate=annual_noi_growth_rate,
+            growth_rates_by_year=growth_rates_by_year
         )
         
     # ========================================
@@ -179,11 +211,12 @@ class FundKPIFacade:
         
     def calculate_dividend_yield(
         self,
+        investment_id: int,
         period_type: str = 'monthly',
         period_year: Optional[int] = None,
         period_month: Optional[int] = None,
         period_quarter: Optional[int] = None,
-        calculate_annualized: bool = True
+        months_back: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Calcula Dividend Yield del activo.
@@ -201,11 +234,12 @@ class FundKPIFacade:
             >>> print(f"Dividend Yield mensual: {dy_monthly['dividend_yield_period_percentage']:.2f}%")
         """
         return self.calculator.calculate_dividend_yield(
+            investment_id=investment_id,
             period_type=period_type,
             period_year=period_year,
             period_month=period_month,
             period_quarter=period_quarter,
-            calculate_annualized=calculate_annualized
+            months_back=months_back,
         )        
         
         
@@ -236,36 +270,32 @@ class FundKPIFacade:
         
     def calculate_irr(
         self,
-        annual_dividends_per_token: Optional[Decimal] = None,
-        exit_price_per_token: Optional[Decimal] = None,
-        holding_period_years: int = 5,
-        use_historical_dividends: bool = False
+        investment_id: int,
+        exit_price_per_unit: Optional[Decimal] = None,
+        exit_date: Optional[timezone.datetime] = None
     ) -> Dict[str, Any]:
         """
-        Calcula TIR (Tasa Interna de Retorno).
+        Calcula TIR de una inversión específica del usuario.
         
         Example:
-            >>> facade = AssetKPIFacade(asset)
-            >>> # Con parámetros manuales
-            >>> irr = facade.calculate_irr(
-            ...     annual_dividends_per_token=Decimal('400'),
-            ...     exit_price_per_token=Decimal('4600'),
-            ...     holding_period_years=5
-            ... )
-            >>> print(f"TIR: {irr['irr_percentage']:.2f}%")
+            >>> from apps.fund.models.membership import FundInvestment
+            >>> investment = FundInvestment.objects.get(id=123)
+            >>> facade = FundKPIFacade(investment.application.fund)
             >>> 
-            >>> # Con datos históricos
-            >>> irr_hist = facade.calculate_irr(
-            ...     use_historical_dividends=True,
-            ...     holding_period_years=5
+            >>> # TIR con precio actual
+            >>> tir = facade.calculate_irr(investment_id=investment.id)
+            >>> 
+            >>> # TIR con precio de salida proyectado
+            >>> tir = facade.calculate_irr(
+            ...     investment_id=investment.id,
+            ...     exit_price_per_unit=Decimal('1100000')
             ... )
         """
         return self.calculator.calculate_irr(
-            annual_dividends_per_token=annual_dividends_per_token,
-            exit_price_per_token=exit_price_per_token,
-            holding_period_years=holding_period_years,
-            use_historical_dividends=use_historical_dividends
-        )        
+            investment_id=investment_id,
+            exit_price_per_unit=exit_price_per_unit,
+            exit_date=exit_date
+        )    
         
     # ========================================
     # MOIC
@@ -273,33 +303,28 @@ class FundKPIFacade:
     
     def calculate_moic(
         self,
-        total_dividends_received: Optional[Decimal] = None,
-        exit_price_per_token: Optional[Decimal] = None,
-        holding_period_years: int = 5,
-        use_historical_dividends: bool = False
+        investment_id: int,
+        exit_price_per_unit: Optional[Decimal] = None
     ) -> Dict[str, Any]:
         """
-        Calcula MOIC (Múltiplo de Inversión).
+        Calcula MOIC (Múltiplo de Inversión) de una inversión específica.
         
         Example:
-            >>> facade = AssetKPIFacade(asset)
-            >>> # Con parámetros manuales
-            >>> moic = facade.calculate_moic(
-            ...     total_dividends_received=Decimal('2000'),
-            ...     exit_price_per_token=Decimal('4600'),
-            ...     holding_period_years=5
-            ... )
-            >>> print(f"MOIC: {moic['moic']:.2f}x")
+            >>> from apps.fund.models.membership import FundInvestment
+            >>> investment = FundInvestment.objects.get(id=5)
+            >>> facade = FundKPIFacade(investment.application.fund)
             >>> 
-            >>> # Con datos históricos
-            >>> moic_hist = facade.calculate_moic(
-            ...     use_historical_dividends=True,
-            ...     holding_period_years=5
+            >>> # MOIC total (distribuciones + valor actual)
+            >>> moic = facade.calculate_moic(investment_id=investment.id)
+            >>> print(f"MOIC: {moic['moic_metrics']['moic']:.2f}x")
+            >>> 
+            >>> # MOIC solo distribuciones realizadas
+            >>> moic_realized = facade.calculate_moic(
+            ...     investment_id=investment.id,
+            ...     include_unrealized_value=False
             ... )
         """
         return self.calculator.calculate_moic(
-            total_dividends_received=total_dividends_received,
-            exit_price_per_token=exit_price_per_token,
-            holding_period_years=holding_period_years,
-            use_historical_dividends=use_historical_dividends
-        )        
+            investment_id=investment_id,
+            exit_price_per_unit=exit_price_per_unit
+        )

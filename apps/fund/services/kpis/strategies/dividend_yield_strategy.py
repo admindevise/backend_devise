@@ -1,5 +1,5 @@
 """
-Dividend Yield Calculation Strategy para Fund
+Dividend Yield Calculation Strategy para Fund Investment
 """
 
 from typing import Dict, Any, Optional
@@ -9,46 +9,34 @@ from django.db.models import Sum, Q
 
 from ..core.base_strategy import BaseKPIStrategy
 from apps.fund.models.core import Fund
-from apps.fund.models.distributions import DistributionPeriod
+from apps.fund.models.membership import FundInvestment
+from apps.fund.models.distributions import DistributionPeriod, InvestmentDistributionRecord
 
 
 class DividendYieldCalculationStrategy(BaseKPIStrategy):
     """
-    Strategy para calcular Dividend Yield del fondo.
+    Strategy para calcular Dividend Yield de una inversión específica.
     
-    El retorno periódico que recibe un holder de unidades basado en 
-    las distribuciones reales pagadas.
+    El retorno periódico que recibe un inversionista individual basado en 
+    las distribuciones REALES pagadas a su inversión.
     
     Formula:
-    Dividend Yield = (Dividendo Pagado por Unidad / Valor Actual del Token) × 100
+    Dividend Yield = (Dividendo Pagado / Valor Compra Inicial) × 100
     
     Donde:
-    - Dividendo Pagado: distribution_per_token del período
-    - Valor Actual del Token: price_per_unit del fondo
-    
-    Example:
-        Período específico:
-        >>> strategy = DividendYieldCalculationStrategy(fund)
-        >>> result = strategy.calculate(period_year=2024, period_month=12)
-        
-        Últimos 12 meses:
-        >>> result = strategy.calculate()  # Sin parámetros = anualizado
+    - Dividendo Pagado: net_distribution_amount_cop de InvestmentDistributionRecord
+    - Valor Compra Inicial: investment_amount de FundInvestment
     """
     
     def __init__(self, fund: Fund):
         super().__init__(fund)
     
     def validate_prerequisites(self) -> Dict[str, bool]:
-        """Valida que el fondo tenga los datos necesarios"""
+        """Valida que el fondo sea válido"""
         validations = {
             'fund_exists': self.fund is not None,
             'fund_has_id': bool(self.fund.pk if self.fund else False),
-            'fund_is_active': self.fund.status == 'active' if self.fund else False,
-            'has_price_per_unit': bool(
-                hasattr(self.fund, 'price_per_unit') and 
-                self.fund.price_per_unit and
-                self.fund.price_per_unit > 0
-            ) if self.fund else False
+            'fund_is_active': self.fund.status == 'active' if self.fund else False
         }
         
         return {
@@ -58,25 +46,14 @@ class DividendYieldCalculationStrategy(BaseKPIStrategy):
     
     def calculate(
         self,
+        investment_id: int,
         period_type: str = 'monthly',
         period_year: Optional[int] = None,
         period_month: Optional[int] = None,
         period_quarter: Optional[int] = None,
-        calculate_annualized: bool = True
+        months_back: Optional[int] = None  # ✅ NUEVO PARÁMETRO
     ) -> Dict[str, Any]:
-        """
-        Calcula Dividend Yield del fondo.
-        
-        Args:
-            period_type: Tipo de período ('monthly', 'quarterly')
-            period_year: Año específico (opcional)
-            period_month: Mes específico (opcional)
-            period_quarter: Trimestre específico (opcional)
-            calculate_annualized: Si calcular yield anualizado
-            
-        Returns:
-            dict: Resultado del Dividend Yield
-        """
+        """Calcula Dividend Yield para una inversión específica"""
         
         # 1. Validar prerequisites
         prereq = self.validate_prerequisites()
@@ -87,22 +64,40 @@ class DividendYieldCalculationStrategy(BaseKPIStrategy):
                 'validations': prereq['validations']
             }
         
-        # 2. Si no hay período específico, calcular últimos 12 meses
-        if not period_year or not (period_month or period_quarter):
-            return self._calculate_annualized_yield()
+        # 2. Obtener la inversión
+        try:
+            investment = FundInvestment.objects.select_related(
+                'application__fund',
+                'application__user'
+            ).get(
+                id=investment_id,
+                application__fund=self.fund
+            )
+        except FundInvestment.DoesNotExist:
+            return {
+                'error': f'Inversión con ID {investment_id} no encontrada o no pertenece al fondo',
+                **self._get_fund_info(),
+                'investment_id': investment_id
+            }
         
-        # 3. Calcular para período específico
-        return self._calculate_period_yield(
-            period_type, period_year, period_month, period_quarter, calculate_annualized
-        )
+        # ✅ NUEVA LÓGICA: Si especifica months_back, calcular últimos N meses
+        if months_back:
+            return self._calculate_rolling_period_yield(investment, months_back)
+        
+        # 3. Si hay período específico, calcular para ese período
+        if period_year and (period_month or period_quarter):
+            return self._calculate_period_yield(investment, period_type, period_year, period_month, period_quarter)
+        
+        # 4. Si no, calcular acumulado desde el inicio de la inversión
+        return self._calculate_total_yield(investment)
     
     def _calculate_period_yield(
         self,
+        investment: FundInvestment,
         period_type: str,
         period_year: int,
         period_month: Optional[int],
-        period_quarter: Optional[int],
-        calculate_annualized: bool
+        period_quarter: Optional[int]
     ) -> Dict[str, Any]:
         """Calcula Dividend Yield para UN período específico"""
         
@@ -125,6 +120,7 @@ class DividendYieldCalculationStrategy(BaseKPIStrategy):
                 return {
                     'error': 'No existe distribución para el período especificado',
                     **self._get_fund_info(),
+                    'investment_id': investment.id,
                     'period_searched': {
                         'period_type': period_type,
                         'period_year': period_year,
@@ -133,33 +129,42 @@ class DividendYieldCalculationStrategy(BaseKPIStrategy):
                     }
                 }
             
-            # 2. Obtener dividendo pagado por unidad del período
-            dividendo_por_unidad = distribution_period.distribution_per_token
+            # 2. Obtener el registro de distribución para esta inversión específica
+            distribution_record = InvestmentDistributionRecord.objects.filter(
+                distribution_period=distribution_period,
+                investment=investment
+            ).first()
             
-            # 3. Obtener valor actual del token/unidad del fondo
-            valor_actual_token = self.fund.price_per_unit
+            if not distribution_record:
+                return {
+                    'error': 'No hay registro de distribución para esta inversión en el período',
+                    **self._get_fund_info(),
+                    'investment_id': investment.id,
+                    'investor_name': investment.application.user.get_full_name(),
+                    'distribution_period_id': distribution_period.id
+                }
             
-            # 4. Calcular Dividend Yield del período
-            # Dividend Yield = (Dividendo por Unidad / Valor Actual Token) × 100
-            dividend_yield_period = (dividendo_por_unidad / valor_actual_token) * 100
+            # 3. ✅ CORRECCIÓN: Usar net_distribution_amount_cop
+            dividendo_pagado_periodo = distribution_record.net_distribution_amount_cop or Decimal('0.00')
             
-            # 5. Calcular Dividend Yield anualizado (si se solicita)
+            # 4. Obtener valor de compra inicial de la inversión
+            valor_compra_inicial = investment.final_invested_amount
+            
+            # 5. Calcular Dividend Yield del período
+            dividend_yield_period = (dividendo_pagado_periodo / valor_compra_inicial) * 100 if valor_compra_inicial > 0 else Decimal('0.00')
+            
+            # 6. Anualizar si es necesario
             dividend_yield_annualized = None
             periods_per_year = None
             
-            if calculate_annualized:
-                if period_type == 'monthly':
-                    periods_per_year = 12
-                elif period_type == 'quarterly':
-                    periods_per_year = 4
-                elif period_type == 'semi_annually':
-                    periods_per_year = 2
-                else:  # annually
-                    periods_per_year = 1
-                
-                dividend_yield_annualized = dividend_yield_period * periods_per_year
+            if period_type == 'monthly':
+                periods_per_year = 12
+                dividend_yield_annualized = dividend_yield_period * 12
+            elif period_type == 'quarterly':
+                periods_per_year = 4
+                dividend_yield_annualized = dividend_yield_period * 4
             
-            # 6. Interpretación
+            # 7. Interpretación
             yield_to_interpret = dividend_yield_annualized if dividend_yield_annualized else dividend_yield_period
             interpretation = self._interpret_dividend_yield(
                 float(yield_to_interpret), 
@@ -169,6 +174,17 @@ class DividendYieldCalculationStrategy(BaseKPIStrategy):
             return {
                 **self._get_fund_info(),
                 
+                # Información de la inversión
+                'investment_info': {
+                    'investment_id': investment.id,
+                    'investor_id': investment.application.user.id,
+                    'investor_name': investment.application.user.get_full_name(),
+                    'investor_email': investment.application.user.email,
+                    'investment_date': investment.created_at.strftime("%Y-%m-%d"),
+                    'tokens_owned': investment.units_owned,
+                    'investment_amount': float(valor_compra_inicial)
+                },
+                
                 # Información del período
                 'period_info': {
                     'period_type': period_type,
@@ -176,34 +192,28 @@ class DividendYieldCalculationStrategy(BaseKPIStrategy):
                     'period_month': period_month,
                     'period_quarter': period_quarter,
                     'period_display': distribution_period.period_display,
-                    'distribution_id': distribution_period.id,
-                    'distribution_status': distribution_period.status
+                    'distribution_period_id': distribution_period.id
                 },
                 
                 # Dividend Yield principal
                 'dividend_yield_metrics': {
                     'dividend_yield_period_percentage': float(dividend_yield_period),
                     'dividend_yield_annualized_percentage': float(dividend_yield_annualized) if dividend_yield_annualized else None,
-                    'dividendo_por_unidad': float(dividendo_por_unidad),
-                    'valor_actual_token': float(valor_actual_token),
+                    'dividendo_pagado_periodo': float(dividendo_pagado_periodo),
+                    'valor_compra_inicial': float(valor_compra_inicial),
                     'interpretation': interpretation,
                     'performance_level': self._get_performance_level(float(yield_to_interpret))
                 },
                 
-                # Métricas del período de distribución
+                # ✅ CORRECCIÓN: Campos reales del modelo
                 'distribution_metrics': {
-                    'total_distribution_amount': float(distribution_period.total_distribution_amount),
-                    'total_tokens_outstanding': distribution_period.total_tokens_outstanding,
-                    'distribution_per_token': float(distribution_period.distribution_per_token),
-                    'record_date': distribution_period.record_date.strftime("%Y-%m-%d"),
-                    'payment_date': distribution_period.payment_date.strftime("%Y-%m-%d"),
-                    'periods_per_year': periods_per_year
-                },
-                
-                # Información del fondo
-                'fund_metrics': {
-                    'price_per_unit': float(valor_actual_token),
-                    'total_tokens_issued': self.fund.amount_tokens
+                    'gross_amount_cop': float(distribution_record.gross_distribution_amount_cop or 0),
+                    'withholding_tax_cop': float(distribution_record.withholding_tax_cop or 0),
+                    'net_amount_cop': float(distribution_record.net_distribution_amount_cop or 0),
+                    'tokens_held_on_record_date': distribution_record.tokens_held_on_record_date,
+                    'participation_percentage': float(distribution_record.participation_percentage),
+                    'payment_date': distribution_record.payment_date.strftime("%Y-%m-%d") if distribution_record.payment_date else None,
+                    'payment_status': distribution_record.payment_status
                 },
                 
                 # Metadata
@@ -213,113 +223,102 @@ class DividendYieldCalculationStrategy(BaseKPIStrategy):
         except Exception as e:
             return {
                 'error': f'Error: {str(e)}',
-                **self._get_fund_info()
+                **self._get_fund_info(),
+                'investment_id': investment.id
             }
     
-    def _calculate_annualized_yield(self) -> Dict[str, Any]:
-        """Calcula Dividend Yield anualizado (últimos 12 meses completados)"""
+    def _calculate_total_yield(self, investment: FundInvestment) -> Dict[str, Any]:
+        """Calcula Dividend Yield acumulado desde el inicio de la inversión"""
         
         try:
-            # 1. Determinar último mes completado (día 30)
-            current_date = timezone.now()
+            # 1. Obtener TODAS las distribuciones de esta inversión
+            distribution_records = InvestmentDistributionRecord.objects.filter(
+                investment=investment
+            ).select_related('distribution_period').order_by(
+                'distribution_period__period_year', 
+                'distribution_period__period_month'
+            )
             
-            if current_date.day < 30:
-                if current_date.month == 1:
-                    last_completed_year = current_date.year - 1
-                    last_completed_month = 12
-                else:
-                    last_completed_year = current_date.year
-                    last_completed_month = current_date.month - 1
-            else:
-                last_completed_year = current_date.year
-                last_completed_month = current_date.month
-            
-            # Calcular mes de inicio (12 meses atrás)
-            start_month = last_completed_month
-            start_year = last_completed_year - 1
-            
-            # 2. Obtener distribuciones de los últimos 12 meses
-            distributions = DistributionPeriod.objects.filter(
-                fund=self.fund,
-                distribution_type='monthly'
-            ).filter(
-                Q(period_year=start_year, period_month__gte=start_month) |
-                Q(period_year__gt=start_year, period_year__lt=last_completed_year) |
-                Q(period_year=last_completed_year, period_month__lte=last_completed_month)
-            ).order_by('period_year', 'period_month')
-            
-            if not distributions.exists():
+            if not distribution_records.exists():
                 return {
-                    'error': 'No hay distribuciones en los últimos 12 meses',
+                    'error': 'No hay distribuciones para esta inversión',
                     **self._get_fund_info(),
-                    'period_searched': f'{start_year}-{start_month:02d} a {last_completed_year}-{last_completed_month:02d}'
+                    'investment_id': investment.id,
+                    'investor_name': investment.application.user.get_full_name()
                 }
             
-            # 3. Sumar distribution_per_token de todos los períodos
-            total_dividendo_12m = distributions.aggregate(
-                total=Sum('distribution_per_token')
+            # 2. ✅ CORRECCIÓN: Sumar net_distribution_amount_cop
+            total_dividendo_pagado = distribution_records.aggregate(
+                total=Sum('net_distribution_amount_cop')
             )['total'] or Decimal('0.00')
             
-            # 4. Obtener valor actual del token/unidad del fondo
-            valor_actual_token = self.fund.price_per_unit
+            # 3. Obtener valor de compra inicial
+            valor_compra_inicial = investment.final_invested_amount
             
-            # ✅ CORRECCIÓN: Calcular Dividend Yield anualizado
-            # Dividend Yield = (Dividendo Anual por Unidad / Valor Actual Token) × 100
-            if valor_actual_token and valor_actual_token > 0:
-                dividend_yield_annualized = (total_dividendo_12m / valor_actual_token) * 100
-            else:
-                return {
-                    'error': 'El valor actual del token (price_per_unit) es cero o inválido',
-                    **self._get_fund_info(),
-                    'valor_actual_token': float(valor_actual_token) if valor_actual_token else None
-                }
+            # 4. Calcular Dividend Yield acumulado
+            dividend_yield_total = (total_dividendo_pagado / valor_compra_inicial) * 100 if valor_compra_inicial > 0 else Decimal('0.00')
             
-            # 6. Calcular yield mensual promedio
-            dividend_yield_monthly_avg = dividend_yield_annualized / 12
+            # 5. Calcular promedio mensual
+            months_count = distribution_records.count()
+            dividend_yield_monthly_avg = dividend_yield_total / months_count if months_count > 0 else Decimal('0.00')
             
-            # 7. Interpretación
+            # 6. Anualizar el promedio mensual
+            dividend_yield_annualized = dividend_yield_monthly_avg * 12
+            
+            # 7. Calcular días desde la inversión
+            days_since_investment = (timezone.now().date() - investment.created_at.date()).days
+            
+            # 8. Interpretación
             interpretation = self._interpret_dividend_yield(
                 float(dividend_yield_annualized), 
                 is_annualized=True
             )
             
+            # 9. Obtener primer y último período
+            first_distribution = distribution_records.first()
+            last_distribution = distribution_records.last()
+            
             return {
                 **self._get_fund_info(),
                 
-                # Información del período
+                # Información de la inversión
+                'investment_info': {
+                    'investment_id': investment.id,
+                    'investor_id': investment.application.user.id,
+                    'investor_name': investment.application.user.get_full_name(),
+                    'investor_email': investment.application.user.email,
+                    'investment_date': investment.created_at.strftime("%Y-%m-%d"),
+                    'days_since_investment': days_since_investment,
+                    'tokens_owned': investment.units_owned,
+                    'investment_amount': float(valor_compra_inicial)
+                },
+                
+                # Información del período analizado
                 'period_info': {
-                    'period_type': 'monthly',
-                    'period_year': None,
-                    'period_month': None,
-                    'period_quarter': None,
-                    'period_display': f'12 meses ({start_year}-{start_month:02d} a {last_completed_year}-{last_completed_month:02d})',
-                    'start_period': f'{start_year}-{start_month:02d}',
-                    'end_period': f'{last_completed_year}-{last_completed_month:02d}'
+                    'period_type': 'cumulative',
+                    'period_display': f'Desde {first_distribution.distribution_period.period_display} hasta {last_distribution.distribution_period.period_display}',
+                    'first_distribution_date': first_distribution.distribution_period.payment_date.strftime("%Y-%m-%d"),
+                    'last_distribution_date': last_distribution.distribution_period.payment_date.strftime("%Y-%m-%d"),
+                    'total_distributions_count': months_count
                 },
                 
                 # Dividend Yield principal
                 'dividend_yield_metrics': {
-                    'dividend_yield_period_percentage': None,
-                    'dividend_yield_annualized_percentage': float(dividend_yield_annualized),  # ✅ Ahora tiene valor
-                    'dividend_yield_monthly_avg_percentage': float(dividend_yield_monthly_avg),  # ✅ Ahora tiene valor
-                    'dividendo_por_unidad': float(total_dividendo_12m),
-                    'valor_actual_token': float(valor_actual_token),
-                    'interpretation': interpretation,  # ✅ Ahora tiene valor
-                    'performance_level': self._get_performance_level(float(dividend_yield_annualized))  # ✅ Ahora tiene valor
+                    'dividend_yield_total_percentage': float(dividend_yield_total),
+                    'dividend_yield_annualized_percentage': float(dividend_yield_annualized),
+                    'dividend_yield_monthly_avg_percentage': float(dividend_yield_monthly_avg),
+                    'total_dividendo_pagado': float(total_dividendo_pagado),
+                    'valor_compra_inicial': float(valor_compra_inicial),
+                    'interpretation': interpretation,
+                    'performance_level': self._get_performance_level(float(dividend_yield_annualized))
                 },
                 
-                # Métricas del período
-                'period_metrics': {
-                    'total_dividendo_12m': float(total_dividendo_12m),
-                    'distributions_count': distributions.count(),
-                    'average_distribution_per_token': float(total_dividendo_12m / distributions.count()) if distributions.count() > 0 else 0,
-                    'total_distribution_amount_12m': float(distributions.aggregate(total=Sum('total_distribution_amount'))['total'] or 0)
-                },
-                
-                # Información del fondo
-                'fund_metrics': {
-                    'price_per_unit': float(valor_actual_token),
-                    'total_tokens_issued': self.fund.amount_tokens
+                # Métricas acumuladas
+                'cumulative_metrics': {
+                    'total_distributions_received': months_count,
+                    'total_amount_received': float(total_dividendo_pagado),
+                    'average_distribution_amount': float(total_dividendo_pagado / months_count) if months_count > 0 else 0,
+                    'roi_to_date': float((total_dividendo_pagado / valor_compra_inicial) * 100) if valor_compra_inicial > 0 else 0
                 },
                 
                 # Metadata
@@ -329,24 +328,135 @@ class DividendYieldCalculationStrategy(BaseKPIStrategy):
         except Exception as e:
             return {
                 'error': f'Error: {str(e)}',
-                **self._get_fund_info()
+                **self._get_fund_info(),
+                'investment_id': investment.id
             }
+            
+    def _calculate_rolling_period_yield(
+        self, 
+        investment: FundInvestment, 
+        months_back: int
+    ) -> Dict[str, Any]:
+        """Calcula Dividend Yield de los últimos N meses"""
+        
+        try:
+            from datetime import timedelta
+            from dateutil.relativedelta import relativedelta
+            
+            # 1. Calcular fecha de inicio (N meses atrás desde hoy)
+            end_date = timezone.now().date()
+            start_date = end_date - relativedelta(months=months_back)
+            
+            # 2. Obtener distribuciones de los últimos N meses
+            distribution_records = InvestmentDistributionRecord.objects.filter(
+                investment=investment,
+                distribution_period__payment_date__gte=start_date,
+                distribution_period__payment_date__lte=end_date
+            ).select_related('distribution_period').order_by(
+                'distribution_period__period_year', 
+                'distribution_period__period_month'
+            )
+            
+            if not distribution_records.exists():
+                return {
+                    'error': f'No hay distribuciones en los últimos {months_back} meses para esta inversión',
+                    **self._get_fund_info(),
+                    'investment_id': investment.id,
+                    'investor_name': investment.application.user.get_full_name(),
+                    'months_back': months_back,
+                    'start_date': start_date.strftime("%Y-%m-%d"),
+                    'end_date': end_date.strftime("%Y-%m-%d")
+                }
+            
+            # 3. Sumar distribuciones del período
+            total_dividendo_periodo = distribution_records.aggregate(
+                total=Sum('net_distribution_amount_cop')
+            )['total'] or Decimal('0.00')
+            
+            # 4. Obtener valor de compra inicial
+            valor_compra_inicial = investment.final_invested_amount
+            
+            # 5. Calcular Dividend Yield del período
+            dividend_yield_period = (total_dividendo_periodo / valor_compra_inicial) * 100 if valor_compra_inicial > 0 else Decimal('0.00')
+            
+            # 6. Anualizar (proyectar a 12 meses)
+            dividend_yield_annualized = (dividend_yield_period / months_back) * 12
+            
+            # 7. Calcular promedio mensual
+            months_count = distribution_records.count()
+            dividend_yield_monthly_avg = dividend_yield_period / months_count if months_count > 0 else Decimal('0.00')
+            
+            # 8. Interpretación
+            interpretation = self._interpret_dividend_yield(
+                float(dividend_yield_annualized), 
+                is_annualized=True
+            )
+            
+            # 9. Obtener primer y último período
+            first_distribution = distribution_records.first()
+            last_distribution = distribution_records.last()
+            
+            return {
+                **self._get_fund_info(),
+                
+                # Información de la inversión
+                'investment_info': {
+                    'investment_id': investment.id,
+                    'investor_id': investment.application.user.id,
+                    'investor_name': investment.application.user.get_full_name(),
+                    'investor_email': investment.application.user.email,
+                    'investment_date': investment.created_at.strftime("%Y-%m-%d"),
+                    'tokens_owned': investment.units_owned,
+                    'investment_amount': float(valor_compra_inicial)
+                },
+                
+                # Información del período analizado
+                'period_info': {
+                    'period_type': 'rolling',
+                    'months_back': months_back,
+                    'start_date': start_date.strftime("%Y-%m-%d"),
+                    'end_date': end_date.strftime("%Y-%m-%d"),
+                    'period_display': f'Últimos {months_back} meses',
+                    'first_distribution_date': first_distribution.distribution_period.payment_date.strftime("%Y-%m-%d"),
+                    'last_distribution_date': last_distribution.distribution_period.payment_date.strftime("%Y-%m-%d"),
+                    'total_distributions_count': months_count
+                },
+                
+                # Dividend Yield principal
+                'dividend_yield_metrics': {
+                    'dividend_yield_period_percentage': float(dividend_yield_period),
+                    'dividend_yield_annualized_percentage': float(dividend_yield_annualized),
+                    'dividend_yield_monthly_avg_percentage': float(dividend_yield_monthly_avg),
+                    'total_dividendo_pagado': float(total_dividendo_periodo),
+                    'valor_compra_inicial': float(valor_compra_inicial),
+                    'interpretation': interpretation,
+                    'performance_level': self._get_performance_level(float(dividend_yield_annualized))
+                },
+                
+                # Métricas del período
+                'period_metrics': {
+                    'distributions_in_period': months_count,
+                    'total_amount_received': float(total_dividendo_periodo),
+                    'average_distribution_amount': float(total_dividendo_periodo / months_count) if months_count > 0 else 0
+                },
+                
+                # Metadata
+                'calculation_date': timezone.now().isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                'error': f'Error: {str(e)}',
+                **self._get_fund_info(),
+                'investment_id': investment.id
+            }            
     
     def _interpret_dividend_yield(self, dividend_yield: float, is_annualized: bool = False) -> str:
-        """
-        Interpreta el Dividend Yield.
-        
-        Args:
-            dividend_yield: Valor del Dividend Yield en porcentaje
-            is_annualized: Si el yield está anualizado
-            
-        Returns:
-            str: Interpretación textual
-        """
+        """Interpreta el Dividend Yield"""
         period_text = "anualizado" if is_annualized else "del período"
         
         if dividend_yield >= 10:
-            return f"Excelente rendimiento {period_text}: El fondo distribuye un flujo de caja significativo a los holders."
+            return f"Excelente rendimiento {period_text}: La inversión genera distribuciones significativas."
         elif dividend_yield >= 7:
             return f"Muy buen rendimiento {period_text}: Distribuciones sólidas y consistentes."
         elif dividend_yield >= 5:
@@ -354,20 +464,12 @@ class DividendYieldCalculationStrategy(BaseKPIStrategy):
         elif dividend_yield >= 3:
             return f"Rendimiento moderado {period_text}: Distribuciones modestas."
         elif dividend_yield > 0:
-            return f"Rendimiento bajo {period_text}: Distribuciones limitadas. Revisar eficiencia operativa."
+            return f"Rendimiento bajo {period_text}: Distribuciones limitadas."
         else:
-            return f"Sin rendimiento {period_text}: El fondo no está generando distribuciones."
+            return f"Sin rendimiento {period_text}: No se han recibido distribuciones."
     
     def _get_performance_level(self, dividend_yield: float) -> str:
-        """
-        Determina el nivel de desempeño basado en Dividend Yield.
-        
-        Args:
-            dividend_yield: Valor del Dividend Yield en porcentaje
-            
-        Returns:
-            str: 'excellent', 'very_good', 'good', 'moderate', 'poor', 'none'
-        """
+        """Determina el nivel de desempeño"""
         if dividend_yield >= 10:
             return "excellent"
         elif dividend_yield >= 7:

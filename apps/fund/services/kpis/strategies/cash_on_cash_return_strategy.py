@@ -5,10 +5,12 @@ Cash on Cash Return Calculation Strategy para Fund
 from typing import Dict, Any, Optional
 from decimal import Decimal
 from django.utils import timezone
+from django.db.models import Sum
 
 from ..core.base_strategy import BaseKPIStrategy
 from apps.fund.models.core import Fund
 from .free_cash_flow_strategy import FreeCashFlowCalculationStrategy
+from ..repositories.operating_data_repository import OperatingDataRepository
 
 
 class CashOnCashCalculationStrategy(BaseKPIStrategy):
@@ -22,28 +24,22 @@ class CashOnCashCalculationStrategy(BaseKPIStrategy):
     
     Donde:
     - Flujo de Caja Libre Anual: FCF de los últimos 12 meses
-    - Capital Invertido: Equity inicial (acquisition_value - deuda inicial)
+    - Capital Invertido: initial_capex + CAPEX de períodos seleccionados
     
     Nota importante:
     - Este es el KPI del FONDO, no de la inversión individual
-    - Usa el capital total del fondo (acquisition_value)
-    - Si quisieras Cash on Cash de una inversión específica, usarías:
-      Cash on Cash Inversión = (Distribuciones recibidas / Monto invertido) × 100
+    - Incluye tanto la inversión inicial como las mejoras/expansiones
     
     Interpretación:
     - CoC > 8%: Excelente retorno en efectivo
     - CoC 5-8%: Buen retorno
     - CoC < 5%: Retorno bajo, revisar estructura
-    
-    Example:
-        >>> strategy = CashOnCashCalculationStrategy(fund)
-        >>> result = strategy.calculate()
-        >>> print(f"Cash on Cash: {result['cash_on_cash_percentage']:.2f}%")
     """
     
     def __init__(self, fund: Fund):
         super().__init__(fund)
         self.fcf_strategy = FreeCashFlowCalculationStrategy(fund)
+        self.repository = OperatingDataRepository()
     
     def validate_prerequisites(self) -> Dict[str, bool]:
         """Valida que el fondo tenga los datos necesarios"""
@@ -51,7 +47,7 @@ class CashOnCashCalculationStrategy(BaseKPIStrategy):
             'fund_exists': self.fund is not None,
             'fund_has_id': bool(self.fund.pk if self.fund else False),
             'fund_is_active': self.fund.status == 'active' if self.fund else False,
-            'has_acquisition_value': bool(self.fund.acquisition_value) if self.fund else False
+            'has_initial_capex': bool(self.fund.initial_capex) if self.fund else False
         }
         
         return {
@@ -100,16 +96,53 @@ class CashOnCashCalculationStrategy(BaseKPIStrategy):
             
             fcf_anual = Decimal(str(fcf_result.get('total_fcf_12m', 0)))
             
-            # 3. Obtener capital invertido (equity inicial)
-            # Capital invertido = acquisition_value (sin considerar deuda)
-            capital_invertido = self.fund.acquisition_value
+            # 3. ✅ CAMBIO: Calcular capital invertido = initial_capex + CAPEX de períodos
+            
+            # 3.1 Obtener initial_capex del modelo Fund
+            initial_capex = self.fund.initial_capex or Decimal('0.00')
+            
+            # 3.2 Obtener CAPEX de los períodos analizados
+            # Calcular rango de fechas (misma lógica que FCF)
+            from dateutil.relativedelta import relativedelta
+            
+            current_date = timezone.now()
+            
+            # Determinar último mes completo
+            if current_date.day < 30:
+                last_completed_date = current_date.replace(day=1) - timezone.timedelta(days=1)
+            else:
+                last_completed_date = current_date.replace(day=1)
+            
+            last_completed_year = last_completed_date.year
+            last_completed_month = last_completed_date.month
+            
+            start_date = last_completed_date - relativedelta(months=months_back - 1)
+            start_year = start_date.year
+            start_month = start_date.month
+            
+            # 3.3 Obtener suma de CAPEX de los períodos
+            expenses = self.repository.get_expense_range(
+                fund=self.fund,
+                period_type='monthly',
+                start_year=start_year,
+                start_month=start_month,
+                end_year=last_completed_year,
+                end_month=last_completed_month
+            )
+            
+            capex_periodic = expenses.aggregate(total=Sum('capex'))['total'] or Decimal('0.00')
+            
+            # 3.4 Capital invertido total
+            capital_invertido = initial_capex + capex_periodic
             
             # Validar que el capital invertido sea válido
-            if not capital_invertido or capital_invertido <= 0:
+            if capital_invertido <= 0:
                 return {
                     'error': 'Capital invertido inválido o cero',
                     **self._get_fund_info(),
-                    'acquisition_value': float(capital_invertido) if capital_invertido else 0
+                    'initial_capex': float(initial_capex),
+                    'capex_periodic': float(capex_periodic),
+                    'capital_invertido': float(capital_invertido)
                 }
             
             # 4. Calcular Cash on Cash
@@ -134,6 +167,14 @@ class CashOnCashCalculationStrategy(BaseKPIStrategy):
                 'fcf_anual': float(fcf_anual),
                 'capital_invertido': float(capital_invertido),
                 
+                # ✅ NUEVO: Desglose del capital invertido
+                'capital_breakdown': {
+                    'initial_capex': float(initial_capex),
+                    'capex_periodic': float(capex_periodic),
+                    'total_capital_invested': float(capital_invertido),
+                    'capex_as_percentage_of_initial': float((capex_periodic / initial_capex) * 100) if initial_capex > 0 else 0
+                },
+                
                 # Interpretación
                 'interpretation': interpretation,
                 'performance_level': self._get_performance_level(float(cash_on_cash)),
@@ -151,8 +192,9 @@ class CashOnCashCalculationStrategy(BaseKPIStrategy):
                 
                 # Metadata
                 'calculation_date': timezone.now().isoformat(),
-                'period_analyzed': f'últimos {months_back} meses',
-                'calculation_note': 'KPI del fondo basado en capital total (acquisition_value)'
+                'period_analyzed': f'{start_year}-{start_month:02d} a {last_completed_year}-{last_completed_month:02d}',
+                'months_analyzed': months_back,
+                'calculation_note': 'Capital invertido = initial_capex + CAPEX de períodos analizados'
             }
             
             # Agregar información por área si existe
@@ -163,7 +205,17 @@ class CashOnCashCalculationStrategy(BaseKPIStrategy):
                 result['fund_metrics'] = {
                     'total_area_m2': float(total_area),
                     'rentable_area_m2': float(rentable_area) if rentable_area else None,
-                    'cash_on_cash_per_m2': float(fcf_anual / total_area)
+                    'cash_on_cash_per_m2': float(fcf_anual / total_area),
+                    'capital_invested_per_m2': float(capital_invertido / total_area)
+                }
+            
+            # Agregar información por unidad
+            total_units = self.fund.amount_tokens or 0
+            if total_units > 0:
+                result['per_unit_metrics'] = {
+                    'total_units_issued': total_units,
+                    'fcf_per_unit': float(fcf_anual / Decimal(str(total_units))),
+                    'capital_invested_per_unit': float(capital_invertido / Decimal(str(total_units)))
                 }
             
             # Agregar desglose si se solicitó

@@ -3,6 +3,7 @@ FundKPICalculator - Orquestador que usa Strategies
 """
 
 from typing import Dict, Any, Optional
+from django.utils import timezone
 from decimal import Decimal
 from apps.fund.models.core import Fund
 from apps.fund.services.kpis.core.exceptions import FundKPIError
@@ -16,6 +17,7 @@ from apps.fund.services.kpis.strategies.dividend_yield_strategy import DividendY
 from apps.fund.services.kpis.strategies.dividend_yield_moving_strategy import DividendYieldMovingAverageStrategy
 from apps.fund.services.kpis.strategies.irr_strategy import IRRCalculationStrategy
 from apps.fund.services.kpis.strategies.moic_strategy import MOICCalculationStrategy
+from apps.fund.services.kpis.strategies.fund_valuation_strategy import FundValuationCalculationStrategy
 
 
 class FundKPICalculator:
@@ -44,7 +46,7 @@ class FundKPICalculator:
         self.dividend_yield_ma_strategy = DividendYieldMovingAverageStrategy(fund)
         self.irr_strategy = IRRCalculationStrategy(fund)
         self.moic_strategy = MOICCalculationStrategy(fund)
-                                
+        self.fund_valuation_strategy = FundValuationCalculationStrategy(fund)
     
     # ========================================
     # NOI
@@ -79,6 +81,35 @@ class FundKPICalculator:
         )
         
     # ========================================
+    # FUND VALUATION
+    # ========================================        
+        
+    def calculate_fund_valuation(
+        self,
+        target_cap_rate: Decimal,
+        months_back: int = 12,
+        noi_override: Optional[Decimal] = None
+    ) -> Dict[str, Any]:
+        """
+        Calcula el Valor del Fondo basado en NOI y Cap Rate.
+        
+        Valor del Fondo = (NOI Anual / Cap Rate) × 100
+        
+        Args:
+            target_cap_rate: Cap Rate objetivo en porcentaje
+            months_back: Meses hacia atrás para NOI (default: 12)
+            noi_override: NOI manual (opcional)
+            
+        Returns:
+            dict: Resultado de la valoración del fondo
+        """
+        return self.fund_valuation_strategy.calculate(
+            target_cap_rate=target_cap_rate,
+            months_back=months_back,
+            noi_override=noi_override
+        )        
+        
+    # ========================================
     # CAP RATE
     # ========================================
     
@@ -100,31 +131,42 @@ class FundKPICalculator:
     
     def calculate_output_value(
         self,
+        exit_cap_rate: Decimal, 
+        current_cap_rate: Decimal,
         projected_noi: Optional[Decimal] = None,
-        exit_cap_rate: Optional[Decimal] = None,
+        use_projection: bool = False,
+        projection_start_year: Optional[int] = None,
         projection_years: int = 5,
-        annual_noi_growth_rate: Optional[Decimal] = None
+        annual_noi_growth_rate: Optional[Decimal] = None,
+        growth_rates_by_year: Optional[Dict[int, Decimal]] = None
     ) -> Dict[str, Any]:
         """
-        Calcula el Valor de Salida del activo.
+        Calcula el Valor de Salida del fondo.
         
-        Output Value = NOI Proyectado / Cap Rate de Salida
+        Output Value = (NOI Proyectado / Cap Rate de Salida) × 100
         
         Args:
-            projected_noi: NOI proyectado al momento de salida (opcional)
-            exit_cap_rate: Cap Rate de salida esperado (opcional)
-            projection_years: Años hacia adelante (default: 5)
-            annual_noi_growth_rate: Tasa de crecimiento anual del NOI (opcional)
+            exit_cap_rate: Cap Rate de salida esperado (REQUERIDO)
+            projected_noi: NOI proyectado manual (opcional)
+            use_projection: Si usar proyección con crecimiento (default: False)
+            projection_start_year: Año base para proyección (opcional)
+            projection_years: Años a proyectar (default: 5)
+            annual_noi_growth_rate: Tasa de crecimiento uniforme %
+            growth_rates_by_year: Dict con tasas por año específico
             
         Returns:
             dict: Resultado del Output Value con métricas de retorno
         """
         return self.output_value_strategy.calculate(
-            projected_noi=projected_noi,
             exit_cap_rate=exit_cap_rate,
+            current_cap_rate=current_cap_rate,
+            projected_noi=projected_noi,
+            use_projection=use_projection,
+            projection_start_year=projection_start_year,
             projection_years=projection_years,
-            annual_noi_growth_rate=annual_noi_growth_rate
-        )    
+            annual_noi_growth_rate=annual_noi_growth_rate,
+            growth_rates_by_year=growth_rates_by_year
+        )
         
     # ========================================
     # FREE CASH FLOW
@@ -188,11 +230,12 @@ class FundKPICalculator:
     
     def calculate_dividend_yield(
         self,
+        investment_id: int,
         period_type: str = 'monthly',
         period_year: Optional[int] = None,
         period_month: Optional[int] = None,
         period_quarter: Optional[int] = None,
-        calculate_annualized: bool = True
+        months_back: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Calcula Dividend Yield del activo.
@@ -203,11 +246,12 @@ class FundKPICalculator:
             dict: Resultado del Dividend Yield
         """
         return self.dividend_yield_strategy.calculate(
+            investment_id=investment_id,
             period_type=period_type,
             period_year=period_year,
             period_month=period_month,
             period_quarter=period_quarter,
-            calculate_annualized=calculate_annualized
+            months_back=months_back,
         )        
         
         
@@ -237,51 +281,51 @@ class FundKPICalculator:
     # ========================================
     # IRR (TASA INTERNA DE RETORNO)
     # ========================================
-    
+        
     def calculate_irr(
         self,
-        annual_dividends_per_token: Optional[Decimal] = None,
-        exit_price_per_token: Optional[Decimal] = None,
-        holding_period_years: int = 5,
-        use_historical_dividends: bool = False
+        investment_id: int,
+        exit_price_per_unit: Optional[Decimal] = None,
+        exit_date: Optional[timezone.datetime] = None
     ) -> Dict[str, Any]:
         """
-        Calcula TIR (Tasa Interna de Retorno / IRR).
+        Calcula TIR (Tasa Interna de Retorno / IRR) de una inversión específica.
         
-        0 = Σ [Flujos de Caja / (1 + TIR)^t] - Inversión Inicial
+        Args:
+            investment_id: ID de FundInvestment
+            exit_price_per_unit: Precio de salida por unidad (opcional)
+            exit_date: Fecha de salida (opcional)
         
         Returns:
-            dict: Resultado del TIR con flujos de caja y métricas
+            dict: Resultado del TIR con flujos de caja
         """
         return self.irr_strategy.calculate(
-            annual_dividends_per_token=annual_dividends_per_token,
-            exit_price_per_token=exit_price_per_token,
-            holding_period_years=holding_period_years,
-            use_historical_dividends=use_historical_dividends
-        )        
-        
+            investment_id=investment_id,
+            exit_price_per_unit=exit_price_per_unit,
+            exit_date=exit_date
+        )
+            
     # ========================================
     # MOIC (MÚLTIPLO DE INVERSIÓN)
     # ========================================
     
     def calculate_moic(
         self,
-        total_dividends_received: Optional[Decimal] = None,
-        exit_price_per_token: Optional[Decimal] = None,
-        holding_period_years: int = 5,
-        use_historical_dividends: bool = False
+        investment_id: int,
+        exit_price_per_unit: Optional[Decimal] = None
     ) -> Dict[str, Any]:
         """
-        Calcula MOIC (Múltiplo de Inversión).
+        Calcula MOIC (Múltiplo de Inversión) de una inversión específica.
         
-        MOIC = Total Recibido / Inversión Inicial
+        Args:
+            investment_id: ID de FundInvestment
+            include_unrealized_value: Incluir valor actual no realizado de tokens
+            use_current_price: Usar precio actual vs precio de compra para valoración
         
         Returns:
             dict: Resultado del MOIC con desglose
         """
         return self.moic_strategy.calculate(
-            total_dividends_received=total_dividends_received,
-            exit_price_per_token=exit_price_per_token,
-            holding_period_years=holding_period_years,
-            use_historical_dividends=use_historical_dividends
-        )        
+            investment_id=investment_id,
+            exit_price_per_unit=exit_price_per_unit
+        )

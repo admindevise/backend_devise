@@ -189,14 +189,14 @@ class Fund(models.Model):
     # ========================================
     # PARÁMETROS FINANCIEROS - ACTIVOS Y COMISIONES
     # ========================================
-    acquisition_value = models.DecimalField(
+    initial_capex = models.DecimalField(
         max_digits=18,
         decimal_places=2,
         null=True,
         blank=True,
         validators=[MinValueValidator(Decimal('0'))],
-        verbose_name="Valor de adquisición del fondo (COP)",
-        help_text="Valor total de compra/adquisición de los activos del fondo"
+        verbose_name="Valor de compra o inversion",
+        help_text="Valor total de compra/inversion total del fondo"
     )        
     total_assets = models.DecimalField(
         max_digits=18, 

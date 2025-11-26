@@ -13,7 +13,8 @@ from apps.fund.serializers.kpis_serializers import (
     FundDividendYieldCalculationSerializer,
     FundDividendYieldMovingAverageSerializer,
     FundIRRCalculationSerializer,
-    FundMOICCalculationSerializer
+    FundMOICCalculationSerializer,
+    FundValuationCalculationSerializer
 )
 
 
@@ -70,6 +71,60 @@ def get_fund_noi_summary(request):
         }
     """
     serializer = FundNOISummarySerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        result = serializer.save()
+        
+        return Response(
+            serializer.to_representation(result),
+            status=status.HTTP_200_OK
+        )
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def calculate_fund_valuation(request):
+    """
+    Calcula el Valor del Fondo basado en Cap Rate objetivo.
+    
+    Formula: Valor del Fondo = (NOI Anual / Cap Rate) × 100
+    
+    Body:
+        {
+            "fund_id": 1,
+            "target_cap_rate": 7.0,
+            "months_back": 12,        // opcional
+            "noi_override": 3500000   // opcional
+        }
+    
+    Response:
+        {
+            "success": true,
+            "data": {
+                "valuation_metrics": {
+                    "fund_value": 50000000.0,
+                    "fund_value_display": "$50,000,000.00 COP"
+                },
+                ...
+            },
+            "message": "Valoración calculada: $50,000,000.00 COP (Cap Rate: 7.00%)"
+        }
+    """
+    serializer = FundValuationCalculationSerializer(
         data=request.data,
         context={'request': request}
     )

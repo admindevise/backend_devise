@@ -135,6 +135,7 @@ class FreeCashFlowCalculationStrategy(BaseKPIStrategy):
             
             # 5. Calcular FCF por unidad
             total_units = self.fund.amount_tokens or 0
+            print(f"tokens: {total_units}")
             fcf_per_unit = self._safe_divide(fcf, Decimal(str(total_units))) if total_units > 0 else Decimal('0.00')
             
             return {
@@ -154,13 +155,11 @@ class FreeCashFlowCalculationStrategy(BaseKPIStrategy):
                     'noi': float(noi),
                     'capex': float(capex),
                     'debt_service': float(debt_service),
-                    'debt_principal': float(debt_principal) if expense_record else 0,
-                    'debt_interest': float(debt_interest) if expense_record else 0,
                     'non_operating_income': float(non_operating_income)
                 },
                 
                 # Metadata
-                'total_units_issued': total_units,
+                'total_units': total_units,
                 'calculation_date': timezone.now().isoformat()
             }
             
@@ -174,22 +173,22 @@ class FreeCashFlowCalculationStrategy(BaseKPIStrategy):
         """Calcula FCF de los ÚLTIMOS N MESES"""
         
         try:
+            from dateutil.relativedelta import relativedelta
+            
             current_date = timezone.now()
             
-            # Lógica día 30
+            # Determinar último mes completo
             if current_date.day < 30:
-                if current_date.month == 1:
-                    last_completed_year = current_date.year - 1
-                    last_completed_month = 12
-                else:
-                    last_completed_year = current_date.year
-                    last_completed_month = current_date.month - 1
+                last_completed_date = current_date.replace(day=1) - timezone.timedelta(days=1)
             else:
-                last_completed_year = current_date.year
-                last_completed_month = current_date.month
+                last_completed_date = current_date.replace(day=1)
             
-            start_month = last_completed_month
-            start_year = last_completed_year - 1
+            last_completed_year = last_completed_date.year
+            last_completed_month = last_completed_date.month
+            
+            start_date = last_completed_date - relativedelta(months=11)
+            start_year = start_date.year
+            start_month = start_date.month
             
             # 1. Obtener NOI de los últimos N meses
             noi_result = self.noi_strategy.calculate(
@@ -224,25 +223,34 @@ class FreeCashFlowCalculationStrategy(BaseKPIStrategy):
                 end_month=last_completed_month
             )
             
-            # 3. Agregar componentes
-            capex_sum = expenses.aggregate(total=Sum('capex'))['total'] or Decimal('0.00')
+            # 3. ✅ CAMBIO: Agregar componentes + initial_capex
+            capex_periodic = expenses.aggregate(total=Sum('capex'))['total'] or Decimal('0.00')
+            
+            # ✅ NUEVO: Sumar initial_capex del modelo Fund
+            initial_capex = self.fund.initial_capex or Decimal('0.00')
+            capex_sum = capex_periodic + initial_capex
             
             debt_principal_sum = expenses.aggregate(total=Sum('debt_principal_payment'))['total'] or Decimal('0.00')
             debt_interest_sum = expenses.aggregate(total=Sum('debt_interest_payment'))['total'] or Decimal('0.00')
             debt_service_sum = debt_principal_sum + debt_interest_sum
             
-            # ✅ AGREGADO: Sumar ingresos y gastos no operativos
+            # Sumar ingresos y gastos no operativos
             non_op_income_sum = incomes.aggregate(total=Sum('non_operating_income'))['total'] or Decimal('0.00')
             non_op_expense_sum = expenses.aggregate(total=Sum('non_operating_expenses'))['total'] or Decimal('0.00')
             
-            # 4. ✅ FÓRMULA CORREGIDA
-            # FCF = NOI + Ingresos no operativos - Gastos no operativos - CAPEX - Deuda
+            # 4. Calcular FCF total
             total_fcf = total_noi + non_op_income_sum - non_op_expense_sum - capex_sum - debt_service_sum
             
             # 5. Calcular métricas
             total_units = self.fund.amount_tokens or 0
             fcf_per_unit = self._safe_divide(total_fcf, Decimal(str(total_units))) if total_units > 0 else Decimal('0.00')
             average_monthly_fcf = total_fcf / months_back
+            
+            # Calcular margen FCF
+            total_income = Decimal(str(noi_result.get('total_operating_income_12m', 0)))
+            fcf_margin_percentage = None
+            if total_income > 0:
+                fcf_margin_percentage = (total_fcf / total_income) * 100
             
             result = {
                 **self._get_fund_info(),
@@ -252,23 +260,25 @@ class FreeCashFlowCalculationStrategy(BaseKPIStrategy):
                 'months_back': months_back,
                 
                 # FCF del período
+                'free_cash_flow': float(total_fcf), 
                 'total_fcf_12m': float(total_fcf),
                 'fcf_per_unit': float(fcf_per_unit),
                 'average_monthly_fcf': float(average_monthly_fcf),
+                'fcf_margin_percentage': float(fcf_margin_percentage) if fcf_margin_percentage else None,
                 
-                # Componentes
+                # ✅ CAMBIO: Componentes con desglose de CAPEX
                 'fcf_components': {
                     'total_noi': float(total_noi),
                     'total_capex': float(capex_sum),
+                    'capex_periodic': float(capex_periodic),
+                    'initial_capex': float(initial_capex),
                     'total_debt_service': float(debt_service_sum),
-                    'debt_principal': float(debt_principal_sum),
-                    'debt_interest': float(debt_interest_sum),
                     'non_operating_income': float(non_op_income_sum),
                     'non_operating_expenses': float(non_op_expense_sum)
                 },
                 
                 # Metadata
-                'total_units_issued': total_units,
+                'total_units_issued': total_units,  # ✅ CAMBIO: Nombre consistente
                 'expense_periods_count': expenses.count(),
                 'income_periods_count': incomes.count(),
                 'calculation_date': timezone.now().isoformat()
@@ -303,8 +313,10 @@ class FreeCashFlowCalculationStrategy(BaseKPIStrategy):
                         month_debt = month_debt_principal + month_debt_interest
                         
                         month_non_op_inc = income.non_operating_income or Decimal('0.00') if income else Decimal('0.00')
+                        month_non_op_exp = expense.non_operating_expenses or Decimal('0.00') if expense else Decimal('0.00')
                         
-                        month_fcf = month_noi - month_capex - month_debt + month_non_op_inc
+                        # ✅ CAMBIO: FCF mensual NO incluye initial_capex (es un gasto único)
+                        month_fcf = month_noi + month_non_op_inc - month_non_op_exp - month_capex - month_debt
                         
                         monthly_breakdown.append({
                             'period_display': noi_month['period_display'],
@@ -312,10 +324,9 @@ class FreeCashFlowCalculationStrategy(BaseKPIStrategy):
                             'period_month': month,
                             'noi': float(month_noi),
                             'capex': float(month_capex),
-                            'debt_principal': float(month_debt_principal),
-                            'debt_interest': float(month_debt_interest),
                             'debt_service': float(month_debt),
                             'non_operating_income': float(month_non_op_inc),
+                            'non_operating_expenses': float(month_non_op_exp),
                             'fcf': float(month_fcf),
                             'fcf_per_unit': float(self._safe_divide(month_fcf, Decimal(str(total_units)))) if total_units > 0 else 0
                         })

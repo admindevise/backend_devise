@@ -325,6 +325,13 @@ class InvestmentApplication(models.Model):
             timezone.now() > self.contract_signature_deadline
         )
     
+    @property
+    def get_full_name(self):
+        """Mostrar nombre completo de inversionista"""
+        return (
+            self.user.first_name + self.user.last_name
+        )
+    
     class Meta:
         ordering = ['-created_at']
         verbose_name = "Solicitud de Inversión"

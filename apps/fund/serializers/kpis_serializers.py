@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from apps.fund.models.core import Fund
 from apps.fund.services.kpis.facade import FundKPIFacade
+from apps.fund.models.membership import FundInvestment
 
 
 class FundNOICalculationSerializer(serializers.Serializer):
@@ -171,10 +172,19 @@ class FundNOICalculationSerializer(serializers.Serializer):
                 'fund_code': instance.get('fund_code')
             }
         
-        # ✅ CORRECCIÓN: Usar los nombres exactos que devuelve la strategy
-        total_income = instance.get('total_operating_income')
-        total_expenses = instance.get('total_operating_expenses')  # ✅ Con 's'
-        noi = instance.get('net_operating_income')  # ✅ Nombre exacto
+        # ✅ Detectar si es período único o últimos 12 meses
+        is_12_months = 'total_noi_12m' in instance
+        
+        if is_12_months:
+            # Últimos 12 meses
+            total_income = instance.get('total_operating_income_12m')
+            total_expenses = instance.get('total_operating_expenses_12m')
+            noi = instance.get('total_noi_12m')
+        else:
+            # Período único
+            total_income = instance.get('total_operating_income')
+            total_expenses = instance.get('total_operating_expenses')
+            noi = instance.get('net_operating_income')
         
         # Respuesta exitosa
         return {
@@ -198,15 +208,150 @@ class FundNOICalculationSerializer(serializers.Serializer):
                 },
                 'noi_metrics': {
                     'total_operating_income': total_income,
-                    'total_operating_expenses': total_expenses,  # ✅ Corregido
-                    'net_operating_income': noi,  # ✅ Corregido
+                    'total_operating_expenses': total_expenses,
+                    'net_operating_income': noi,
                     'noi_margin_percentage': instance.get('noi_margin_percentage'),
                     'average_monthly_noi': instance.get('average_monthly_noi')
                 },
                 'fund_metrics': instance.get('fund_metrics') or instance.get('per_area_metrics', {}),
                 'calculation_date': instance.get('calculation_date')
             },
-            'message': f"NOI calculado exitosamente: ${noi or 0:,.2f} COP"  # ✅ Usar la variable noi
+            'message': f"NOI calculado exitosamente: ${noi or 0:,.2f} COP"
+        }
+
+
+class FundValuationCalculationSerializer(serializers.Serializer):
+    """
+    Serializer para calcular Valor del Fondo basado en Cap Rate.
+    
+    Formula: Valor del Fondo = (NOI Anual / Cap Rate) × 100
+    
+    Example:
+        >>> data = {
+        ...     'fund_id': 1,
+        ...     'target_cap_rate': 7.0
+        ... }
+    """
+    
+    fund_id = serializers.IntegerField(
+        required=True,
+        help_text="ID del fondo"
+    )
+    
+    target_cap_rate = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=True,
+        help_text="Cap Rate objetivo en porcentaje (ej: 7.0 para 7%)"
+    )
+    
+    months_back = serializers.IntegerField(
+        required=False,
+        default=12,
+        min_value=1,
+        max_value=36,
+        help_text="Meses hacia atrás para calcular NOI (default: 12)"
+    )
+    
+    noi_override = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        help_text="NOI manual (opcional, si se omite usa NOI calculado)"
+    )
+    
+    def validate_fund_id(self, value):
+        """Validar que el fondo existe"""
+        try:
+            fund = Fund.objects.get(id=value)
+            
+            if fund.status != 'active':
+                raise serializers.ValidationError(
+                    f"El fondo '{fund.name}' no está activo"
+                )
+            
+            return value
+            
+        except Fund.DoesNotExist:
+            raise serializers.ValidationError(
+                f"No existe un fondo con el ID {value}"
+            )
+    
+    def validate_target_cap_rate(self, value):
+        """Validar cap rate objetivo"""
+        if value <= 0:
+            raise serializers.ValidationError(
+                "Cap Rate debe ser mayor a cero"
+            )
+        
+        if value > 50:
+            raise serializers.ValidationError(
+                "Cap Rate parece excesivamente alto (>50%)"
+            )
+        
+        return value
+    
+    def validate_noi_override(self, value):
+        """Validar NOI manual"""
+        if value is not None and value <= 0:
+            raise serializers.ValidationError(
+                "NOI debe ser mayor a cero"
+            )
+        
+        return value
+    
+    def create(self, validated_data):
+        """Calcular valoración del fondo usando el facade"""
+        fund_id = validated_data.pop('fund_id')
+        
+        try:
+            fund = Fund.objects.get(id=fund_id)
+            facade = FundKPIFacade(fund)
+            
+            result = facade.calculate_fund_valuation(**validated_data)
+            
+            return result
+            
+        except Exception as e:
+            raise serializers.ValidationError(
+                f"Error calculando valoración del fondo: {str(e)}"
+            )
+    
+    def to_representation(self, instance):
+        """Formatear la respuesta"""
+        
+        if 'error' in instance:
+            return {
+                'success': False,
+                'error': instance['error'],
+                'fund_id': instance.get('fund_id'),
+                'fund_code': instance.get('fund_code')
+            }
+        
+        return {
+            'success': True,
+            'data': {
+                'fund_info': {
+                    'fund_id': instance.get('fund_id'),
+                    'fund_code': instance.get('fund_code'),
+                    'fund_name': instance.get('fund_name'),
+                    'status': instance.get('status')
+                },
+                'valuation_metrics': {
+                    'fund_value': instance.get('fund_value'),
+                    'fund_value_display': instance.get('fund_value_display')
+                },
+                'calculation_components': instance.get('calculation_components'),
+                'current_value_comparison': instance.get('current_value_comparison'),
+                'valuation_scenarios': instance.get('valuation_scenarios'),
+                'per_unit_metrics': instance.get('per_unit_metrics'),
+                'per_area_metrics': instance.get('per_area_metrics'),
+                'interpretation': instance.get('interpretation'),
+                'valuation_level': instance.get('valuation_level'),
+                'calculation_date': instance.get('calculation_date')
+            },
+            'message': f"Valoración calculada: {instance.get('fund_value_display')} (Cap Rate: {instance.get('calculation_components', {}).get('target_cap_rate')}%)"
         }
 
 
@@ -404,11 +549,6 @@ class FundCapRateCalculationSerializer(serializers.Serializer):
                     'total_operating_income': noi_metrics.get('total_operating_income'),
                     'total_operating_expense': noi_metrics.get('total_operating_expense')
                 },
-                'market_comparison': {
-                    'market_cap_rate': market_comparison.get('market_cap_rate'),
-                    'spread_to_market': market_comparison.get('spread_to_market'),
-                    'relative_performance': market_comparison.get('relative_performance')
-                },
                 'per_unit_metrics': {
                     'total_units_issued': per_unit_metrics.get('total_units_issued'),
                     'noi_per_unit': per_unit_metrics.get('noi_per_unit'),
@@ -426,18 +566,12 @@ class FundOutputValueCalculationSerializer(serializers.Serializer):
     """
     Serializer para calcular Output Value (Valor de Salida) de un fondo.
     
-    Output Value = NOI Proyectado / Cap Rate de Salida
+    Output Value = (NOI Proyectado / Cap Rate de Salida) × 100
     
-    Example:
-        >>> # Cálculo automático
-        >>> data = {'fund_id': 1, 'projection_years': 5}
-        >>> 
-        >>> # Cálculo con valores específicos
-        >>> data = {
-        ...     'fund_id': 1,
-        ...     'projected_noi': 100000000,
-        ...     'exit_cap_rate': 6.5
-        ... }
+    Modos de uso:
+    1. Crecimiento uniforme: Un solo valor de tasa de crecimiento
+    2. Crecimiento variable: Tasas diferentes por año
+    3. Sin proyección: NOI estabilizado (últimos 12 meses)
     """
     
     fund_id = serializers.IntegerField(
@@ -445,37 +579,89 @@ class FundOutputValueCalculationSerializer(serializers.Serializer):
         help_text="ID del fondo"
     )
     
+    # ✅ EXIT CAP RATE (REQUERIDO)
+    exit_cap_rate = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=True,  # ✅ REQUERIDO (digitado por usuario)
+        help_text="Cap Rate de salida esperado en % (REQUERIDO, ej: 7.5)"
+    )
+    
+    current_cap_rate = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        help_text="Cap Rate actual del fondo en % (opcional, para calcular acquisition_value)"
+    )    
+    
+    # ✅ NOI MANUAL (OPCIONAL)
     projected_noi = serializers.DecimalField(
         max_digits=14,
         decimal_places=2,
         required=False,
         allow_null=True,
-        help_text="NOI proyectado al momento de salida (opcional)"
+        help_text="NOI estabilizado manual (opcional, si se omite se calcula automáticamente)"
     )
     
-    exit_cap_rate = serializers.DecimalField(
-        max_digits=5,
-        decimal_places=2,
+    # ✅ MODO PROYECCIÓN
+    use_projection = serializers.BooleanField(
+        default=False,
+        required=False,
+        help_text="Si usar proyección con crecimiento (default: False)"
+    )
+    
+    # ✅ AÑO INICIAL DE PROYECCIÓN
+    projection_start_year = serializers.IntegerField(
         required=False,
         allow_null=True,
-        help_text="Cap Rate de salida esperado en % (opcional)"
+        min_value=2000,
+        max_value=2100,
+        help_text="Año base para empezar proyección (ej: 2024, opcional)"
     )
     
+    # ✅ AÑOS A PROYECTAR
     projection_years = serializers.IntegerField(
         default=5,
         required=False,
         min_value=1,
         max_value=30,
-        help_text="Años hacia adelante para proyección (default: 5)"
+        help_text="Número de años a proyectar (default: 5)"
     )
     
+    # ✅ OPCIÓN 1: CRECIMIENTO UNIFORME (SIMPLE)
     annual_noi_growth_rate = serializers.DecimalField(
         max_digits=5,
         decimal_places=2,
         required=False,
         allow_null=True,
-        help_text="Tasa de crecimiento anual del NOI en % (default: 3%)"
+        help_text="Tasa de crecimiento uniforme % para TODOS los años (ej: 3.5 = 3.5% anual)"
     )
+    
+    # ✅ OPCIÓN 2: CRECIMIENTO VARIABLE (AVANZADO)
+    growth_rates_by_year = serializers.DictField(
+        child=serializers.DecimalField(max_digits=5, decimal_places=2),
+        required=False,
+        allow_null=True,
+        help_text="OPCIONAL: Dict con tasas específicas por año. Ejemplo: {'2025': 3.0, '2026': 3.5, '2027': 4.0}"
+    )
+    
+    # ========================================
+    # VALIDACIONES
+    # ========================================
+    
+    def validate_current_cap_rate(self, value):
+        """Validar cap rate actual"""
+        if value is not None:
+            if value <= 0:
+                raise serializers.ValidationError(
+                    "Cap Rate actual debe ser mayor a cero"
+                )
+            if value > 50:
+                raise serializers.ValidationError(
+                    "Cap Rate actual parece demasiado alto (>50%)"
+                )
+        return value    
     
     def validate_fund_id(self, value):
         """Validar que el fondo existe"""
@@ -494,6 +680,20 @@ class FundOutputValueCalculationSerializer(serializers.Serializer):
                 f"No existe un fondo con el ID {value}"
             )
     
+    def validate_exit_cap_rate(self, value):
+        """Validar cap rate de salida"""
+        if value <= 0:
+            raise serializers.ValidationError(
+                "Cap Rate debe ser mayor a cero"
+            )
+        
+        if value > 50:
+            raise serializers.ValidationError(
+                "Cap Rate parece demasiado alto (>50%)"
+            )
+        
+        return value
+    
     def validate_projected_noi(self, value):
         """Validar NOI proyectado"""
         if value is not None and value <= 0:
@@ -502,21 +702,8 @@ class FundOutputValueCalculationSerializer(serializers.Serializer):
             )
         return value
     
-    def validate_exit_cap_rate(self, value):
-        """Validar cap rate de salida"""
-        if value is not None:
-            if value <= 0:
-                raise serializers.ValidationError(
-                    "Cap Rate debe ser mayor a cero"
-                )
-            if value > 50:
-                raise serializers.ValidationError(
-                    "Cap Rate parece demasiado alto (>50%)"
-                )
-        return value
-    
     def validate_annual_noi_growth_rate(self, value):
-        """Validar tasa de crecimiento"""
+        """Validar tasa de crecimiento uniforme"""
         if value is not None:
             if value < -50 or value > 50:
                 raise serializers.ValidationError(
@@ -524,18 +711,73 @@ class FundOutputValueCalculationSerializer(serializers.Serializer):
                 )
         return value
     
+    def validate_growth_rates_by_year(self, value):
+        """Validar formato del diccionario de tasas por año"""
+        if value:
+            for year, rate in value.items():
+                # Validar año
+                try:
+                    year_int = int(year)
+                    if year_int < 2000 or year_int > 2100:
+                        raise serializers.ValidationError(
+                            f"Año {year} fuera de rango válido (2000-2100)"
+                        )
+                except ValueError:
+                    raise serializers.ValidationError(
+                        f"Clave '{year}' no es un año válido"
+                    )
+                
+                # Validar tasa
+                if rate < -50 or rate > 50:
+                    raise serializers.ValidationError(
+                        f"Tasa de crecimiento para año {year} ({rate}%) debe estar entre -50% y 50%"
+                    )
+        
+        return value
+    
+    def validate_projection_start_year(self, value):
+        """Validar año de inicio de proyección"""
+        if value is not None:
+            from django.utils import timezone
+            current_year = timezone.now().year
+            
+            if value < 2000:
+                raise serializers.ValidationError(
+                    "Año de inicio debe ser 2000 o posterior"
+                )
+            
+            if value > current_year + 10:
+                raise serializers.ValidationError(
+                    f"Año de inicio no puede ser mayor a {current_year + 10}"
+                )
+        
+        return value
+    
     def validate(self, attrs):
         """Validaciones a nivel de objeto"""
-        projected_noi = attrs.get('projected_noi')
-        exit_cap_rate = attrs.get('exit_cap_rate')
+        use_projection = attrs.get('use_projection', False)
+        projection_start_year = attrs.get('projection_start_year')
+        annual_noi_growth_rate = attrs.get('annual_noi_growth_rate')
+        growth_rates_by_year = attrs.get('growth_rates_by_year')
         
-        # Si proporciona uno, debe proporcionar ambos
-        if (projected_noi is not None) != (exit_cap_rate is not None):
-            raise serializers.ValidationError({
-                'detail': 'Si proporciona projected_noi, también debe proporcionar exit_cap_rate y viceversa'
-            })
+        # Si usa proyección, validar coherencia
+        if use_projection:
+            # Si no especifica año de inicio, usar año actual
+            if projection_start_year is None:
+                from django.utils import timezone
+                attrs['projection_start_year'] = timezone.now().year
+            
+            # Si especifica ambos modos de crecimiento, dar error
+            if annual_noi_growth_rate is not None and growth_rates_by_year is not None:
+                raise serializers.ValidationError({
+                    'detail': 'No puede especificar annual_noi_growth_rate y growth_rates_by_year simultáneamente. Use solo uno.'
+                })
         
         return attrs
+    
+    # ========================================
+    # CÁLCULO
+    # ========================================
     
     def create(self, validated_data):
         """Calcular Output Value usando el facade"""
@@ -555,9 +797,14 @@ class FundOutputValueCalculationSerializer(serializers.Serializer):
                 f"Error calculando Output Value: {str(e)}"
             )
     
+    # ========================================
+    # REPRESENTACIÓN
+    # ========================================
+    
     def to_representation(self, instance):
         """Formatear la respuesta"""
         
+        # Si hay error
         if isinstance(instance, dict) and 'error' in instance:
             return {
                 'success': False,
@@ -566,6 +813,15 @@ class FundOutputValueCalculationSerializer(serializers.Serializer):
                 'fund_code': instance.get('fund_code')
             }
         
+        # ✅ Extraer estructuras anidadas
+        calculation_components = instance.get('calculation_components', {})
+        calculation_context = instance.get('calculation_context', {})
+        return_metrics = instance.get('return_metrics', {})
+        per_unit_metrics = instance.get('per_unit_metrics', {})
+        portfolio_metrics = instance.get('portfolio_metrics', {})
+        market_comparison = instance.get('market_comparison', {})
+        
+        # Respuesta exitosa
         return {
             'success': True,
             'data': {
@@ -577,17 +833,82 @@ class FundOutputValueCalculationSerializer(serializers.Serializer):
                 },
                 'output_value_metrics': {
                     'output_value': instance.get('output_value'),
-                    'projected_noi': instance.get('projected_noi'),
-                    'exit_cap_rate': instance.get('exit_cap_rate')
+                    'output_value_display': instance.get('output_value_display')
                 },
-                'projection_context': instance.get('projection_context', {}),
-                'return_metrics': instance.get('return_metrics', {}),
-                'fund_metrics': instance.get('fund_metrics', {}),
-                'calculation_date': instance.get('calculation_date'),
-                'calculation_method': instance.get('calculation_method')
+                'calculation_components': {
+                    'projected_noi': calculation_components.get('projected_noi'),
+                    'exit_cap_rate': calculation_components.get('exit_cap_rate'),
+                    'exit_cap_rate_source': calculation_components.get('exit_cap_rate_source'),
+                    'noi_source': calculation_components.get('noi_source'),
+                    'use_projection': calculation_components.get('use_projection'),
+                    'projection_start_year': calculation_components.get('projection_start_year'),
+                    'projection_years': calculation_components.get('projection_years')
+                },
+                'calculation_context': {
+                    'method': calculation_context.get('method'),
+                    'noi_current_12m': calculation_context.get('noi_current_12m'),
+                    'annual_noi_growth_rate': calculation_context.get('annual_noi_growth_rate'),
+                    'growth_rates_by_year': calculation_context.get('growth_rates_by_year'),
+                    'current_cap_rate': calculation_context.get('current_cap_rate'),
+                    'cap_rate_spread': calculation_context.get('cap_rate_spread'),
+                    'description': calculation_context.get('description')
+                },
+                'projection_breakdown': instance.get('projection_breakdown', []),
+                'return_metrics': {
+                    'acquisition_value': return_metrics.get('acquisition_value'),
+                    'capital_gain_loss': return_metrics.get('capital_gain_loss'),
+                    'capital_gain_percentage': return_metrics.get('capital_gain_percentage'),
+                    'moic': return_metrics.get('moic'),
+                    'interpretation': return_metrics.get('interpretation')
+                },
+                'per_unit_metrics': {
+                    'total_units_issued': per_unit_metrics.get('total_units_issued'),
+                    'output_value_per_unit': per_unit_metrics.get('output_value_per_unit'),
+                    'initial_price_per_unit': per_unit_metrics.get('initial_price_per_unit'),
+                    'unit_price_appreciation': per_unit_metrics.get('unit_price_appreciation'),
+                    'unit_price_appreciation_pct': per_unit_metrics.get('unit_price_appreciation_pct')
+                },
+                'portfolio_metrics': {
+                    'total_area_m2': portfolio_metrics.get('total_area_m2'),
+                    'output_value_per_m2': portfolio_metrics.get('output_value_per_m2')
+                },
+                'market_comparison': market_comparison,
+                'interpretation': instance.get('interpretation'),
+                'valuation_assessment': instance.get('valuation_assessment'),
+                'calculation_date': instance.get('calculation_date')
             },
-            'message': f"Valor de Salida calculado: ${instance.get('output_value', 0):,.2f} COP (MOIC: {instance.get('return_metrics', {}).get('moic', 0):.2f}x)"
+            'message': self._build_message(instance, calculation_context, return_metrics)
         }
+    
+    def _build_message(
+        self, 
+        instance: dict, 
+        calculation_context: dict,
+        return_metrics: dict
+    ) -> str:
+        """Construye mensaje descriptivo del resultado"""
+        output_value = instance.get('output_value', 0)
+        exit_cap_rate = instance.get('calculation_components', {}).get('exit_cap_rate', 0)
+        moic = return_metrics.get('moic', 0)
+        method = calculation_context.get('method', 'unknown')
+        
+        # Mensaje base
+        base_msg = f"Output Value: ${output_value:,.2f} COP (Cap Rate: {exit_cap_rate:.2f}%)"
+        
+        # Agregar MOIC si está disponible
+        if moic:
+            base_msg += f" | MOIC: {moic:.2f}x"
+        
+        # Agregar método de cálculo
+        if method == 'projected_uniform':
+            growth_rate = calculation_context.get('annual_noi_growth_rate', 0)
+            base_msg += f" | Proyección uniforme ({growth_rate:.2f}% anual)"
+        elif method == 'projected_variable':
+            base_msg += " | Proyección con crecimiento variable"
+        elif method == 'stabilized':
+            base_msg += " | NOI estabilizado (sin proyección)"
+        
+        return base_msg
         
 # ========================================
 # FREE CASH FLOW SERIALIZER
@@ -771,7 +1092,7 @@ class FundFreeCashFlowCalculationSerializer(serializers.Serializer):
                     'months_with_data': instance.get('months_with_data')
                 },
                 'unit_info': {
-                    'total_units': instance.get('amount_tokens')
+                    'total_units': instance.get('total_units')
                 },
                 'monthly_breakdown': instance.get('monthly_breakdown', []) if instance.get('monthly_breakdown') else None,
                 'calculation_date': instance.get('calculation_date')
@@ -837,7 +1158,7 @@ class FundCashOnCashCalculationSerializer(serializers.Serializer):
                 )
             
             # Validar que tenga acquisition_value
-            if not hasattr(fund, 'acquisition_value') or not fund.acquisition_value or fund.acquisition_value <= 0:
+            if not hasattr(fund, 'initial_capex') or not fund.initial_capex or fund.initial_capex <= 0:
                 raise serializers.ValidationError(
                     f"El fondo '{fund.name}' no tiene un valor de adquisición válido (capital invertido)"
                 )
@@ -908,19 +1229,25 @@ class FundCashOnCashCalculationSerializer(serializers.Serializer):
         }       
        
        
+# apps/fund/serializers/kpis_serializers.py
+
 class FundDividendYieldCalculationSerializer(serializers.Serializer):
     """
-    Serializer para calcular Dividend Yield de un fondo.
+    Serializer para calcular Dividend Yield de una inversión específica.
     
-    Dividend Yield = (Dividendo por Unidad / Valor Compra Unidad) × 100
+    Dividend Yield = (Dividendo Pagado / Valor Compra Inicial) × 100
     
     Example:
-        >>> # Anualizado
-        >>> data = {'fund_id': 1}
-        >>> 
-        >>> # Período específico
+        >>> # Rendimiento acumulado total
         >>> data = {
         ...     'fund_id': 1,
+        ...     'investment_id': 5
+        ... }
+        >>> 
+        >>> # Rendimiento de un mes específico
+        >>> data = {
+        ...     'fund_id': 1,
+        ...     'investment_id': 5,
         ...     'period_year': 2024,
         ...     'period_month': 12
         ... }
@@ -929,6 +1256,11 @@ class FundDividendYieldCalculationSerializer(serializers.Serializer):
     fund_id = serializers.IntegerField(
         required=True,
         help_text="ID del fondo"
+    )
+    
+    investment_id = serializers.IntegerField(
+        required=True,
+        help_text="ID de la inversión (FundInvestment)"
     )
     
     period_type = serializers.ChoiceField(
@@ -942,7 +1274,7 @@ class FundDividendYieldCalculationSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
         min_value=2000,
-        help_text="Año específico (opcional, si no se proporciona calcula anualizado)"
+        help_text="Año específico (opcional, si no se proporciona calcula acumulado total)"
     )
     
     period_month = serializers.IntegerField(
@@ -960,31 +1292,22 @@ class FundDividendYieldCalculationSerializer(serializers.Serializer):
         max_value=4,
         help_text="Trimestre específico (1-4, opcional)"
     )
-    
-    calculate_annualized = serializers.BooleanField(
-        default=True,
+    months_back = serializers.IntegerField(
         required=False,
-        help_text="Calcular yield anualizado además del período"
-    )
+        allow_null=True,
+        min_value=1,
+        max_value=60,
+        help_text="Número de meses hacia atrás (opcional, ej: 12 para últimos 12 meses)"
+    )    
     
     def validate_fund_id(self, value):
-        """Validar que el fondo existe y tiene unidades"""
+        """Validar que el fondo existe"""
         try:
             fund = Fund.objects.get(id=value)
             
             if fund.status != 'active':
                 raise serializers.ValidationError(
                     f"El fondo '{fund.name}' no está activo"
-                )
-            
-            if not hasattr(fund, 'amount_tokens') or fund.amount_tokens <= 0:
-                raise serializers.ValidationError(
-                    f"El fondo '{fund.name}' no tiene unidades emitidas"
-                )
-            
-            if not hasattr(fund, 'acquisition_value') or not fund.acquisition_value or fund.acquisition_value <= 0:
-                raise serializers.ValidationError(
-                    f"El fondo '{fund.name}' no tiene un valor de adquisición válido"
                 )
             
             return value
@@ -994,13 +1317,39 @@ class FundDividendYieldCalculationSerializer(serializers.Serializer):
                 f"No existe un fondo con el ID {value}"
             )
     
+    def validate_investment_id(self, value):
+        """Validar que la inversión existe"""
+        try:
+            investment = FundInvestment.objects.get(id=value)
+            return value
+            
+        except FundInvestment.DoesNotExist:
+            raise serializers.ValidationError(
+                f"No existe una inversión con el ID {value}"
+            )
+    
     def validate(self, attrs):
         """Validaciones cruzadas"""
+        fund_id = attrs.get('fund_id')
+        investment_id = attrs.get('investment_id')
         period_type = attrs.get('period_type')
         period_year = attrs.get('period_year')
         period_month = attrs.get('period_month')
         period_quarter = attrs.get('period_quarter')
         
+        # ✅ CORRECCIÓN: Validar que la inversión pertenezca al fondo
+        try:
+            investment = FundInvestment.objects.select_related('application__fund').get(id=investment_id)
+            
+            # ✅ ACCESO CORRECTO: investment.application.fund.id
+            if investment.application.fund.id != fund_id:
+                raise serializers.ValidationError({
+                    'investment_id': f'La inversión {investment_id} no pertenece al fondo {fund_id}'
+                })
+        except FundInvestment.DoesNotExist:
+            pass  # Ya se validó en validate_investment_id
+        
+        # Si especifica año, validar coherencia con period_type
         if period_year:
             if period_type == 'monthly' and not period_month:
                 raise serializers.ValidationError({
@@ -1030,7 +1379,7 @@ class FundDividendYieldCalculationSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 f"Error calculando Dividend Yield: {str(e)}"
             )
-        
+    
     def to_representation(self, instance):
         """Formatear la respuesta de salida"""
         
@@ -1040,18 +1389,19 @@ class FundDividendYieldCalculationSerializer(serializers.Serializer):
                 'success': False,
                 'error': instance['error'],
                 'fund_id': instance.get('fund_id'),
-                'fund_code': instance.get('fund_code')
+                'fund_code': instance.get('fund_code'),
+                'investment_id': instance.get('investment_id')
             }
         
         # ✅ Extraer estructuras anidadas
+        investment_info = instance.get('investment_info', {})
         period_info = instance.get('period_info', {})
         dividend_yield_metrics = instance.get('dividend_yield_metrics', {})
-        period_metrics = instance.get('period_metrics', {})
         distribution_metrics = instance.get('distribution_metrics', {})
-        fund_metrics = instance.get('fund_metrics', {})
+        cumulative_metrics = instance.get('cumulative_metrics', {})
         
         # Respuesta exitosa
-        return {
+        response = {
             'success': True,
             'data': {
                 'fund_info': {
@@ -1060,51 +1410,29 @@ class FundDividendYieldCalculationSerializer(serializers.Serializer):
                     'fund_name': instance.get('fund_name'),
                     'status': instance.get('status')
                 },
-                'dividend_yield_metrics': {
-                    'dividend_yield_period_percentage': dividend_yield_metrics.get('dividend_yield_period_percentage'),
-                    'dividend_yield_annualized_percentage': dividend_yield_metrics.get('dividend_yield_annualized_percentage'),
-                    'dividend_yield_monthly_avg_percentage': dividend_yield_metrics.get('dividend_yield_monthly_avg_percentage'),
-                    'dividendo_por_unidad': dividend_yield_metrics.get('dividendo_por_unidad'),
-                    'valor_actual_token': dividend_yield_metrics.get('valor_actual_token'),  # ✅ Nombre correcto
-                    'interpretation': dividend_yield_metrics.get('interpretation'),
-                    'performance_level': dividend_yield_metrics.get('performance_level')
-                },
-                'period_info': {
-                    'period_type': period_info.get('period_type'),
-                    'period_year': period_info.get('period_year'),
-                    'period_month': period_info.get('period_month'),
-                    'period_quarter': period_info.get('period_quarter'),
-                    'period_display': period_info.get('period_display'),
-                    'start_period': period_info.get('start_period'),
-                    'end_period': period_info.get('end_period')
-                },
-                'period_metrics': {
-                    'total_dividendo_12m': period_metrics.get('total_dividendo_12m'),
-                    'distributions_count': period_metrics.get('distributions_count'),
-                    'average_distribution_per_token': period_metrics.get('average_distribution_per_token'),
-                    'total_distribution_amount_12m': period_metrics.get('total_distribution_amount_12m')
-                },
-                'distribution_metrics': distribution_metrics if distribution_metrics else None,
-                'fund_metrics': {
-                    'price_per_unit': fund_metrics.get('price_per_unit'),
-                    'total_tokens_issued': fund_metrics.get('total_tokens_issued')
-                },
+                'investment_info': investment_info,
+                'period_info': period_info,
+                'dividend_yield_metrics': dividend_yield_metrics,
                 'calculation_date': instance.get('calculation_date')
-            },
-            'message': f"Dividend Yield anualizado: {dividend_yield_metrics.get('dividend_yield_annualized_percentage', 0):.2f}% - {dividend_yield_metrics.get('performance_level', 'N/A').title()}"
+            }
         }
-    
-    def _build_message(self, instance: dict, is_period_specific: bool) -> str:
-        """Construye mensaje descriptivo del resultado"""
-        if is_period_specific:
-            dy = instance.get('dividend_yield_period_percentage', 0)
-            dy_ann = instance.get('dividend_yield_annualized_percentage', 0)
-            if dy_ann:
-                return f"Dividend Yield: {dy:.2f}% (período) | {dy_ann:.2f}% (anualizado) - {instance.get('performance_level', 'N/A').replace('_', ' ').title()}"
-            return f"Dividend Yield: {dy:.2f}% - {instance.get('performance_level', 'N/A').replace('_', ' ').title()}"
+        
+        # Agregar métricas opcionales según el tipo de cálculo
+        if distribution_metrics:
+            response['data']['distribution_metrics'] = distribution_metrics
+        
+        if cumulative_metrics:
+            response['data']['cumulative_metrics'] = cumulative_metrics
+        
+        # Mensaje personalizado
+        if period_info.get('period_type') == 'cumulative':
+            message = f"Dividend Yield Acumulado: {dividend_yield_metrics.get('dividend_yield_total_percentage', 0):.2f}% total | {dividend_yield_metrics.get('dividend_yield_annualized_percentage', 0):.2f}% anualizado"
         else:
-            dy_ann = instance.get('dividend_yield_annualized_percentage', 0)
-            return f"Dividend Yield anualizado: {dy_ann:.2f}% - {instance.get('performance_level', 'N/A').replace('_', ' ').title()}"        
+            message = f"Dividend Yield: {dividend_yield_metrics.get('dividend_yield_period_percentage', 0):.2f}% ({period_info.get('period_display', 'N/A')})"
+        
+        response['message'] = message
+        
+        return response       
                 
         
 class FundDividendYieldMovingAverageSerializer(serializers.Serializer):
@@ -1255,24 +1583,25 @@ class FundDividendYieldMovingAverageSerializer(serializers.Serializer):
         
 class FundIRRCalculationSerializer(serializers.Serializer):
     """
-    Serializer para calcular TIR (Tasa Interna de Retorno / IRR) de un fondo.
+    Serializer para calcular TIR (IRR) de una inversión específica del usuario.
     
-    TIR = Retorno anualizado que iguala el valor presente de flujos de caja a la inversión
+    TIR = Tasa interna de retorno considerando:
+    - Inversión inicial
+    - Distribuciones reales recibidas
+    - Valor de salida de los tokens
     
     Example:
-        >>> # Con parámetros manuales
+        >>> # TIR con precio actual
         >>> data = {
         ...     'fund_id': 1,
-        ...     'annual_dividends_per_unit': 80000,
-        ...     'exit_price_per_unit': 1100000,
-        ...     'holding_period_years': 5
+        ...     'investment_id': 123
         ... }
         >>> 
-        >>> # Con datos históricos
+        >>> # TIR con precio de salida específico
         >>> data = {
         ...     'fund_id': 1,
-        ...     'use_historical_dividends': True,
-        ...     'holding_period_years': 5
+        ...     'investment_id': 123,
+        ...     'exit_price_per_unit': 1100000
         ... }
     """
     
@@ -1281,12 +1610,9 @@ class FundIRRCalculationSerializer(serializers.Serializer):
         help_text="ID del fondo"
     )
     
-    annual_dividends_per_unit = serializers.DecimalField(
-        max_digits=18,
-        decimal_places=2,
-        required=False,
-        allow_null=True,
-        help_text="Dividendos anuales por unidad (opcional, se calcula automáticamente)"
+    investment_id = serializers.IntegerField(
+        required=True,
+        help_text="ID de la inversión (FundInvestment)"
     )
     
     exit_price_per_unit = serializers.DecimalField(
@@ -1294,25 +1620,17 @@ class FundIRRCalculationSerializer(serializers.Serializer):
         decimal_places=2,
         required=False,
         allow_null=True,
-        help_text="Precio de venta final de la unidad (opcional, se calcula usando Output Value)"
+        help_text="Precio de salida/venta por unidad (opcional, usa precio actual si no se provee)"
     )
     
-    holding_period_years = serializers.IntegerField(
-        default=5,
+    exit_date = serializers.DateTimeField(
         required=False,
-        min_value=1,
-        max_value=30,
-        help_text="Años de tenencia (default: 5)"
-    )
-    
-    use_historical_dividends = serializers.BooleanField(
-        default=False,
-        required=False,
-        help_text="Usar dividendos históricos en lugar de proyectados"
+        allow_null=True,
+        help_text="Fecha de salida/venta (opcional, usa fecha actual si no se provee)"
     )
     
     def validate_fund_id(self, value):
-        """Validar que el fondo existe y tiene datos necesarios"""
+        """Validar que el fondo existe"""
         try:
             fund = Fund.objects.get(id=value)
             
@@ -1321,22 +1639,34 @@ class FundIRRCalculationSerializer(serializers.Serializer):
                     f"El fondo '{fund.name}' no está activo"
                 )
             
-            if not hasattr(fund, 'amount_tokens') or fund.amount_tokens <= 0:
-                raise serializers.ValidationError(
-                    f"El fondo '{fund.name}' no tiene unidades emitidas"
-                )
-            
-            if not hasattr(fund, 'acquisition_value') or not fund.acquisition_value or fund.acquisition_value <= 0:
-                raise serializers.ValidationError(
-                    f"El fondo '{fund.name}' no tiene un valor de adquisición válido"
-                )
-            
             return value
             
         except Fund.DoesNotExist:
             raise serializers.ValidationError(
                 f"No existe un fondo con el ID {value}"
             )
+    
+    def validate(self, attrs):
+        """Validar que la inversión pertenece al fondo"""
+        fund_id = attrs.get('fund_id')
+        investment_id = attrs.get('investment_id')
+        
+        try:
+            investment = FundInvestment.objects.select_related(
+                'application__fund'
+            ).get(id=investment_id)
+            
+            if investment.application.fund.id != fund_id:
+                raise serializers.ValidationError({
+                    'investment_id': f'La inversión {investment_id} no pertenece al fondo {fund_id}'
+                })
+            
+            return attrs
+            
+        except FundInvestment.DoesNotExist:
+            raise serializers.ValidationError({
+                'investment_id': f'No existe una inversión con el ID {investment_id}'
+            })
     
     def create(self, validated_data):
         """Calcular TIR usando el facade"""
@@ -1351,22 +1681,33 @@ class FundIRRCalculationSerializer(serializers.Serializer):
             return result
             
         except Exception as e:
-            raise serializers.ValidationError(
-                f"Error calculando TIR: {str(e)}"
-            )
+            return {
+                'success': False,
+                'error': f'Error calculando TIR: {str(e)}',
+                'fund_id': fund_id,
+                'investment_id': validated_data.get('investment_id')
+            }
     
     def to_representation(self, instance):
-        """Formatear la respuesta"""
+        """Formatear la respuesta de salida"""
         
+        # Si hay error
         if isinstance(instance, dict) and 'error' in instance:
             return {
                 'success': False,
                 'error': instance['error'],
                 'fund_id': instance.get('fund_id'),
                 'fund_code': instance.get('fund_code'),
-                'cash_flows': instance.get('cash_flows')
+                'investment_id': instance.get('investment_id')
             }
         
+        # Extraer estructuras anidadas
+        investment_info = instance.get('investment_info', {})
+        investment_parameters = instance.get('investment_parameters', {})
+        cash_flows_simple = instance.get('cash_flows_simple', {})
+        return_metrics = instance.get('return_metrics', {})
+        
+        # Respuesta exitosa
         return {
             'success': True,
             'data': {
@@ -1376,45 +1717,95 @@ class FundIRRCalculationSerializer(serializers.Serializer):
                     'fund_name': instance.get('fund_name'),
                     'status': instance.get('status')
                 },
+                'investment_info': {
+                    'investment_id': investment_info.get('investment_id'),
+                    'user_id': investment_info.get('user_id'),
+                    'user_email': investment_info.get('user_email'),
+                    'units_owned': investment_info.get('units_owned'),
+                    'investment_date': investment_info.get('investment_date'),
+                    'exit_date': investment_info.get('exit_date'),
+                    'holding_period_days': investment_info.get('holding_period_days'),
+                    'holding_period_years': investment_info.get('holding_period_years')
+                },
                 'irr_metrics': {
                     'irr_percentage': instance.get('irr_percentage'),
                     'irr_decimal': instance.get('irr_decimal'),
-                    'interpretation': instance.get('interpretation'),
                     'performance_level': instance.get('performance_level')
                 },
-                'investment_parameters': instance.get('investment_parameters', {}),
-                'cash_flows': instance.get('cash_flows', {}),
-                'return_metrics': instance.get('return_metrics', {}),
+                'investment_parameters': {
+                    'initial_investment': investment_parameters.get('initial_investment'),
+                    'total_distributions_received': investment_parameters.get('total_distributions_received'),
+                    'exit_price_per_unit': investment_parameters.get('exit_price_per_unit'),
+                    'exit_value_total': investment_parameters.get('exit_value_total')
+                },
+                'cash_flows_detailed': instance.get('cash_flows_detailed', []),
+                'cash_flows_simple': {
+                    'period_0_investment': cash_flows_simple.get('period_0_investment'),
+                    'annual_cash_flows': cash_flows_simple.get('annual_cash_flows', []),
+                    'all_cash_flows': cash_flows_simple.get('all_cash_flows', [])
+                },
+                'return_metrics': {
+                    'total_distributions_received': return_metrics.get('total_distributions_received'),
+                    'capital_gain_loss': return_metrics.get('capital_gain_loss'),
+                    'total_return': return_metrics.get('total_return'),
+                    'moic': return_metrics.get('moic'),
+                    'roi_percentage': return_metrics.get('roi_percentage'),
+                    'distributions_count': return_metrics.get('distributions_count')
+                },
                 'annual_breakdown': instance.get('annual_breakdown', []),
-                'fund_metrics': instance.get('fund_metrics', {}),
+                'interpretation': instance.get('interpretation'),
                 'calculation_date': instance.get('calculation_date'),
                 'calculation_method': instance.get('calculation_method'),
                 'data_source': instance.get('data_source')
             },
-            'message': f"TIR calculado: {instance.get('irr_percentage', 0):.2f}% anualizado - {instance.get('performance_level', 'N/A').replace('_', ' ').title()}"
-        }        
+            'message': self._build_message(instance)
+        }
+    
+    def _build_message(self, instance: dict) -> str:
+        """Construye mensaje descriptivo del resultado"""
+        irr = instance.get('irr_percentage', 0)
+        investment_info = instance.get('investment_info', {})
+        return_metrics = instance.get('return_metrics', {})
+        
+        holding_years = investment_info.get('holding_period_years', 0)
+        moic = return_metrics.get('moic', 0)
+        performance = instance.get('performance_level', 'unknown')
+        
+        performance_text = {
+            'excellent': 'Excelente',
+            'very_good': 'Muy bueno',
+            'good': 'Bueno',
+            'moderate': 'Moderado',
+            'poor': 'Bajo',
+            'negative': 'Negativo'
+        }.get(performance, 'Desconocido')
+        
+        return (
+            f"TIR: {irr:.2f}% ({performance_text}) | "
+            f"MOIC: {moic:.2f}x | "
+            f"Período: {holding_years:.2f} años"
+        )    
      
         
 class FundMOICCalculationSerializer(serializers.Serializer):
     """
-    Serializer para calcular MOIC (Múltiplo de Inversión) de un fondo.
+    Serializer para calcular MOIC (Múltiplo de Inversión) de una inversión específica.
     
-    MOIC = Total Recibido / Inversión Inicial
+    MOIC = (Distribuciones Recibidas + Valor Actual) / Inversión Inicial
     
     Example:
-        >>> # Con parámetros manuales
+        >>> # MOIC total (distribuciones + valor actual)
         >>> data = {
         ...     'fund_id': 1,
-        ...     'total_dividends_received': 400000,
-        ...     'exit_price_per_unit': 1150000,
-        ...     'holding_period_years': 5
+        ...     'investment_id': 5,
+        ...     'include_unrealized_value': True
         ... }
         >>> 
-        >>> # Con datos históricos
+        >>> # MOIC solo distribuciones realizadas
         >>> data = {
         ...     'fund_id': 1,
-        ...     'use_historical_dividends': True,
-        ...     'holding_period_years': 5
+        ...     'investment_id': 5,
+        ...     'include_unrealized_value': False
         ... }
     """
     
@@ -1423,12 +1814,9 @@ class FundMOICCalculationSerializer(serializers.Serializer):
         help_text="ID del fondo"
     )
     
-    total_dividends_received = serializers.DecimalField(
-        max_digits=18,
-        decimal_places=2,
-        required=False,
-        allow_null=True,
-        help_text="Suma total de dividendos recibidos (opcional, se calcula automáticamente)"
+    investment_id = serializers.IntegerField(
+        required=True,
+        help_text="ID de la inversión (FundInvestment)"
     )
     
     exit_price_per_unit = serializers.DecimalField(
@@ -1436,25 +1824,11 @@ class FundMOICCalculationSerializer(serializers.Serializer):
         decimal_places=2,
         required=False,
         allow_null=True,
-        help_text="Precio de venta final de la unidad (opcional, se calcula usando Output Value)"
-    )
-    
-    holding_period_years = serializers.IntegerField(
-        default=5,
-        required=False,
-        min_value=1,
-        max_value=30,
-        help_text="Años de tenencia (default: 5)"
-    )
-    
-    use_historical_dividends = serializers.BooleanField(
-        default=False,
-        required=False,
-        help_text="Usar dividendos históricos en lugar de proyectados"
+        help_text="Precio de salida/venta del token (opcional, usa precio actual si no se provee)"
     )
     
     def validate_fund_id(self, value):
-        """Validar que el fondo existe y tiene datos necesarios"""
+        """Validar que el fondo existe y está activo"""
         try:
             fund = Fund.objects.get(id=value)
             
@@ -1463,22 +1837,34 @@ class FundMOICCalculationSerializer(serializers.Serializer):
                     f"El fondo '{fund.name}' no está activo"
                 )
             
-            if not hasattr(fund, 'amount_tokens') or fund.amount_tokens <= 0:
-                raise serializers.ValidationError(
-                    f"El fondo '{fund.name}' no tiene unidades emitidas"
-                )
-            
-            if not hasattr(fund, 'acquisition_value') or not fund.acquisition_value or fund.acquisition_value <= 0:
-                raise serializers.ValidationError(
-                    f"El fondo '{fund.name}' no tiene un valor de adquisición válido"
-                )
-            
             return value
             
         except Fund.DoesNotExist:
             raise serializers.ValidationError(
                 f"No existe un fondo con el ID {value}"
             )
+    
+    def validate(self, attrs):
+        """Validar que la inversión pertenece al fondo"""
+        fund_id = attrs.get('fund_id')
+        investment_id = attrs.get('investment_id')
+        
+        try:
+            investment = FundInvestment.objects.select_related(
+                'application__fund'
+            ).get(id=investment_id)
+            
+            if investment.application.fund.id != fund_id:
+                raise serializers.ValidationError({
+                    'investment_id': f'La inversión {investment_id} no pertenece al fondo {fund_id}'
+                })
+            
+            return attrs
+            
+        except FundInvestment.DoesNotExist:
+            raise serializers.ValidationError({
+                'investment_id': f'No existe una inversión con el ID {investment_id}'
+            })
     
     def create(self, validated_data):
         """Calcular MOIC usando el facade"""
@@ -1493,21 +1879,34 @@ class FundMOICCalculationSerializer(serializers.Serializer):
             return result
             
         except Exception as e:
-            raise serializers.ValidationError(
-                f"Error calculando MOIC: {str(e)}"
-            )
+            return {
+                'success': False,
+                'error': f'Error calculando MOIC: {str(e)}',
+                'fund_id': fund_id,
+                'investment_id': validated_data.get('investment_id')
+            }
     
     def to_representation(self, instance):
-        """Formatear la respuesta"""
+        """Formatear la respuesta de salida"""
         
+        # Si hay error
         if isinstance(instance, dict) and 'error' in instance:
             return {
                 'success': False,
                 'error': instance['error'],
                 'fund_id': instance.get('fund_id'),
-                'fund_code': instance.get('fund_code')
+                'fund_code': instance.get('fund_code'),
+                'investment_id': instance.get('investment_id')
             }
         
+        # ✅ Extraer estructuras anidadas
+        investment_info = instance.get('investment_info', {})
+        moic_metrics = instance.get('moic_metrics', {})
+        investment_components = instance.get('investment_components', {})
+        return_metrics = instance.get('return_metrics', {})
+        distributions_summary = instance.get('distributions_summary', {})
+        
+        # Respuesta exitosa
         return {
             'success': True,
             'data': {
@@ -1517,18 +1916,16 @@ class FundMOICCalculationSerializer(serializers.Serializer):
                     'fund_name': instance.get('fund_name'),
                     'status': instance.get('status')
                 },
-                'moic_metrics': {
-                    'moic': instance.get('moic'),
-                    'moic_display': instance.get('moic_display'),
-                    'interpretation': instance.get('interpretation'),
-                    'performance_level': instance.get('performance_level'),
-                    'outcome': instance.get('outcome')
-                },
-                'investment_components': instance.get('investment_components', {}),
-                'return_metrics': instance.get('return_metrics', {}),
-                'fund_metrics': instance.get('fund_metrics', {}),
+                'investment_info': investment_info,
+                'moic_metrics': moic_metrics,
+                'investment_components': investment_components,
+                'return_metrics': return_metrics,
+                'distributions_summary': distributions_summary,
+                'interpretation': instance.get('interpretation'),
+                'performance_level': instance.get('performance_level'),
+                'outcome': instance.get('outcome'),
                 'calculation_date': instance.get('calculation_date'),
-                'data_source': instance.get('data_source')
+                'calculation_method': instance.get('calculation_method')
             },
-            'message': f"MOIC calculado: {instance.get('moic_display', '0.00x')} - {instance.get('outcome', 'N/A').replace('_', ' ').title()}"
+            'message': f"MOIC calculado: {moic_metrics.get('moic', 0):.2f}x | Retorno: {return_metrics.get('return_percentage', 0):.2f}% | {instance.get('outcome', 'N/A').title()}"
         }

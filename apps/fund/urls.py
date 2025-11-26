@@ -89,6 +89,7 @@ from apps.fund.views.KPIs_old_views import (
 # ============================================================================
 from apps.fund.views.kpis_views import (
     calculate_fund_noi,
+    calculate_fund_valuation,
     calculate_fund_cap_rate,
     calculate_output_value,
     calculate_fund_free_cash_flow,
@@ -168,14 +169,14 @@ urlpatterns = [
     # ========================================================================
     # KALEIDO - Token Operations
     # ========================================================================
-    path('api/kaleido/mint/', TokenMintView.as_view(), name='mint-token'),
-    path('api/kaleido/mint-batch/', TokenMintBatchView.as_view(), name='mint-token-batch'),
-    path('api/kaleido/burn/', TokenBurnView.as_view(), name='burn-token'),
-    path('api/kaleido/burn-batch/', TokenBurnBatchView.as_view(), name='burn-token-batch'),
-    path('api/kaleido/purchase/', PurchaseTokenView.as_view(), name='purchase-token'),
-    path('api/kaleido/purchase-batch/', PurchaseTokenBatchView.as_view(), name='purchase-token-batch'),
-    path('api/kaleido/purchase-user/', PurchaseTokenIndexToIndexView.as_view(), name='purchase-token-user'),
-    path('api/kaleido/<int:fund_id>/batch-progress/', batch_creation_progress_view, name='batch-creation-progress'),
+    path('api/mint/', TokenMintView.as_view(), name='mint-token'),
+    path('api/mint-batch/', TokenMintBatchView.as_view(), name='mint-token-batch'),
+    path('api/burn/', TokenBurnView.as_view(), name='burn-token'),
+    path('api/burn-batch/', TokenBurnBatchView.as_view(), name='burn-token-batch'),
+    path('api/purchase/', PurchaseTokenView.as_view(), name='purchase-token'),
+    path('api/purchase-batch/', PurchaseTokenBatchView.as_view(), name='purchase-token-batch'),
+    path('api/purchase-user/', PurchaseTokenIndexToIndexView.as_view(), name='purchase-token-user'),
+    path('api/<int:fund_id>/batch-progress/', batch_creation_progress_view, name='batch-creation-progress'),
     
     # ========================================================================
     # INVESTMENTS - Applications & Contracts
@@ -227,6 +228,7 @@ urlpatterns = [
     # KPIs - NEW (Strategies)
     # ========================================================================
     path('api/kpis/noi/', calculate_fund_noi, name='calculate-fund-noi'),
+    path('api/kpis/fund-valuation/', calculate_fund_valuation, name='calculate-fund-valuation'),
     path('api/kpis/cap-rate/', calculate_fund_cap_rate, name='calculate-cap-rate'),
     path('api/kpis/output-value/', calculate_output_value, name='calculate-output-value'),
     path('api/kpis/free-cash-flow/', calculate_fund_free_cash_flow, name='calculate-fund-free-cash-flow'),
