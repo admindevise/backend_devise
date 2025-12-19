@@ -2,6 +2,7 @@ from decimal import Decimal
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator
+from apps.utils.models import base_model
 
 from apps.user.models import User
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
@@ -148,42 +149,6 @@ class Fund(models.Model):
         blank=True,
         null=True,
         help_text="Comisión por unidad",
-    )
-
-    # ========================================
-    # PARÁMETROS FINANCIEROS - RENDIMIENTOS
-    # ========================================
-    current_annual_yield = models.DecimalField(
-        max_digits=6,
-        decimal_places=2,
-        blank=True,
-        null=True,
-        help_text="Rendimiento anualizado porcentual",
-        verbose_name="Rendimiento anual actual (%)"
-    )
-    current_return_rate = models.DecimalField(
-        max_digits=6, 
-        decimal_places=2, 
-        blank=True, 
-        null=True, 
-        help_text="Porcentaje de rendimiento actual",
-        verbose_name="Tasa de retorno actual (%)"
-    )
-    expected_return = models.DecimalField(
-        max_digits=6, 
-        decimal_places=2, 
-        blank=True, 
-        null=True, 
-        help_text="Porcentaje de rentabilidad esperada",
-        verbose_name="Retorno esperado (%)"
-    )
-    tir = models.DecimalField(
-        max_digits=6, 
-        decimal_places=2, 
-        blank=True, 
-        null=True, 
-        help_text="Tasa Interna de Retorno porcentual",
-        verbose_name="TIR (%)"
     )
     
     # ========================================
@@ -413,6 +378,12 @@ class Fund(models.Model):
         null=True,
         verbose_name="Descripción del gerente principal"
     )
+    trustor = models.TextField(
+        max_length=40,
+        blank=True, 
+        null=True,
+        verbose_name="Fideicomitente"
+    )
     
     # ========================================
     # DOCUMENTOS Y POLÍTICAS
@@ -430,6 +401,27 @@ class Fund(models.Model):
         null=True, 
         help_text="Documento de política de tratamiento de datos",
         verbose_name="Política de tratamiento de datos"
+    )
+    fiduciary_draft = models.FileField(
+        upload_to='funds/fiduciary_draft/',
+        blank=True,
+        null=True,
+        help_text="Documento de Minuta Fiduciaria",
+        verbose_name="Minuta Fiduciaria"
+    )
+    mercantile_trust_agreement = models.FileField(
+        upload_to="funds/mercantile_trust_agreement/",
+        blank=True,
+        null=True,
+        help_text="Documento de contrato de fiducia mercantil",
+        verbose_name="Contrato de fiducia mercantil"
+    )
+    other_documents = models.FileField(
+        upload_to='funds/other_documents/',
+        blank=True,
+        null=True,
+        help_text="Otros documentos",
+        verbose_name="Otros documentos"
     )
     
     # ========================================
@@ -551,6 +543,53 @@ class FundSemestralDocument(models.Model):
     def period_display(self):
         """Retorna una representación legible del período"""
         return f"{self.year} - Semestre {self.semester}"
+
+class OthersI(base_model.BaseModel):
+    """
+    Documentos de Otrosí adjuntos al fondo.
+    Modificaciones o adiciones al contrato original.
+    """
+    fund = models.ForeignKey(
+        Fund,
+        on_delete=models.CASCADE,
+        related_name="othersi",
+        verbose_name="Fondo"
+    )
+    doc_number = models.CharField(
+        max_length=100,
+        verbose_name="Número del documento",
+        help_text="Ej: No.1, No.2"
+    )
+    name = models.CharField(
+        max_length=255,
+        verbose_name="Nombre del otrosí",
+        help_text="Descripción breve del contenido"
+    )
+    document = models.FileField(
+        upload_to='funds/othersi/',
+        verbose_name="Documento"
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Descripción",
+        help_text="Detalle de las modificaciones incluidas"
+    )
+    effective_date = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Fecha de vigencia",
+        help_text="Fecha desde la cual aplica el otrosí"
+    )
+
+    class Meta:
+        verbose_name = "Otrosí"
+        verbose_name_plural = "Otrosíes"
+        ordering = ['fund', 'doc_number']
+        unique_together = ['fund', 'doc_number']
+
+    def __str__(self):
+        return f"Otrosí {self.doc_number} - {self.fund.name}"
 
 class FundPriceHistory(models.Model):
     """

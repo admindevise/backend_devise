@@ -5,10 +5,11 @@ Organización:
 1. Core Fund (Fund, Members, Tokens)
 2. Investments & Applications
 3. Distributions
-4. KPIs (Old & New)
-5. Kaleido Integration
-6. Operating
-7. Utils & AI
+4. Accounting
+5. KPIs (Old & New)
+6. Kaleido Integration
+7. Operating
+8. Utils & AI
 """
 
 from django.urls import path, include
@@ -55,7 +56,22 @@ from apps.fund.views.distributions_views import (
 )
 
 # ============================================================================
-# 4. KPIs - OLD (Legacy)
+# 4. ACCOUNTING VIEWS
+# ============================================================================
+from apps.fund.views.accounting_views import (
+    AccountingEntryViewSet,
+    AccountCategoryViewSet,
+    AccountingPeriodViewSet,
+)
+
+from apps.fund.views.accounting_service_views import (
+    validate_accounting_file,
+    import_accounting_file,
+    get_default_mapping,
+)
+
+# ============================================================================
+# 5. KPIs - OLD (Legacy)
 # ============================================================================
 from apps.fund.views.KPIs_old_views import (
     # Token Value
@@ -85,7 +101,7 @@ from apps.fund.views.KPIs_old_views import (
 )
 
 # ============================================================================
-# 5. KPIs - NEW (Strategies)
+# 6. KPIs - NEW (Strategies)
 # ============================================================================
 from apps.fund.views.kpis_views import (
     calculate_fund_noi,
@@ -101,7 +117,7 @@ from apps.fund.views.kpis_views import (
 )
 
 # ============================================================================
-# 6. KALEIDO INTEGRATION
+# 7. KALEIDO INTEGRATION
 # ============================================================================
 from apps.kaleido.views.kaleido_fund import (
     TokenMintView,
@@ -115,7 +131,7 @@ from apps.kaleido.views.kaleido_fund import (
 )
 
 # ============================================================================
-# 7. OPERATING
+# 8. OPERATING
 # ============================================================================
 from apps.fund.views.operating_views import (
     FundOperatingIncomeViewSet,
@@ -123,7 +139,7 @@ from apps.fund.views.operating_views import (
 )
 
 # ============================================================================
-# 8. UTILS & AI
+# 9. UTILS & AI
 # ============================================================================
 from apps.fund.views.utils_views import (
     get_token_count,
@@ -153,6 +169,11 @@ router.register(r'investment-dashboard', InvestmentDashboardViewSet, basename='i
 
 # Distributions
 router.register(r'investment-distribution', InvestmentDistributionRecordViewSet, basename='investment-distribution')
+
+# Accounting
+router.register(r'accounting-category', AccountCategoryViewSet, basename='accounting-category')
+router.register(r'accounting', AccountingEntryViewSet, basename='accounting')
+router.register(r'accounting-period', AccountingPeriodViewSet, basename='accounting-period')
 
 # Operating
 router.register(r'operating-income', FundOperatingIncomeViewSet, basename='operating-income')
@@ -195,6 +216,10 @@ urlpatterns = [
     # ========================================================================
     path('api/distributions/create-period/', create_distribution_period, name='create-distribution-period'),
     path('api/distributions/records/', distributions_records, name='distributions-records'),
+    
+    path('api/accounting-validate/', validate_accounting_file, name='validate-accounting'),
+    path('api/import-account-file/', import_accounting_file, name='import-account-file'),
+    path('api/accounting-default-mapping/', get_default_mapping, name='default-mapping'),
     
     # ========================================================================
     # KPIs - OLD (Legacy)
