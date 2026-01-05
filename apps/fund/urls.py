@@ -25,6 +25,7 @@ from apps.fund.views.core_views import (
     TransferReceiptViewSet,
     TokenTransactionViewSet,
     FundSemestralDocumentViewSet,
+    OthersIViewSet,
 ) 
 
 # ============================================================================
@@ -56,12 +57,33 @@ from apps.fund.views.distributions_views import (
 )
 
 # ============================================================================
+# 3.1 TRANSFERS VIEWS (Cesiones)
+# ============================================================================
+from apps.fund.views.transfers_views import (
+    TransfersViewSet,
+    create_transfer,
+    fund_transfer_summary,
+    delete_transfer,
+)
+
+# ============================================================================
+# 3.2 COMMISSIONS VIEWS
+# ============================================================================
+from apps.fund.views.commissions_views import (
+    CommissionsViewSet,
+    create_commission,
+    update_commission,
+    delete_commission,
+)
+
+# ============================================================================
 # 4. ACCOUNTING VIEWS
 # ============================================================================
 from apps.fund.views.accounting_views import (
     AccountingEntryViewSet,
     AccountCategoryViewSet,
     AccountingPeriodViewSet,
+    AccountabilityViewSet
 )
 
 from apps.fund.views.accounting_service_views import (
@@ -157,6 +179,7 @@ router = DefaultRouter()
 router.register(r'main', FundViewSet, basename='fund')
 router.register(r'members', FundMembersViewSet, basename='fund-members')
 router.register(r'semestral-document', FundSemestralDocumentViewSet, basename='semestral-document')
+router.register(r'othersi', OthersIViewSet, basename='otrosi')
 router.register(r'token', FundTokenViewSet, basename='fund-token')
 router.register(r'transaction', TokenTransactionViewSet, basename='token-transaction')
 router.register(r'transfer_receipt', TransferReceiptViewSet, basename='transfer-receipt')
@@ -178,6 +201,15 @@ router.register(r'accounting-period', AccountingPeriodViewSet, basename='account
 # Operating
 router.register(r'operating-income', FundOperatingIncomeViewSet, basename='operating-income')
 router.register(r'operating-expense', FundOperatingExpenseViewSet, basename='operating-expense')
+
+# Transfers (Cesiones)
+router.register(r'transfers-obtain', TransfersViewSet, basename='transfers')
+
+# Commissions
+router.register(r'commissions-obtain', CommissionsViewSet, basename='commissions')
+
+# Accountability
+router.register(r'accountability', AccountabilityViewSet, basename='accountability')
 
 
 # ============================================================================
@@ -217,9 +249,23 @@ urlpatterns = [
     path('api/distributions/create-period/', create_distribution_period, name='create-distribution-period'),
     path('api/distributions/records/', distributions_records, name='distributions-records'),
     
+    # ========================================================================
+    # TRANSFERS (Cesiones)
+    # ========================================================================
+    path('api/transfers/create/', create_transfer, name='create-transfer'),
+    path('api/transfers/<int:transfer_id>/delete/', delete_transfer, name='delete-transfer'),
+    path('api/<int:fund_id>/transfers/summary/', fund_transfer_summary, name='fund-transfer-summary'),
+    
     path('api/accounting-validate/', validate_accounting_file, name='validate-accounting'),
     path('api/import-account-file/', import_accounting_file, name='import-account-file'),
     path('api/accounting-default-mapping/', get_default_mapping, name='default-mapping'),
+    
+    # ========================================================================
+    # COMMISSIONS
+    # ========================================================================
+    path('api/commissions/create/', create_commission, name='create-commission'),
+    path('api/commissions/<int:commission_id>/update/', update_commission, name='update-commission'),
+    path('api/commissions/<int:commission_id>/delete/', delete_commission, name='delete-commission'),
     
     # ========================================================================
     # KPIs - OLD (Legacy)

@@ -286,12 +286,12 @@ class Meetings(base_model.BaseModel):
 
 # ============================================================================
 # CESIONES
-# ============================================================================    
+# ============================================================================  
 
 class Transfers(base_model.BaseModel):
     class TypeIdActor(models.TextChoices):
-        CC = 'national identity card', 'cedula de ciudadania'
-        CE = 'foreigners identity card', 'cedula de extranjeria'
+        CC = 'CC', 'Cédula de ciudadanía'
+        CE = 'CE', 'Cédula de extranjería'
         
     fund = models.ForeignKey(
         'fund.Fund',
@@ -334,10 +334,10 @@ class Transfers(base_model.BaseModel):
         max_length=50,
         verbose_name="Representante legal de la entidad Cedente"
     )
-    nit_settlor = models.IntegerField(
-        verbose_name="Nit del actor que cede si participacion"
+    nit_settlor = models.BigIntegerField(
+        verbose_name="Nit del actor que cede su participacion"
     )
-    nit_assignee = models.IntegerField(
+    nit_assignee = models.BigIntegerField(
         verbose_name="Nit del actor que recibe la participacion"
     )
     type_doc_settlor = models.CharField(
@@ -350,9 +350,14 @@ class Transfers(base_model.BaseModel):
         choices=TypeIdActor.choices,
         verbose_name="Tipo de documento del representante legal del Cedente"
     )
-    id_doc_settlor = models.IntegerField(
+    id_doc_settlor = models.BigIntegerField(
         verbose_name="Numero de documento del representante legal del Cesionario"
     )
-    id_doc_assignee = models.IntegerField(
+    id_doc_assignee = models.BigIntegerField(
         verbose_name="Numero de documento del representante legal del Cedente"
     )
+
+    class Meta:
+        verbose_name = "Cesion"
+        verbose_name_plural = "Cesiones"
+        ordering = ['-created_at']

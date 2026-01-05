@@ -42,6 +42,9 @@ from apps.fund.models.accounting import (
     Accountability
 )
 
+# Commisions
+from apps.fund.models.commissions import Transfers
+
 
 # ===================================
 # CORE
@@ -201,3 +204,8 @@ class FinancialSummaryAdmin(admin.ModelAdmin):
 class AccountabilityAdmin(admin.ModelAdmin):
     list_display = ('fund', 'name', 'period_type', 'period_year', 'period_month' )
     list_filter = ('fund', 'period_type')
+    
+@admin.register(Transfers)
+class TransfersAdmin(admin.ModelAdmin):
+    list_display = ('id', 'fund', 'class_transfer', 'assigned_amount', 'status', 'created_at')
+    list_filter = ('fund', 'class_transfer', 'status')

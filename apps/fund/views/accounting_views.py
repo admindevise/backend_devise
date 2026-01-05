@@ -1,7 +1,12 @@
 from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
 
-from apps.fund.models.accounting import AccountCategory, AccountingPeriod, AccountingEntry
+from apps.fund.models.accounting import (
+    AccountCategory,
+    AccountingPeriod,
+    AccountingEntry,
+    Accountability,
+)
 from apps.fund.serializers.accounting_serializers import (
     AccountingEntrySerializer,
     AccountingEntryListSerializer,
@@ -12,6 +17,8 @@ from apps.fund.serializers.accounting_serializers import (
     AccountingPeriodSerializer,
     AccountingPeriodListSerializer,
     AccountingPeriodCreateSerializer,
+    
+    AccountabilitySerializer,
 )
 
 class AccountingEntryViewSet(viewsets.ModelViewSet):
@@ -40,6 +47,13 @@ class AccountingPeriodViewSet(viewsets.ModelViewSet):
         elif self.action in ['create', 'update', 'partial_update']:
             return AccountingPeriodCreateSerializer
         return AccountingPeriodSerializer
+
+class AccountabilityViewSet(viewsets.ModelViewSet):
+    queryset = Accountability.objects.all()
+    serializer_class = AccountabilitySerializer
+    permission_classes = []
+
+
 
 
 

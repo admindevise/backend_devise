@@ -4,7 +4,8 @@ from rest_framework.exceptions import ValidationError
 
 from apps.fund.models.core import (
     Fund,
-    FundSemestralDocument
+    FundSemestralDocument,
+    OthersI
 )
 from apps.fund.models.membership import InvestorContract
 from apps.user.serializers.basic_info_user_serializer import UserShortInfoSerializer
@@ -215,3 +216,11 @@ class FundTokenSerializer(serializers.ModelSerializer):
         model = FundToken
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'fund', 'owner_user', 'status', 'reserved_at', 'reservation_expires_at']
+
+class OthersISerializer(serializers.ModelSerializer):
+    created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    
+    class Meta:
+        model = OthersI
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at']

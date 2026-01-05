@@ -1,55 +1,71 @@
 """
-Serializers para Cesiones/Transfers - Versión Beta
+Serializers para Comisiones y Cesiones/Transfers
 """
 
 from rest_framework import serializers
-from apps.fund.models.commissions import Transfers
+from apps.fund.models.commissions import Commissions
 
 
-class TransferSerializer(serializers.ModelSerializer):
-    """Serializer básico para cesiones"""
+# ============================================================================
+# COMMISSIONS SERIALIZERS
+# ============================================================================
+
+class CommissionResponseSerializer(serializers.ModelSerializer):
+    """Serializer de respuesta para comisiones"""
     
     fund_name = serializers.CharField(source='fund.name', read_only=True)
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    updated_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     
     class Meta:
-        model = Transfers
+        model = Commissions
         fields = [
-            'id', 'fund', 'fund_name', 'effective_date',
-            'class_transfer', 'settlor', 'assignee', 'assigned_amount',
-            'doc_transfer', 'created_at'
+            'id', 'fund', 'fund_name', 'contract_num',
+            'name', 'description', 'amount',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class TransferCreateSerializer(serializers.ModelSerializer):
-    """Serializer para crear cesión"""
+class CommissionCreateSerializer(serializers.ModelSerializer):
+    """Serializer para crear comisión"""
     
     class Meta:
-        model = Transfers
+        model = Commissions
         fields = [
-            'fund', 'effective_date', 'class_transfer',
-            'settlor', 'assignee', 'assigned_amount', 'doc_transfer',
-            # Datos del cedente
-            'actor_settlor', 'nit_settlor', 'type_doc_settlor', 'id_doc_settlor',
-            # Datos del cesionario
-            'actor_assignee', 'nit_assignee', 'type_doc_assignee', 'id_doc_assignee',
+            'fund', 'contract_num', 'name', 'description', 'amount'
         ]
     
-    def validate_assigned_amount(self, value):
-        if value <= 0:
-            raise serializers.ValidationError("El monto debe ser mayor a cero")
-        return value
+    def validate_contract_num(self, value):
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("El número de contrato es requerido")
+        if len(value) > 10:
+            raise serializers.ValidationError("El número de contrato no puede exceder 10 caracteres")
+        return value.strip()
+    
+    def validate_name(self, value):
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("El nombre es requerido")
+        if len(value) > 50:
+            raise serializers.ValidationError("El nombre no puede exceder 50 caracteres")
+        return value.strip()
+    
+    def validate_description(self, value):
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("La descripción es requerida")
+        if len(value) > 256:
+            raise serializers.ValidationError("La descripción no puede exceder 256 caracteres")
+        return value.strip()
 
 
-class TransferListSerializer(serializers.ModelSerializer):
-    """Serializer para listado de cesiones"""
+class CommissionListSerializer(serializers.ModelSerializer):
+    """Serializer para listado de comisiones"""
     
     fund_name = serializers.CharField(source='fund.name', read_only=True)
     
     class Meta:
-        model = Transfers
+        model = Commissions
         fields = [
-            'id', 'fund', 'fund_name', 'effective_date',
-            'settlor', 'assignee', 'assigned_amount'
+            'id', 'fund', 'fund_name', 'contract_num',
+            'name', 'amount'
         ]

@@ -9,6 +9,7 @@ from ..models.accounting import (
     AccountingImportError,
     AccountingPeriod,
     FinancialSummary,
+    Accountability
 )
 
 
@@ -375,3 +376,15 @@ class FinancialSummaryDetailSerializer(FinancialSummaryListSerializer):
     
     class Meta(FinancialSummaryListSerializer.Meta):
         fields = FinancialSummaryListSerializer.Meta.fields + ['data', 'generated_by_name']
+        
+        
+# ============================================================================
+# ACCOUNTABILITY SERIALIZERS
+# ============================================================================
+class AccountabilitySerializer(serializers.ModelSerializer):
+    """Serializer para Accountability"""
+    
+    class Meta:
+        model = Accountability
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at']

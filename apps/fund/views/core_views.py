@@ -9,7 +9,8 @@ from apps.utils.views.Mixins import DateFilterMixin
 from apps.fund.models.membership import InvestorContract
 from apps.fund.models.core import (
     Fund,
-    FundSemestralDocument
+    FundSemestralDocument,
+    OthersI
 )
 from apps.fund.models.tokens import (
     FundToken,
@@ -18,6 +19,7 @@ from apps.fund.models.tokens import (
 from apps.fund.models.receipts import TransferReceipt
 from apps.fund.serializers.core_serializers import(
     FundSerializer,
+    OthersISerializer,
     FundTokenSerializer,
     FundMemberSerializer,
     TransferReceiptSerializer,
@@ -133,6 +135,19 @@ class FundSemestralDocumentViewSet(viewsets.ModelViewSet):
         queryset = FundSemestralDocument.objects.select_related('fund').filter(fund__user=user)
             
         return queryset
+   
+   
+# ========================================
+# OTROSI VIEWS
+# ========================================
+
+class OthersIViewSet(viewsets.ModelViewSet):
+    queryset = OthersI.objects.all()
+    serializer_class = OthersISerializer
+    permission_classes = []
+
+
+
         
 class TransferReceiptViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     """
