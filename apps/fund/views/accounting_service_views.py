@@ -11,7 +11,8 @@ from rest_framework.response import Response
 from apps.fund.serializers.accounting_service_serializers import (
     AccountingFileValidateSerializer,
     AccountingFileImportSerializer,
-    AccountingDefaultMappingSerializer
+    AccountingDefaultMappingSerializer,
+    InvoiceRecordSerializer
 )
 
 
@@ -95,4 +96,30 @@ def get_default_mapping(request):
     return Response({
         'success': False,
         'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_invoice_record(request):
+    """
+    Crea un nuevo registro de factura.
+    
+    Endpoint: POST /api/fund/accounting/invoice-records/
+    """
+    serializer = InvoiceRecordSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if serializer.is_valid():
+        invoice_record = serializer.save()
+        return Response(
+            InvoiceRecordSerializer(invoice_record).data,
+            status=status.HTTP_201_CREATED
+        )
+    
+    return Response({
+        'success': False,
+        'errors': serializer.errors,
+        'message': 'Error creando registro de factura'
     }, status=status.HTTP_400_BAD_REQUEST)

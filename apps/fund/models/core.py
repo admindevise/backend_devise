@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 from django.db import models
 from django.utils import timezone
@@ -544,6 +545,7 @@ class FundSemestralDocument(models.Model):
         """Retorna una representación legible del período"""
         return f"{self.year} - Semestre {self.semester}"
 
+
 class OthersI(base_model.BaseModel):
     """
     Documentos de Otrosí adjuntos al fondo.
@@ -591,6 +593,7 @@ class OthersI(base_model.BaseModel):
     def __str__(self):
         return f"Otrosí {self.doc_number} - {self.fund.name}"
 
+
 class FundPriceHistory(models.Model):
     """
     Modelo para almacenar el historial de precios por unidad de los fondos.
@@ -606,3 +609,70 @@ class FundPriceHistory(models.Model):
         ordering = ['-effective_date']
         verbose_name = "Historial de Precio de Fondo"
         verbose_name_plural = "Historial de Precios de Fondos"
+
+
+class TrustAgreement(base_model.BaseModel):
+    """
+    Modelo para gestionar contratos fiduciarios asociados a un fondo.
+    """
+    class TypesAgreement(models.TextChoices):
+        ADMINISTRATION = 'administration', 'Administración'
+        PAYMENTS = 'payments', 'Pagos'
+        OTHER = 'other', 'Otro'
+    
+    class CurrencyChoices(models.TextChoices):
+        USD = 'USD', 'Dólar Estadounidense'
+        EUR = 'EUR', 'Euro'
+        COP = 'COP', 'Peso Colombiano'
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name='trust_agreements')
+    
+    #========================================
+    # INFORMACIÓN DEL CONTRATO
+    #========================================
+    agreement_number = models.CharField(max_length=100, unique=True)
+    agreement_type = models.CharField(max_length=50, choices=TypesAgreement.choices)
+    trust_code = models.CharField(max_length=100, blank=True, null=True)
+    trust_name = models.CharField(max_length=255, blank=True, null=True)
+    trust_nit = models.CharField(max_length=50, blank=True, null=True)
+    
+    #========================================
+    # PARTES DEL CONTRATO
+    #========================================
+    trustor_name = models.CharField(max_length=255, help_text="Nombre del fideicomitente")
+    trustor_nit = models.CharField(max_length=50, help_text="NIT del fideicomitente")
+    trustor_legal_representative = models.CharField(max_length=255, help_text="Representante legal del fideicomitente")
+    trustor_document_id = models.CharField(max_length=50, help_text="Documento de identidad del representante legal")
+    
+    trustee_name = models.CharField(max_length=255, help_text="Nombre de la fiduciaria")
+    trustee_nit = models.CharField(max_length=50, help_text="NIT de la fiduciaria")
+    trustee_legal_representative = models.CharField(max_length=255, help_text="Representante legal de la fiduciaria")
+    
+    beneficiary_name = models.CharField(max_length=255, help_text="Nombre del acreedor")
+    beneficiary_document_id = models.CharField(max_length=50, help_text="Documento de identidad del acreedor")
+    beneficiary_country = models.CharField(max_length=100, help_text="País del acreedor")
+    
+    #========================================
+    # FECHAS
+    #========================================
+    construction_date = models.DateField(blank=True, null=True, help_text="Fecha de constitución del contrato")
+    effective_date = models.DateField(help_text="Fecha de inicio de vigencia del contrato")
+    expiration_date = models.DateField(blank=True, null=True, help_text="Fecha de expiración del contrato")
+    
+    #========================================
+    # FINANCIERO
+    #========================================
+    approved_loan_amount = models.DecimalField(max_digits=18, decimal_places=2, blank=True, null=True, help_text="Monto credito aprobado")
+    currency = models.CharField(max_length=10, choices=CurrencyChoices.choices, default=CurrencyChoices.COP)
+    
+    #========================================
+    # ESTADO Y DOCUMENTOS
+    #========================================
+    signed_document_url = models.FileField(upload_to='funds/trust_agreements/signed_documents/', blank=True, null=True, help_text="Documento firmado del contrato fiduciario")
+    electronic_envelope = models.FileField(upload_to='funds/trust_agreements/electronic_envelopes/', blank=True, null=True, help_text="Sobre electrónico del contrato fiduciario")
+    
+    class Meta:
+        verbose_name = "Contrato fiduciario"
+        verbose_name_plural = "Contratos fiduciarios"
+        ordering = ['-created_at']

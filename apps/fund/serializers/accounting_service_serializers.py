@@ -5,10 +5,16 @@ Serializers para el módulo de contabilidad.
 from rest_framework import serializers
 from decimal import Decimal
 
+from apps.fund.models.core import (
+    Fund,
+    TrustAgreement
+)
 from apps.fund.models.accounting import (
     AccountCategory,
     AccountingPeriod,
     AccountingEntry,
+    InvoiceRecord,
+    Account,
     AccountingBalance,
     AccountingImportBatch,
     AccountingImportError,
@@ -21,6 +27,7 @@ from apps.fund.services.accounting.import_service import (
     DEFAULT_TXT_MAPPING,
     DEFAULT_XLSX_MAPPING
 )
+from apps.fund.services.invoices.invoices_service import InvoiceRecordService
 
 # ============================================================================
 # SERIALIZERS PARA IMPORTACIÓN DE ARCHIVOS
@@ -450,6 +457,80 @@ class AccountingEntrySerializer(serializers.ModelSerializer):
             return f"{obj.period.year}/{obj.period.month:02d}"
         return None
 
+# ========================= FACTURAS =========================
+class InvoiceRecordSerializer(serializers.ModelSerializer):
+    """ Serializer para Registros de Facturas."""
+    # Identificacion de la factura
+    invoice_number = serializers.CharField(max_length=100, required=True)
+    invoice_type = serializers.ChoiceField(choices=InvoiceRecord.InvoiceType.choices)
+    
+    # Emisor y receptor
+    issuer_name = serializers.CharField(max_length=255, required=True)
+    issuer_nit = serializers.CharField(max_length=50, required=True)
+    receiver_name = serializers.CharField(max_length=255, required=True)
+    receiver_nit = serializers.CharField(max_length=50, required=True)
+    
+    # Fechas
+    issued_date = serializers.DateField(required=True, format="%Y-%m-%d")
+    expiration_date = serializers.DateField(required=False, allow_null=True)
+    
+    # Conceptos
+    notion = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    items_details = serializers.JSONField(required=False, help_text="Detalles de los ítems en formato JSON")
+    
+    # Pagos
+    invoice_status = serializers.ChoiceField(choices=InvoiceRecord.InvoiceStatus.choices, default=InvoiceRecord.InvoiceStatus.ISSUED)
+    total_amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)
+    
+    created_at = serializers.DateTimeField(read_only=True, format="%Y-%m-%d %H:%M:%S")
+    expiration_date = serializers.DateField(required=True, allow_null=True, format="%Y-%m-%d")
+    invoice_status = serializers.ChoiceField(choices=InvoiceRecord.InvoiceStatus.choices, read_only=True)
+    
+    class Meta:
+        model = InvoiceRecord
+        fields = [
+            'id', 'fund', 'trust_agreement', 'accounting_account', 'accounting_period',
+            'invoice_number', 'invoice_type',
+            'issuer_name', 'issuer_nit', 'receiver_name', 'receiver_nit',
+            'issued_date', 'expiration_date',
+            'notion', 'items_details',
+            'subtotal', 'value_iva', 'withholding_tax', 'ica_withholding_tax', 'total_amount',
+            'invoice_status', 'payment_date', 'payment_amount', 'payment_type',
+            'attachment', 'xml_attachment', 'created_at' 
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def validate_fund(self, value):
+        """Validar que el fondo existe."""
+        from apps.fund.models import Fund
+        
+        if not value:
+            raise serializers.ValidationError("El campo 'fund' es obligatorio.")
+        
+        try:
+            fund = Fund.objects.get(id=value.id)
+            return fund
+        except Fund.DoesNotExist:
+            raise serializers.ValidationError(
+                f"El fondo con ID {value.id} no existe"
+            )
+    
+    def create(self, validated_data):
+        """Crear un nuevo registro de factura."""
+        try:
+            request = self.context.get('request')
+            user = request.user if request else None
+            
+            invoice_record = InvoiceRecordService.create_invoice_record(
+                user=user,
+                invoice_data=validated_data,
+                request=request
+            )
+            
+            return invoice_record
+        except Exception as e:
+            raise serializers.ValidationError(f"Error creando registro de factura: {str(e)}")
+    
 
 class AccountingBalanceSerializer(serializers.ModelSerializer):
     """Serializer para saldos contables."""

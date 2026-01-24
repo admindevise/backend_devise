@@ -5,7 +5,8 @@ from rest_framework.exceptions import ValidationError
 from apps.fund.models.core import (
     Fund,
     FundSemestralDocument,
-    OthersI
+    OthersI,
+    TrustAgreement,
 )
 from apps.fund.models.membership import InvestorContract
 from apps.user.serializers.basic_info_user_serializer import UserShortInfoSerializer
@@ -224,3 +225,43 @@ class OthersISerializer(serializers.ModelSerializer):
         model = OthersI
         fields = '__all__'
         read_only_fields = ['id', 'created_at']
+        
+class TrustAgreementSerializer(serializers.ModelSerializer):
+    created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    
+    class Meta:
+        model = TrustAgreement
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at']
+        
+    def generate_trust_code(self):
+        """
+        Genera un código único para el acuerdo fiduciario.
+        Formato: "FA-MMDDYY-XXXX" (ej: "FA-092524-0001")
+        """
+        from django.utils import timezone
+        from django.db.models import Max
+        
+        now = timezone.now()
+        date_part = now.strftime("%m%d%y")
+        
+        # Obtener el último número secuencial usado hoy
+        today_prefix = f"FA-{date_part}-"
+        last_code = TrustAgreement.objects.filter(
+            trust_code__startswith=today_prefix
+        ).aggregate(
+            max_code=Max('trust_code')
+        )['max_code']
+        
+        if last_code:
+            last_sequence = int(last_code.split('-')[-1])
+            new_sequence = last_sequence + 1
+        else:
+            new_sequence = 1
+            
+        return f"{today_prefix}{new_sequence:04d}"
+    
+    def create(self, validated_data):
+        # Generar el código único antes de crear el acuerdo fiduciario
+        validated_data['trust_code'] = self.generate_trust_code()
+        return super().create(validated_data)

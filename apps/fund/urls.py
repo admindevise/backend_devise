@@ -26,6 +26,7 @@ from apps.fund.views.core_views import (
     TokenTransactionViewSet,
     FundSemestralDocumentViewSet,
     OthersIViewSet,
+    TrustAgreementViewSet,
 ) 
 
 # ============================================================================
@@ -83,7 +84,14 @@ from apps.fund.views.accounting_views import (
     AccountingEntryViewSet,
     AccountCategoryViewSet,
     AccountingPeriodViewSet,
-    AccountabilityViewSet
+    AccountabilityViewSet,
+)
+
+from apps.fund.views.accounting_service_views import (
+    validate_accounting_file,
+    import_accounting_file,
+    get_default_mapping,
+    create_invoice_record,
 )
 
 from apps.fund.views.accounting_service_views import (
@@ -183,6 +191,7 @@ router.register(r'othersi', OthersIViewSet, basename='otrosi')
 router.register(r'token', FundTokenViewSet, basename='fund-token')
 router.register(r'transaction', TokenTransactionViewSet, basename='token-transaction')
 router.register(r'transfer_receipt', TransferReceiptViewSet, basename='transfer-receipt')
+router.register(r'trust-agreement', TrustAgreementViewSet, basename='trust-agreement')
 
 # Investments
 router.register(r'investment', InvestmentViewSet, basename='investment')
@@ -259,6 +268,11 @@ urlpatterns = [
     path('api/accounting-validate/', validate_accounting_file, name='validate-accounting'),
     path('api/import-account-file/', import_accounting_file, name='import-account-file'),
     path('api/accounting-default-mapping/', get_default_mapping, name='default-mapping'),
+    
+    # ========================================================================
+    # ACCOUNTABILITY
+    # ========================================================================
+    path('api/accounting-invoice/create-invoice-record/', create_invoice_record, name='create-invoice-record'),
     
     # ========================================================================
     # COMMISSIONS

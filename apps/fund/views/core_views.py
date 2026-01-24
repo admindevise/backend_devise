@@ -10,7 +10,8 @@ from apps.fund.models.membership import InvestorContract
 from apps.fund.models.core import (
     Fund,
     FundSemestralDocument,
-    OthersI
+    OthersI,
+    TrustAgreement
 )
 from apps.fund.models.tokens import (
     FundToken,
@@ -24,6 +25,7 @@ from apps.fund.serializers.core_serializers import(
     FundMemberSerializer,
     TransferReceiptSerializer,
     FundSemestralDocumentSerializer,
+    TrustAgreementSerializer
 )
 from apps.fund.serializers.transaction_serializers import TokenTransactionSerializer
 
@@ -147,8 +149,6 @@ class OthersIViewSet(viewsets.ModelViewSet):
     permission_classes = []
 
 
-
-        
 class TransferReceiptViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     """
     API endpoint que permite ver recibos de transferencia.
@@ -231,3 +231,29 @@ class TokenTransactionViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
         queryset = self.apply_date_filters(queryset)
         
         return queryset
+    
+class TrustAgreementViewSet(DateFilterMixin, viewsets.ModelViewSet):
+    """
+    API endpoint que permite gestionar contratos fiduciarios de fondos.
+    Proporciona acciones `list`, `create`, `retrieve`, `update` y `destroy`.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = TrustAgreementSerializer
+    authentication_classes = [JWTAuthentication]
+    http_method_names = ['get', 'post', 'put', 'delete']
+    
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['fund', 'trustor_name']
+    search_fields = ['fund__name']
+    ordering_fields = ['created_at',]
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        """
+        Filtra los contratos fiduciarios para mostrar solo los del usuario autenticado,
+        a menos que el usuario sea admin (en cuyo caso muestra todos).
+        """
+        user = self.request.user
+        queryset = TrustAgreement.objects.select_related('fund').filter(fund__user=user)
+            
+        return self.apply_date_filters(queryset)

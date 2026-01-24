@@ -1,17 +1,17 @@
-CONSORTIA = "u0umjdlo4l"
-ENVIRONMENT_ID = "u0cvdbx4i8"
-MEMBERSHIP_ID = "u0lrs58na5"
+CONSORTIA = "u0z7j1ppn9"
+ENVIRONMENT_ID = "u0gnqadafy"
+MEMBERSHIP_ID = "u0jxkzaq5v"
 
 #Node AV
-NODE_ID = "u0eakkitrf"
+NODE_ID = "u0l5v4iz5b"
 ZONE_DOMAIN = "us0-aws"
-USER_ACCOUNTS = "0x726154945194365feea841e326ce3e7511dc297d"
+USER_ACCOUNTS = "0xe4690d1b893559c6017cceddedfd5fd118c02ff8"
 
 #Runtime Wallet
-SERVICE = "u0h38k28hg"
+SERVICE = "u0gjyp6efp"
 
-USERNAME = "u0g9g4pomz"
-PASSWORD = "yTb9MlqOUxzQkYBCrzWMBwEANLoncnm1JGPyu4186A4"
+USERNAME = "u0lejpfow8"
+PASSWORD = "5XZIeUUE4FU-2gNRw3AagmKdIkGJu59_GNAPrUvdTyw"
 BEARER = "u0ww6zjiy0-WF6usFHi4syl049nmdcZX/9YIF2WcNMnjsCIitQCVTg="
 
 SERVICE_HOST = f"{ENVIRONMENT_ID}-{NODE_ID}-connect.{ZONE_DOMAIN}.kaleido.io"

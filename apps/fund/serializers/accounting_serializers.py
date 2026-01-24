@@ -151,7 +151,7 @@ class AccountingEntryListSerializer(serializers.ModelSerializer):
             'entry_source', 'entry_source_display',
             'external_reference', 'document_number',
             'third_party_name', 'third_party_id',
-            'created_by', 'created_by_name',
+            'created_by_name',
             'created_at'
         ]
 

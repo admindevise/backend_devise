@@ -126,39 +126,39 @@ class Command(BaseCommand):
                 ]
             },
             {
-                'name': 'Gestión de Fondos',
-                'code': 'FUND_MGMT',
-                'description': 'Operaciones de gestión de fondos',
+                'name': 'Gestión de Fideicomisos',
+                'code': 'TRUST_MGMT',
+                'description': 'Operaciones de gestión de fideicomisos',
                 'actions': [
                     {
-                        'name': 'Crear Fondo',
-                        'code': 'FUND_CREATE',
+                        'name': 'Crear fideicomiso',
+                        'code': 'TRUST_CREATE',
                         'severity': 'HIGH',
-                        'description': 'Creación de un nuevo fondo'
+                        'description': 'Creación de un nuevo fideicomiso'
                     },
                     {
-                        'name': 'Actualizar Fondo',
-                        'code': 'FUND_UPDATE',
+                        'name': 'Actualizar Fideicomiso',
+                        'code': 'TRUST_UPDATE',
                         'severity': 'MEDIUM',
-                        'description': 'Actualización de información general de un fondo'
+                        'description': 'Actualización de información general de un fideicomiso'
                     },
                     {
-                        'name': 'Eliminar Fondo',
-                        'code': 'FUND_DELETE',
+                        'name': 'Eliminar Fideicomiso',
+                        'code': 'TRUST_DELETE',
                         'severity': 'HIGH',
-                        'description': 'Eliminación de un fondo existente'
+                        'description': 'Eliminación de un fideicomiso existente'
                     },
                     {
-                        'name': 'Aprobar Fondo',
-                        'code': 'FUND_APPROVE',
+                        'name': 'Aprobar Fideicomiso',
+                        'code': 'TRUST_APPROVE',
                         'severity': 'MEDIUM',
-                        'description': 'Aprobación de un fondo'
+                        'description': 'Aprobación de un fideicomiso'
                     },
                     {
                         'name': 'Actualizar KPI',
-                        'code': 'FUND_UPDATE_KPI',
+                        'code': 'TRUST_UPDATE_KPI',
                         'severity': 'MEDIUM',
-                        'description': 'Actualización de KPIs de un fondo'
+                        'description': 'Actualización de KPIs de un fideicomiso'
                     }
                 ]
             },
@@ -399,6 +399,19 @@ class Command(BaseCommand):
                         'code': 'ASSET_CREATE',
                         'severity': 'MEDIUM',
                         'description': 'Creación de un activo'
+                    }
+                ]
+            },
+            {
+                'name': 'Contabilidad',
+                'code': 'ACCOUNTING',
+                'description': 'Operaciones contables de fideicomisos',
+                'actions': [
+                    {
+                        'name': 'Crear registro de factura',
+                        'code': 'INVOICE_RECORD_CREATE',
+                        'severity': 'MEDIUM',
+                        'description': 'Creación de un nuevo registro de factura para un fideicomiso'
                     }
                 ]
             }

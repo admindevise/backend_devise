@@ -5,7 +5,7 @@ from django.contrib import admin
 # ===================================
 
 # Core
-from apps.fund.models.core import Fund, OthersI
+from apps.fund.models.core import Fund, OthersI, TrustAgreement
 
 # Membership
 from apps.fund.models.membership import (
@@ -35,11 +35,14 @@ from apps.fund.models.accounting import (
     AccountCategory,
     AccountingPeriod,
     AccountingEntry,
+    Account,
     AccountingBalance,
     AccountingImportBatch,
     AccountingImportError,
     FinancialSummary,
-    Accountability
+    ReceipType,
+    Accountability,
+    InvoiceRecord,
 )
 
 # Commisions
@@ -209,3 +212,24 @@ class AccountabilityAdmin(admin.ModelAdmin):
 class TransfersAdmin(admin.ModelAdmin):
     list_display = ('id', 'fund', 'class_transfer', 'assigned_amount', 'status', 'created_at')
     list_filter = ('fund', 'class_transfer', 'status')
+    
+@admin.register(ReceipType)
+class ReceipTypeAdmin(admin.ModelAdmin):
+    list_display = ('code', 'name',)
+    search_fields = ('code', 'name')
+
+@admin.register(TrustAgreement)
+class TrustAgreementAdmin(admin.ModelAdmin):
+    list_display = ('id', 'fund', 'currency', 'created_at')
+    list_filter = ('fund', 'currency')
+
+@admin.register(InvoiceRecord)
+class InvoiceRecordAdmin(admin.ModelAdmin):
+    list_display = ('id', 'fund', 'invoice_number', 'total_amount', 'issued_date')
+    list_filter = ('fund', 'issued_date')
+
+@admin.register(Account)
+class AccountAdmin(admin.ModelAdmin):
+    list_display = ('name', 'account_category',)
+    list_filter = ('account_category',)
+    search_fields = ('name',)

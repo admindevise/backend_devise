@@ -13,13 +13,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-b!us_8&h-@!&$xxr#g7efz_kpb*tjt@k#i=t1=4gf5*h7letpc'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', default='django-insecure-devise-secret-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
+# Add Render.com hostname to allowed hosts if available \ DEPOLOYMENT IN RENDER.COM
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # Application definition
 
@@ -76,6 +81,7 @@ INSTALLED_APPS = [
     'apps.audit.apps.AuditConfig',
     'apps.trading.apps.TradingConfig',
     'apps.financial_institution.apps.FinancialInstitutionConfig',
+    'apps.utils',
 
 ]
 
@@ -132,6 +138,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django_auto_logout.middleware.auto_logout', #Django Auto Logout
+    'whitenoise.middleware.WhiteNoiseMiddleware', #Servir archivos estaticos en produccion
 
 ]
 
@@ -164,25 +171,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-
-""" DATABASES = {
-    'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'devise',
-            'USER': 'devise',
-            'PASSWORD': 'devise2023*',
-            'HOST': '127.0.0.1',
-            'PORT': '5432',
-    }
-}
- """
-
 DATABASES = {
-    'default': dj_database_url.parse(
-        'postgresql://adminpg:devise2024*@localhost:5432/devise',
+    'default': dj_database_url.config(
+        default='postgresql://adminpg:devise2024*@localhost:5432/devise',
         conn_max_age=600,
         conn_health_checks=True,
-    )
+        )
 }
 
 # Password validation
@@ -263,12 +257,11 @@ LANGUAGES = (
 
 STATIC_URL = '/static/'
 
-if (DEBUG == True):
-    STATICFILES_DIRS = [
-        BASE_DIR / 'static/'
-    ]
-else:
-    STATIC_ROOT = BASE_DIR / 'static/'
+if not DEBUG:
+    # This setting is only used when DEBUG is False 
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+    # Simplified static file serving.
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field

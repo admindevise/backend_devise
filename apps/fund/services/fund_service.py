@@ -51,16 +51,11 @@ class FundCreationService:
             
             # 2. Crear auditoría inicial si tenemos request
             if request:
-                initial_audit = AuditService.log_action(
-                    request=request,
-                    action_code="FUND_CREATE",
-                    obj=user,  # Usamos el usuario como referencia hasta crear el fondo
-                    details={
-                        'name': fund_data.get('name'),
-                        'amount': str(fund_data.get('amount', 0)),
-                        'operation': 'create_fund'
-                    },
-                    status='PENDING'
+                initial_audit = FundCreationService.initial_audit_log_fund_action(
+                    user=user,
+                    fund_data=fund_data,
+                    action_code="TRUST_CREATE",
+                    request=request
                 )
                 
             with transaction.atomic():
@@ -72,42 +67,19 @@ class FundCreationService:
                 
             # 5. Actualizar auditoría a SUCCESS
             if initial_audit:
-                # Actualizar el objeto de referencia al fondo creado
-                from django.contrib.contenttypes.models import ContentType
-                fund_content_type = ContentType.objects.get_for_model(Fund)
-                initial_audit.content_type = fund_content_type
-                initial_audit.object_id = fund.id
-                
-                initial_audit.status = 'SUCCESS'
-                initial_audit.details.update({
-                    'fund_id': fund.id,
-                    'wallet_created': bool(fund.hd_wallet),
-                    'contract_created': bool(fund.token_contract_721)
-                })
-                initial_audit.save(update_fields=['status', 'details', 'content_type', 'object_id'])
-            
+                FundCreationService.update_audit_log_fund_success(initial_audit, fund)
             return fund
                 
         except Exception as e:
-            # Auditar error
+            # 6. Auditar error
             if initial_audit:
-                initial_audit.status = 'ERROR'
-                initial_audit.details.update({
-                    'error': str(e),
-                    'error_type': type(e).__name__
-                })
-                initial_audit.save(update_fields=['status', 'details'])
-            
-            # Re-lanzar la excepción
-            if isinstance(e, ValidationError):
-                raise e
-            else:
-                raise FundServiceError(f"Error creando vehiculo de inversion: {str(e)}")
+                FundCreationService.update_audit_log_fund_error(initial_audit, e)
+            raise
+    
     
     # ========================================
-    # Métodos privados de validación
+    # VALIDACIONES
     # ========================================
-    
     @staticmethod
     def _validate_fund_data(fund_data: Dict[str, Any]):
         """Validar lógica de negocio del fondo"""
@@ -126,9 +98,8 @@ class FundCreationService:
         
     
     # ========================================
-    # Métodos privados de creación
+    # METODOS DE CREACIÓN
     # ========================================
-    
     @staticmethod
     def _create_fund_base(user, fund_data: Dict[str, Any]) -> Fund:
         """Crear el objeto Fund base sin infraestructura externa"""
@@ -197,10 +168,10 @@ class FundCreationService:
                 })
             raise FundServiceError(f"Ha ocurrido un error en la blockchain: {str(e)}")
     
-    # ========================================
-    # Métodos públicos auxiliares
-    # ========================================
     
+    # ========================================
+    # METODOS AUXILIARES DE CONSULTA
+    # ========================================
     @staticmethod
     def get_user_funds(user, status: Optional[str] = None):
         """
@@ -257,7 +228,7 @@ class FundCreationService:
         if request:
             AuditService.log_action(
                 request=request,
-                action_code="FUND_STATUS_UPDATE",
+                action_code="TRUST_UPDATE",
                 obj=fund,
                 details={
                     'old_status': old_status,
@@ -271,3 +242,60 @@ class FundCreationService:
         fund.save(update_fields=['status'])
         
         return fund
+    
+    
+    # ========================================
+    # AUDITORÍA AUXILIARES
+    # ========================================
+    @staticmethod
+    def initial_audit_log_fund_action(user, fund_data: Dict[str, Any], action_code: str, request) -> Optional[Any]:
+        """Crea un log de auditoría inicial con estado pendiente para acciones de Fund."""
+        if not request:
+            return None
+        
+        return AuditService.log_action(
+            request=request,
+            action_code=action_code,
+            obj=user,  # Temporalmente usa user
+            details={
+                "user_email": getattr(user, "email", "anonymous"),
+                "fund_name": fund_data.get('name', 'N/A'),
+                "operation": action_code,
+            },
+            status="PENDING",
+        )
+        
+    @staticmethod
+    def update_audit_log_fund_success(audit_log, fund: Fund):
+        """Actualiza el log de auditoría con información de éxito para acciones de Fund."""
+        if not audit_log:
+            return
+        
+        # Actualizar el objeto auditado
+        from django.contrib.contenttypes.models import ContentType
+        audit_log.content_type = ContentType.objects.get_for_model(fund)
+        audit_log.object_id = str(fund.id)
+        audit_log.status = 'SUCCESS'
+        
+        # Agregar detalles adicionales
+        audit_log.details.update({
+            'fund_id': str(fund.id),
+            'fund_name': fund.name,
+            'status': fund.status,
+        })
+        
+        audit_log.save(update_fields=['content_type', 'object_id', 'status', 'details'])
+    
+    @staticmethod
+    def update_audit_log_fund_error(audit_log, error):
+        """Actualiza el log de auditoría con información del error para acciones de Fund."""
+        if not audit_log:
+            return
+            
+        audit_log.status = 'ERROR'
+        audit_log.details.update({
+            'error': str(error),
+            'error_type': type(error).__name__,
+        })
+        
+        audit_log.save(update_fields=['status', 'details'])

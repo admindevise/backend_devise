@@ -7,7 +7,6 @@ from apps.utils.models import base_model
 # ============================================================================
 # CATÁLOGO DE CUENTAS CONTABLES
 # ============================================================================
-
 class AccountCategory(base_model.BaseModel):
     """
     Categorías principales de cuentas contables.
@@ -95,7 +94,6 @@ class AccountCategory(base_model.BaseModel):
 # ============================================================================
 # PERÍODOS CONTABLES
 # ============================================================================
-
 class AccountingPeriod(base_model.BaseModel):
     """
     Períodos contables para organizar registros.
@@ -180,7 +178,6 @@ class AccountingPeriod(base_model.BaseModel):
 # ============================================================================
 # TIPOS DE COMPROBANTES
 # ============================================================================
-
 class ReceipType(base_model.BaseModel):
     name = models.CharField(
         max_length=50,
@@ -190,12 +187,17 @@ class ReceipType(base_model.BaseModel):
         max_length=10,
         verbose_name="Codigo de tipo de comprobante"
     )
+    
+    class Meta:
+        verbose_name = "Tipo de Comprobante"
+        verbose_name_plural = "Tipos de Comprobantes"
+        ordering = ['code']
+        unique_together = ['code']
 
 
 # ============================================================================
 # CUENTAS
 # ============================================================================
-
 class Account(base_model.BaseModel):
     account_category = models.ForeignKey(
         AccountCategory,
@@ -212,12 +214,16 @@ class Account(base_model.BaseModel):
         max_length=50,
         verbose_name="Nombre de la cuenta"
     )
+    
+    class Meta:
+        verbose_name = "Cuenta Contable"
+        verbose_name_plural = "Cuentas Contables"
+        ordering = ['account_category', 'account_id']
 
 
 # ============================================================================
 # REGISTROS CONTABLES (TRANSACCIONES)
 # ============================================================================
-
 class AccountingEntry(base_model.BaseModel):
     """
     Registro contable individual.
@@ -402,7 +408,6 @@ class AccountingEntry(base_model.BaseModel):
 # ============================================================================
 # RENDICION DE CUENTAS (CARGA DE ARCHIVO PDF, LUEGO DE APROBACION)
 # ============================================================================
-
 class Accountability(base_model.BaseModel):
     class PeriodType(models.TextChoices):
         MONTHLY = 'monthly', 'Mensual'
@@ -472,11 +477,181 @@ class Accountability(base_model.BaseModel):
         return f"{self.fund.name} - {self.get_period_type_display()} {self.period_year}"    
     
 
+# ============================================================================
+# REGISTRO DE FACTURAS
+# ============================================================================
+class InvoiceRecord(base_model.BaseModel):
+    """
+    Registro de facturas recibidas o emitidas.
+    """
+    class InvoiceType(models.TextChoices):
+        SALE = 'sale', 'Venta'
+        COMISSION = 'comission', 'Comisión'
+        SPENT = 'spent', 'Gasto'
+    
+    class InvoiceStatus(models.TextChoices):
+        ISSUED = 'issued', 'Emitida'
+        PAID = 'paid', 'Pagada'
+        EXPIRED = 'expired', 'Vencida'
+        ANNULLED = 'annulled', 'Anulada'
+        
+    # Relaciones principales
+    fund = models.ForeignKey(
+        'fund.Fund',
+        on_delete=models.PROTECT,
+        related_name='invoices',
+        verbose_name="Fondo"
+    )
+    trust_agreement = models.ForeignKey(
+        'fund.TrustAgreement',
+        on_delete=models.PROTECT,
+        related_name='invoices',
+        verbose_name="Acuerdo de fideicomiso"
+    )
+    accounting_account = models.ForeignKey(
+        Account,
+        on_delete=models.PROTECT,
+        related_name='invoices',
+        verbose_name="Cuenta contable"
+    )
+    accounting_period = models.ForeignKey(
+        AccountingPeriod,
+        on_delete=models.PROTECT,
+        related_name='invoices',
+        verbose_name="Período contable"
+    )
+    
+    
+    # Identificación de la factura
+    invoice_number = models.CharField(
+        max_length=50,
+        verbose_name="Número de factura"
+    )
+    invoice_type = models.CharField(
+        max_length=20,
+        choices=InvoiceType.choices,
+        verbose_name="Tipo de factura"
+    )
+    
+    # Emisor y receptor
+    issuer_name = models.CharField(
+        max_length=255,
+        verbose_name="Nombre del emisor"
+    )
+    issuer_nit = models.CharField(
+        max_length=50,
+        verbose_name="NIT del emisor"
+    )
+    receiver_name = models.CharField(
+        max_length=255,
+        verbose_name="Nombre del receptor"
+    )
+    receiver_nit = models.CharField(
+        max_length=50,
+        verbose_name="NIT del receptor"
+    )
+    
+    # Fechas
+    issued_date = models.DateField(
+        verbose_name="Fecha de emisión"
+    )
+    expiration_date = models.DateField(
+        verbose_name="Fecha de vencimiento"
+    )
+    
+    # Conceptos
+    notion = models.TextField(
+        verbose_name="Concepto"
+    )
+    items_details = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Detalles de ítems",
+        help_text="Lista de ítems en formato JSON"
+    )
+    
+    # Valores monetarios
+    subtotal = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        verbose_name="Subtotal (COP)"
+    )
+    value_iva = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        verbose_name="Valor IVA (COP)"
+    )
+    withholding_tax = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        verbose_name="Retención en la fuente (COP)"
+    )
+    ica_withholding_tax = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        verbose_name="Retención ICA (COP)"
+    )
+    total_amount = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        verbose_name="Monto total (COP)"
+    )
+    
+    # Pago
+    invoice_status = models.CharField(
+        max_length=20,
+        choices=InvoiceStatus.choices,
+        default=InvoiceStatus.ISSUED,
+        verbose_name="Estado de la factura"
+    )
+    payment_date = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Fecha de pago"
+    )
+    payment_amount = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Monto pagado (COP)"
+    )
+    payment_type = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name="Tipo de pago"
+    )
+    
+    # Documentos
+    attachment = models.FileField(
+        upload_to='funds/invoices/%Y/',
+        blank=True,
+        null=True,
+        verbose_name="Documento de la factura"
+    )
+    xml_attachment = models.FileField(
+        upload_to='funds/invoices/xml/%Y/',
+        blank=True,
+        null=True,
+        verbose_name="Archivo XML de la factura"
+    )
+    
+    class Meta:
+        verbose_name = "Registro de Factura"
+        verbose_name_plural = "Registros de Facturas"
+        ordering = ['-issued_date', '-created_at']
+        unique_together = ['fund', 'invoice_number']
+        
+    def calculate_total(self):
+        """Calcula el monto total de la factura"""
+        self.total_amount = self.subtotal + self.value_iva - self.withholding_tax - self.ica_withholding_tax
+        return self.total_amount
+
 
 # ============================================================================
 # SALDOS POR CATEGORÍA Y PERÍODO
 # ============================================================================
-
 class AccountingBalance(base_model.BaseModel):
     """
     Saldos consolidados por categoría y período.
@@ -583,7 +758,6 @@ class AccountingBalance(base_model.BaseModel):
 # ============================================================================
 # IMPORTACIÓN MASIVA XLSX
 # ============================================================================
-
 class AccountingImportBatch(base_model.BaseModel):
     """
     Lote de importación desde archivos XLSX.
@@ -811,7 +985,6 @@ class AccountingImportError(base_model.BaseModel):
 # ============================================================================
 # RESÚMENES FINANCIEROS
 # ============================================================================
-
 class FinancialSummary(base_model.BaseModel):
     """
     Resúmenes financieros generados por período.
