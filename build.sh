@@ -11,3 +11,10 @@ python manage.py migrate
 python manage.py init_audit_actions
 
 python manage.py import_druo_data --all
+
+
+DJANGO_SUPERUSER_USERNAME=admin \
+DJANGO_SUPERUSER_EMAIL=admin@admin.com \
+DJANGO_SUPERUSER_PASSWORD=admin \
+DJANGO_SUPERUSER_PHONE=3227177889 \
+python manage.py createsuperuser --noinput || true

@@ -256,10 +256,9 @@ LANGUAGES = (
 
 
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 if not DEBUG:
-    # This setting is only used when DEBUG is False 
-    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
     # Simplified static file serving.
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
