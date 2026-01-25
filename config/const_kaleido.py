@@ -1,20 +1,20 @@
-CONSORTIA = "u0z7j1ppn9"
-ENVIRONMENT_ID = "u0gnqadafy"
-MEMBERSHIP_ID = "u0jxkzaq5v"
+import os
 
-#Node AV
-NODE_ID = "u0l5v4iz5b"
-ZONE_DOMAIN = "us0-aws"
-USER_ACCOUNTS = "0xe4690d1b893559c6017cceddedfd5fd118c02ff8"
+CONSORTIA  = os.getenv("KALEIDO_CONSORTIA")
+ENVIRONMENT_ID = os.getenv("KALEIDO_ENVIRONMENT_ID")
+MEMBERSHIP_ID = os.getenv("KALEIDO_MEMBERSHIP_ID")
 
-#Runtime Wallet
-SERVICE = "u0gjyp6efp"
+NODE_ID = os.getenv("KALEIDO_NODE_ID")
+ZONE_DOMAIN = os.getenv("KALEIDO_ZONE_DOMAIN")
+USER_ACCOUNTS = os.getenv("KALEIDO_USER_ACCOUNTS")
 
-USERNAME = "u0lejpfow8"
-PASSWORD = "5XZIeUUE4FU-2gNRw3AagmKdIkGJu59_GNAPrUvdTyw"
-BEARER = "u0ww6zjiy0-WF6usFHi4syl049nmdcZX/9YIF2WcNMnjsCIitQCVTg="
+SERVICE = os.getenv("KALEIDO_SERVICE")
+
+USERNAME = os.getenv("KALEIDO_USERNAME")
+PASSWORD = os.getenv("KALEIDO_PASSWORD")
+BEARER = os.getenv("KALEIDO_BEARER")
 
 SERVICE_HOST = f"{ENVIRONMENT_ID}-{NODE_ID}-connect.{ZONE_DOMAIN}.kaleido.io"
 
-CONSOLE_URL = "console.kaleido.io"
+CONSOLE_URL = os.getenv("KALEIDO_CONSOLE_URL")
 SERVICE_WALLET = f"{ENVIRONMENT_ID}-{SERVICE}-hdwallet.{ZONE_DOMAIN}.kaleido.io"
