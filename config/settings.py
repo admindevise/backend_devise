@@ -121,7 +121,7 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': dt.timedelta(days=90),
     'REFRESH_TOKEN_LIFETIME': dt.timedelta(days=91),
-    "TOKEN_OBTAIN_SERIALIZER": "apps.login.serializers.CustomTokenObtainPairSerializer",
+    #"TOKEN_OBTAIN_SERIALIZER": "apps.login.serializers.CustomTokenObtainPairSerializer",
 }
 
 MIDDLEWARE = [
