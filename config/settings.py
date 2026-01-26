@@ -286,13 +286,17 @@ CITIES_LIGHT_TRANSLATION_LANGUAGES = ['en']
 CITIES_LIGHT_INCLUDE_CITY_TYPES = ['PPL', 'PPLA', 'PPLA2', 'PPLA3', 'PPLA4', 'PPLC', 'PPLF', 'PPLG', 'PPLL', 'PPLR', 'PPLS', 'STLMT',]
 
 #=====    Config send email PROVIDER = mailtrap  =====
-EMAIL_HOST = 'live.smtp.mailtrap.io'
-EMAIL_HOST_USER = 'api'
-EMAIL_HOST_PASSWORD = '757a6bbb029fc4d4fc3095c05e277c4a'
-EMAIL_PORT = '587'
-EMAIL_USE_TLS = True
-EMAIL_FROM_DIR = 'notification@godevise.com'
-DEFAULT_FROM_EMAIL = 'notification@godevise.com'
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "live.smtp.mailtrap.io")
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "api")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "notification@godevise.com")
+
+# fallback a consola si no hay password
+if not EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 TEST = True
 if DEBUG:
