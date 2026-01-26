@@ -4,6 +4,9 @@ from django.utils.translation import gettext_lazy as _
 import datetime as dt
 from pathlib import Path
 import dj_database_url
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv())
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
