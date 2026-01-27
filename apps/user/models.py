@@ -2,7 +2,6 @@ from apps.utils.models import base_model
 
 from cities_light.models import Country, Region, SubRegion
 from config import settings
-from config.settings import WEETRUST_URL, WEETRUST_USER_ID, WEETRUST_API_KEY
 
 from django.contrib.auth.models import (AbstractUser, BaseUserManager, Group)
 from django.core.mail import EmailMessage
@@ -11,7 +10,6 @@ from django.template.loader import render_to_string
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
 import datetime as dt
-from datetime import timedelta
 
 import random
 
@@ -254,7 +252,6 @@ class User(AbstractUser,):
         self.send_mail(**email_info)
 
     def verify_email(self):
-        print('token', self.slug)
         print('se envio el email', self.email)
         email_info = {
             'subject': 'Devise - Confirmación de cuenta.',
@@ -262,7 +259,8 @@ class User(AbstractUser,):
             'to': [self.email],
             'context': {
                 'user': f'{self.first_name} {self.last_name}' if self.first_name else self.email,
-                'token': f'http://127.0.0.1:8000/user/active/?verify_email={self.slug}' # CAMBIAR POR URL DE PRODUCCION
+                'token': f'{settings.CORE_URL}/user/active/?verify_email={self.slug}'
+                # TODO: agregar variable de entorno
             },
         }
 

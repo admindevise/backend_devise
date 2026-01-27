@@ -9,10 +9,14 @@ python manage.py migrate
 
 # Initialize audit actions
 #python manage.py init_audit_actions
-python manage.py cities_light --force-all
+
+# Load initial data cities
+#python manage.py cities_light --force-all
+
+# Import DRUO Data
 #python manage.py import_druo_data --all
 
-
+# First Superuser Creation
 #DJANGO_SUPERUSER_USERNAME=admin \
 #DJANGO_SUPERUSER_EMAIL=admin@admin.com \
 #DJANGO_SUPERUSER_PASSWORD=admin \
