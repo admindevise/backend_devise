@@ -190,43 +190,43 @@ class Command(BaseCommand):
             {
                 'name': 'Inversiones',
                 'code': 'INVESTMENT',
-                'description': 'Operaciones de inversiones en fondos',
+                'description': 'Operaciones de inversiones en fideicomisos',
                 'actions': [
                     {
-                        'name': 'Enviar Contrato de Ingreso a Fondo',
-                        'code': 'FUND_MEMBERSHIP_SEND_CONTRACT',
+                        'name': 'Enviar Contrato de Ingreso a Fideicomiso',
+                        'code': 'TRUST_MEMBERSHIP_SEND_CONTRACT',
                         'severity': 'MEDIUM',
-                        'description': 'Envío del contrato de ingreso a un usuario para un fondo'
+                        'description': 'Envío del contrato de ingreso a un usuario para un fideicomiso'
                     },
                     {
-                        'name': 'Firmar Contrato de Ingreso a Fondo',
-                        'code': 'FUND_MEMBERSHIP_SIGN_CONTRACT',
+                        'name': 'Firmar Contrato de Ingreso a Fideicomiso',
+                        'code': 'TRUST_MEMBERSHIP_SIGN_CONTRACT',
                         'severity': 'HIGH',
-                        'description': 'Firma del contrato de ingreso a un fondo por parte de un usuario'
+                        'description': 'Firma del contrato de ingreso a un fideicomiso por parte de un usuario'
                     },
                     {
-                        'name': 'Aprobar Ingreso a Fondo',
-                        'code': 'FUND_MEMBERSHIP_APPROVE',
+                        'name': 'Aprobar Ingreso a Fideicomiso',
+                        'code': 'TRUST_MEMBERSHIP_APPROVE',
                         'severity': 'MEDIUM',
-                        'description': 'Aprobación de un usuario para ingresar a un fondo'
+                        'description': 'Aprobación de un usuario para ingresar a un fideicomiso'
                     },
                     {
-                        'name': 'Supender vinculación Fondo',
-                        'code': 'FUND_MEMBERSHIP_SUSPEND',
+                        'name': 'Supender vinculación Fideicomiso',
+                        'code': 'TRUST_MEMBERSHIP_SUSPEND',
                         'severity': 'MEDIUM',
-                        'description': 'Rechazo de un usuario para ingresar a un fondo'  
+                        'description': 'Rechazo de un usuario para ingresar a un fideicomiso'  
                     },
                     {
                         'name': 'Crear Solicitud de Inversión',
                         'code': 'INVESTMENT_APPLICATION_CREATE',
                         'severity': 'MEDIUM',
-                        'description': 'Creación de una nueva solicitud de inversión en un fondo'
+                        'description': 'Creación de una nueva solicitud de inversión en un fideicomiso'
                     },
                     {
                         'name': 'Preaprobar Solicitud de Inversión',
                         'code': 'INVESTMENT_APPLICATION_PRE_APPROVED',
                         'severity': 'MEDIUM',
-                        'description': 'Preaprobación de una solicitud de inversión en un fondo'
+                        'description': 'Preaprobación de una solicitud de inversión en un fideicomiso'
                     },
                     {
                         'name': 'En revisión Solicitud de Inversión',  
@@ -238,39 +238,39 @@ class Command(BaseCommand):
                         'name': 'Enviar Contrato de Sesión',
                         'code': 'INVESTMENT_APPLICATION_SEND_CONTRACT',
                         'severity': 'MEDIUM',
-                        'description': 'Envío del contrato de inversión a un usuario para un fondo'
+                        'description': 'Envío del contrato de inversión a un usuario para un fideicomiso'
                     },
                     {
                         'name': 'Firmar Contrato de Inversión',
                         'code': 'INVESTMENT_APPLICATION_SIGN_CONTRACT',
                         'severity': 'HIGH',
-                        'description': 'Firma del contrato de inversión por parte de un usuario para un fondo'
+                        'description': 'Firma del contrato de inversión por parte de un usuario para un fideicomiso'
                     },
                     {
                         'name': 'Aprobar Solicitud de Inversión',
                         'code': 'INVESTMENT_APPLICATION_APPROVED',
                         'severity': 'MEDIUM',
-                        'description': 'Aprovación de una solicitud de inversion en un fondo'
+                        'description': 'Aprovación de una solicitud de inversion en un fideicomiso'
                     },
                     {
                         'name': 'Rechazar Solicitud de Inversión',
                         'code': 'INVESTMENT_APPLICATION_REJECTED',
                         'severity': 'MEDIUM',
-                        'description': 'Rechazo de una Solicitud de inversión en un fondo'
+                        'description': 'Rechazo de una Solicitud de inversión en un fideicomiso'
                     },
                     {
                         'name': 'Cancelar Solicitud de Inversión',
                         'code': 'INVESTMENT_APPLICATION_CANCEL',
                         'severity': 'MEDIUM',
-                        'description': 'Cancelación de una solicitud de inversión en un fondo'
+                        'description': 'Cancelación de una solicitud de inversión en un fideicomiso por parte del usuario'
                     },
                     
                 ]
             },
             {
-                'name': 'Mercado Secundario de Fondos',
+                'name': 'Mercado Secundario de Fideicomisos',
                 'code': 'TRADING',
-                'description': 'Operaciones en el mercado secundario de fondos',
+                'description': 'Operaciones en el mercado secundario de fideicomisos',
                 'actions': [
                     {
                         'name': 'Crear Orden de Compra',
@@ -379,7 +379,7 @@ class Command(BaseCommand):
             {
                 'name': 'Distribuciones',
                 'code': 'DISTRIBUTIONS',
-                'description': 'Distribuciones en fondos',
+                'description': 'Distribuciones en fideicomisos',
                 'actions': [
                     {
                         'name': 'Crear distribucion',
@@ -392,7 +392,7 @@ class Command(BaseCommand):
             {
                 'name': 'Activos',
                 'code': 'ASSETS',
-                'description': 'Activos vinculados a fondos',
+                'description': 'Activos vinculados a fideicomisos',
                 'actions': [
                     {
                         'name': 'Crear activo',

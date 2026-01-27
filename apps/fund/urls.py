@@ -243,14 +243,14 @@ urlpatterns = [
     # ========================================================================
     # INVESTMENTS - Applications & Contracts
     # ========================================================================
-    path('api/investment/submit/', submit_investment_application, name='submit-investment'),
-    path('api/investment/application/<int:application_id>/under-review/', under_review_investment_application, name='under-review-investment-application'),
-    path('api/investment/application/<int:application_id>/send-contract/', send_contrat_investment_application, name='send-contract-investment-application'),
-    path('api/investment/application/<int:application_id>/sign-contract/', sign_contract_investment_application, name='sign-contract-investment-application'),
+    path('api/investment-trust/submit/', submit_investment_application, name='submit-investment'),
+    path('api/investment-trust/application/<int:application_id>/under-review/', under_review_investment_application, name='under-review-investment-application'),
+    path('api/investment-trust/application/<int:application_id>/send-contract/', send_contrat_investment_application, name='send-contract-investment-application'),
+    path('api/investment-trust/application/<int:application_id>/sign-contract/', sign_contract_investment_application, name='sign-contract-investment-application'),
     
     # Investor Contracts
-    path('api/investment/contract/create/', create_investor_contract, name='create-investor-contract'),
-    path('api/investment/contract/<int:contract_id>/sign/', sign_investor_contract, name='sign-investor-contract'),
+    path('api/investment-trust/contract/create/', create_investor_contract, name='create-investor-contract'),
+    path('api/investment-trust/contract/<int:contract_id>/sign/', sign_investor_contract, name='sign-investor-contract'),
     
     # ========================================================================
     # DISTRIBUTIONS

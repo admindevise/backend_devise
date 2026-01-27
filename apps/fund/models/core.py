@@ -429,8 +429,8 @@ class Fund(models.Model):
     # META CONFIGURACIÓN
     # ========================================
     class Meta:
-        verbose_name = "Fondo de Inversión"
-        verbose_name_plural = "Fondos de Inversión"
+        verbose_name = "Fideicomiso"
+        verbose_name_plural = "Fideicomisos"
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['status', 'fund_type']),

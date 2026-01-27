@@ -104,7 +104,7 @@ class InvestorContractService:
             
         return AuditService.log_action(
             request=request,
-            action_code="FUND_MEMBERSHIP_SEND_CONTRACT",
+            action_code="TRUST_MEMBERSHIP_SEND_CONTRACT",
             obj=user,
             details={
                 "fund_id": fund.id,
@@ -169,7 +169,7 @@ class InvestorContractService:
             
         return AuditService.log_action(
             request=request,
-            action_code="FUND_MEMBERSHIP_SIGN_CONTRACT",
+            action_code="TRUST_MEMBERSHIP_SIGN_CONTRACT",
             obj=contract,
             details={
                 "contract_id": contract.id,
