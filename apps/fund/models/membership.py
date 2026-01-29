@@ -3,8 +3,8 @@ from django.utils import timezone
 
 class InvestorContract(models.Model):
     """
-    Modelo para manejar contratos de vinculaciones a fondos.
-    Responsabilidad: Gestionar el estado del contrato entre el usuario y el fondo.
+    Modelo para manejar contratos de vinculaciones a fideicomisos.
+    Responsabilidad: Gestionar el estado del contrato entre el usuario y el fideicomiso.
     """
     class InvestorContractStatus(models.TextChoices):
         PENDING_SIGNATURE = 'pending_signature', 'Pendiente de Firma'
@@ -15,7 +15,7 @@ class InvestorContract(models.Model):
         'fund.Fund',
         on_delete=models.CASCADE,
         related_name="investor_contracts",
-        verbose_name="Fondo"
+        verbose_name="Fideicomiso"
     )
     user = models.ForeignKey(
         'user.User',
@@ -78,7 +78,7 @@ class InvestorContract(models.Model):
         
 class InvestmentApplication(models.Model):
     """
-    Modelo para manejar solicitudes de inversión en fondos.
+    Modelo para manejar solicitudes de inversión en fideicomisos.
     Responsabilidad: Gestionar el proceso de solicitud y aprobación.
     """
     
@@ -100,7 +100,7 @@ class InvestmentApplication(models.Model):
         RISK_PROFILE_MISMATCH = 'risk_profile_mismatch', 'Perfil de Riesgo No Compatible'
         REGULATORY_COMPLIANCE = 'regulatory_compliance', 'Cumplimiento Regulatorio'
         INVESTMENT_LIMITS = 'investment_limits', 'Límites de Inversión'
-        FUND_CAPACITY = 'fund_capacity', 'Capacidad del Fondo'
+        FUND_CAPACITY = 'fund_capacity', 'Capacidad del Fideicomiso'
         OTHER = 'other', 'Otro'
     
     # ========================================
@@ -110,7 +110,7 @@ class InvestmentApplication(models.Model):
         'fund.Fund',
         on_delete=models.CASCADE,
         related_name="applications",
-        verbose_name="Fondo"
+        verbose_name="Fideicomiso"
     )
     
     user = models.ForeignKey(
@@ -348,7 +348,7 @@ class InvestmentApplication(models.Model):
 
 class FundInvestment(models.Model):
     """
-    Modelo para manejar las inversiones activas en fondos.
+    Modelo para manejar las inversiones activas en fideicomisos.
     Responsabilidad: Gestionar la inversión activa y su rendimiento.
     """
     
@@ -561,8 +561,8 @@ class FundInvestment(models.Model):
     
     class Meta:
         ordering = ['-created_at']
-        verbose_name = "Inversión en Fondo"
-        verbose_name_plural = "Inversiones en Fondos"
+        verbose_name = "Inversión en Fideicomiso"
+        verbose_name_plural = "Inversiones en Fideicomisos"
         indexes = [
             models.Index(fields=['investment_status', 'created_at']),
             models.Index(fields=['created_at']),

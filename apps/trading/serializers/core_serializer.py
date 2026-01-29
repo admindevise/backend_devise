@@ -37,7 +37,7 @@ class BaseOrderSerializer(serializers.ModelSerializer):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # ✅ NUEVO: Inicializar servicios de trading
+        # NUEVO: Inicializar servicios de trading
         self.order_creation_service = OrderCreationService()
         self.order_management_service = OrderManagementService()
     
@@ -142,18 +142,18 @@ class PurchaseOrderSerializer(BaseOrderSerializer):
         read_only_fields = BaseOrderSerializer.common_read_only
     
     def validate(self, data):
-        """✅ SIMPLIFICADO: Solo validaciones de negocio, NO permisos"""
+        """SIMPLIFICADO: Solo validaciones de negocio, NO permisos"""
         data = super().validate(data)
         
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
-            # ✅ SIMPLE: Solo asignar supplier_user si no se especificó
+            # SIMPLE: Solo asignar supplier_user si no se especificó
             if 'supplier_user' not in data or data['supplier_user'] is None:
                 data['supplier_user'] = request.user
         
         return data
     
-    # ✅ NUEVO: Integración con servicio de creación segura
+    # NUEVO: Integración con servicio de creación segura
     @transaction.atomic
     def create(self, validated_data):
         """Crear orden de compra usando el servicio de seguridad"""
@@ -163,11 +163,11 @@ class PurchaseOrderSerializer(BaseOrderSerializer):
         if not user:
             raise serializers.ValidationError("No se pudo determinar el usuario")
         
-        # ✅ NUEVO: Determinar usuario objetivo y usuario que crea
+        # NUEVO: Determinar usuario objetivo y usuario que crea
         supplier_user = validated_data.get('supplier_user', user)  # Usuario que compra
         created_by_user = user  # Usuario que crea (puede ser admin)
         
-        # ✅ LOGGING para debugging
+        # LOGGING para debugging
         if user.is_staff and supplier_user != user:
             print(f"🔧 Admin {user.email} creating purchase order for {supplier_user.email}")
         

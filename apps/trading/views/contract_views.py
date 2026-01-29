@@ -17,8 +17,8 @@ class OrderContractListView(DateFilterMixin,viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     
     filter_backends = [filters.OrderingFilter, filters.SearchFilter, DjangoFilterBackend]
-    filterset_fields = ['status', 'approved_by', 'purchase_order__supplier_user', 'sales_order__seller_user']
-    search_fields = ['purchase_order__order_number', 'sales_order__order_number']
+    #filterset_fields = ['status', 'approved_by', 'purchase_order__supplier_user', 'sales_order__seller_user']
+    #search_fields = ['purchase_order__order_number', 'sales_order__order_number']
     ordering_fields = ['created_at', 'approved_at']
     ordering = ['-created_at']
     

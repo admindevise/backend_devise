@@ -443,4 +443,4 @@ class PaymentCoreService:
             
         except Exception as e:
             print(f"❌ Error buscando selección activa: {str(e)}")
-            return None
+            raise 

@@ -4,7 +4,7 @@ from apps.utils.models import base_model
 
 class FundToken(base_model.BaseModel):
     """
-    Modelo para almacenar los tokens asociados a un fondo.
+    Modelo para almacenar los tokens asociados a un fideicomiso.
     """
     fund = models.ForeignKey(
         'fund.Fund',
@@ -32,13 +32,13 @@ class FundToken(base_model.BaseModel):
     reservation_expires_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
-        verbose_name = "Token de Fondo"
-        verbose_name_plural = "Tokens de Fondos"
+        verbose_name = "Token de Fideicomiso"
+        verbose_name_plural = "Tokens de Fideicomisos"
         unique_together = ('fund', 'token_id')
         ordering = ['-created_at']
         
     def __str__(self):
-        return f"Token {self.token_id} del fondo {self.fund.name}"
+        return f"Token {self.token_id} del fideicomiso {self.fund.name}"
     
     
 class TokenTransaction(base_model.BaseModel):

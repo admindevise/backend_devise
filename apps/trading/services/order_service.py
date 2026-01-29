@@ -1,7 +1,8 @@
 from django.db import transaction
 from django.utils import timezone
 
-from apps.audit.audit_service import AuditService
+from apps.trading.audit_helper.audit_helper_create_orders import AuditHelperCreateOrders as AuditService
+from apps.trading.audit_helper.audit_helper_cancel_orders import AuditHelperCancelOrders
 from apps.trading.models.core_models import PurchaseOrder, SalesOrder
 from apps.trading.security.token_validators import (
     TradingAvailabilityService,
@@ -18,6 +19,7 @@ class OrderCreationService:
         self.availability_service = TradingAvailabilityService()
         self.reservation_manager = TokenReservationManager()
     
+    
     @transaction.atomic
     def create_sales_order(self, user, order_data: dict, request=None) -> dict:
         """
@@ -25,11 +27,19 @@ class OrderCreationService:
         """
         fund = order_data['fund']
         quantity = order_data['units']
+        initial_audit = None
         
         # Validar que el usuario tiene permisos para crear órdenes de venta
         seller_user = order_data['seller_user']
         
         try:
+            # Iniciar auditoría
+            initial_audit = AuditService.initial_audit_log(
+                user=user,
+                action_code='SALES_ORDER_CREATE',
+                request=request
+            )
+            
             # 1. Validar viabilidad completa de la orden
             feasibility = self.availability_service.validate_sales_order_feasibility(
                 user, fund.id, quantity=quantity, target_user=seller_user,
@@ -65,34 +75,9 @@ class OrderCreationService:
                     'reserved_at': timezone.now().isoformat()
                 }
             )
-            
-            # 5. Registrar metadatos de la reserva
-            """ if hasattr(sales_order, 'metadata'):
-                sales_order.metadata = {
-                    'total_tokens_reserved': len(selected_tokens),
-                    'reserved_tokens': selected_tokens,
-                    'feasibility_validated': feasibility['feasible'],
-                }
-                sales_order.save(update_fields=['metadata']) """
                         
-            # 6. Auditoría de éxito
-            if request:
-                AuditService.log_action(
-                    request=request,
-                    action_code='SALES_ORDER_CREATE',
-                    obj=sales_order,
-                    details={
-                        'user_id': user.id,
-                        'fund_id': fund.id,
-                        'quantity': quantity,
-                        'price_per_unit': float(order_data.get('price_per_unit', 0)), 
-                        'sales_order_id': str(sales_order.id),
-                        'reserved_tokens': len(selected_tokens),
-                        'selected_tokens': selected_tokens,
-                        'operation': 'create_sales_order'
-                    },
-                    status='SUCCESS'
-                )
+            # 5. Auditoría de éxito
+            AuditService.update_audit_log(initial_audit, sales_order)
             
             return {
                 'success': True,
@@ -107,22 +92,7 @@ class OrderCreationService:
                 self.reservation_manager.release_token_reservations(selected_tokens, fund.id)
             
             # Auditoría de error
-            if request:
-                AuditService.log_action(
-                    request=request,
-                    action_code='SALES_ORDER_CREATE',
-                    obj=fund,
-                    details={
-                        'user_id': user.id,
-                        'fund_id': fund.id,
-                        'quantity': quantity,
-                        'error': str(e),
-                        'error_type': type(e).__name__,
-                        'operation': 'create_sales_order'
-                    },
-                    status='ERROR'
-                )
-            
+            AuditService.update_audit_log_error(initial_audit, str(e))
             raise
 
     @transaction.atomic
@@ -132,10 +102,17 @@ class OrderCreationService:
         """
         fund = order_data['fund']
         quantity = order_data['units']
-        
+        initial_audit = None
         supplier_user = order_data['supplier_user']
         
         try:
+            # Iniciar auditoría
+            initial_audit = AuditService.initial_audit_log(
+                user=user,
+                action_code='PURCHASE_ORDER_CREATE',
+                request=request
+            )
+            
             # 1. Validar viabilidad de la orden de compra
             feasibility = self.availability_service.validate_purchase_order_feasibility(
                 user, fund.id, quantity, target_user=supplier_user
@@ -206,22 +183,7 @@ class OrderCreationService:
                 purchase_order.save(update_fields=['metadata'])
             
             # 4. Auditoría de éxito
-            if request:
-                AuditService.log_action(
-                    request=request,
-                    action_code='PURCHASE_ORDER_CREATE',
-                    obj=purchase_order,
-                    details={
-                        'user_id': user.id,
-                        'fund_id': fund.id,
-                        'quantity': quantity,
-                        'price_per_unit': float(order_data.get('price_per_unit', 0)), 
-                        'purchase_order_id': str(purchase_order.id),
-                        'available_tokens': feasibility.get('available_tokens', 0),
-                        'operation': 'create_purchase_order'
-                    },
-                    status='SUCCESS'
-                )
+            AuditService.update_audit_log(initial_audit, purchase_order)
             
             return {
                 'success': True,
@@ -231,23 +193,10 @@ class OrderCreationService:
             
         except Exception as e:
             # Auditoría de error
-            if request:
-                AuditService.log_action(
-                    request=request,
-                    action_code='PURCHASE_ORDER_CREATE',
-                    obj=fund,
-                    details={
-                        'user_id': user.id,
-                        'fund_id': fund.id,
-                        'quantity': quantity,
-                        'error': str(e),
-                        'error_type': type(e).__name__,
-                        'operation': 'create_purchase_order'
-                    },
-                    status='ERROR'
-                )
+            AuditService.update_audit_log_error(initial_audit, str(e))
 
             raise
+
 
 class OrderManagementService:
     """
@@ -257,13 +206,24 @@ class OrderManagementService:
     def __init__(self):
         self.reservation_manager = TokenReservationManager()
     
+    
     @transaction.atomic
     def cancel_sales_order(self, sales_order, user, request=None) -> dict:
         """
         Cancela una orden de venta y libera las reservas de tokens
         """
-        print('entro a la funcion')
+        initial_audit = None
+        
         try:
+            # Iniciar auditoría
+            initial_audit = AuditHelperCancelOrders.initial_audit_log(
+                user=user,
+                order_id=sales_order.id,
+                action_code='SALES_ORDER_CANCEL',
+                reason='User requested cancellation',
+                request=request
+            )
+
             # 1. Verificar que la orden se pueda cancelar
             if not sales_order.status == SalesOrder.SalesOrderStatus.PENDING:
                 raise ValueError(f"Cannot cancel order with status: {sales_order.status}")
@@ -290,20 +250,7 @@ class OrderManagementService:
             sales_order.save(update_fields=['status', 'cancelled_at'])
             
             # 5. Auditoría de éxito
-            if request:
-                print('paso por audit')
-                AuditService.log_action(
-                    request=request,
-                    action_code='SALES_ORDER_CANCEL',
-                    obj=sales_order,
-                    details={
-                        'order_id': str(sales_order.id),
-                        'released_tokens': len(reserved_tokens),
-                        'cancelled_at': sales_order.cancelled_at.isoformat(),
-                        'operation': 'cancel_sales_order'
-                    },
-                    status='SUCCESS'
-                )
+            AuditHelperCancelOrders.update_audit_log(initial_audit, sales_order)
                 
             return {
                 'success': True,
@@ -313,19 +260,7 @@ class OrderManagementService:
             
         except Exception as e:
             # Auditoría de error
-            if request:
-                AuditService.log_action(
-                    request=request,
-                    action_code='SALES_ORDER_CANCEL',
-                    obj=sales_order,
-                    details={
-                        'order_id': str(sales_order.id),
-                        'error': str(e),
-                        'error_type': type(e).__name__,
-                        'operation': 'cancel_sales_order'
-                    },
-                    status='ERROR'
-                )
+            AuditHelperCancelOrders.update_audit_log_error(initial_audit, str(e))
             raise
     
     @transaction.atomic
@@ -333,7 +268,18 @@ class OrderManagementService:
         """
         Cancela una orden de compra
         """
+        initial_audit = None
+        
         try:
+            # Iniciar auditoría
+            initial_audit = AuditHelperCancelOrders.initial_audit_log(
+                user=user,
+                order_id=purchase_order.id,
+                action_code='PURCHASE_ORDER_CANCEL',
+                reason='User requested cancellation',
+                request=request
+            )
+            
             # 1. Verificar que la orden se pueda cancelar
             if not purchase_order.status == PurchaseOrder.PurchaseOrderStatus.PENDING:
                 raise ValueError(f"La orden no se puede eliminar con estado: {purchase_order.status}")
@@ -344,19 +290,7 @@ class OrderManagementService:
             purchase_order.save(update_fields=['status', 'cancelled_at'])
             
             # 3. Auditoría de éxito
-            if request:
-                AuditService.log_action(
-                    request=request,
-                    action_code='PURCHASE_ORDER_CANCEL',
-                    obj=purchase_order,
-                    details={
-                        'order_id': str(purchase_order.id),
-                        'cancelled_by': user.id,
-                        'cancelled_at': purchase_order.cancelled_at.isoformat(),
-                        'operation': 'cancel_purchase_order'
-                    },
-                    status='SUCCESS'
-                )
+            AuditHelperCancelOrders.update_audit_log(initial_audit, purchase_order)
 
             return {
                 'success': True,
@@ -365,18 +299,7 @@ class OrderManagementService:
             
         except Exception as e:
             # Auditoría de error
-            if request:
-                AuditService.log_action(
-                    request=request,
-                    action_code='PURCHASE_ORDER_CANCEL',
-                    obj=purchase_order,
-                    details={
-                        'order_id': purchase_order.id,
-                        'cancelled_by': user.id,
-                        'error': str(e),
-                        'error_type': type(e).__name__,
-                        'operation': 'cancel_purchase_order'
-                    },
-                    status='ERROR'
-                )
+            AuditHelperCancelOrders.update_audit_log_error(initial_audit, str(e))
             raise
+        
+

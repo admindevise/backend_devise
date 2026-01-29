@@ -87,7 +87,7 @@ class PermissionAwarePurchaseOrderSerializer(PurchaseOrderSerializer):
             investment, error = is_investor_valid(target_user, attrs['fund'].id)
             if error:
                 raise serializers.ValidationError(
-                    f"No puedes crear órdenes para este fondo: {error}"
+                    f"No puedes crear órdenes para este fideicomiso: {error}"
                 )
             
             # ✅ CORRECTO: Usuario normal como supplier_user
@@ -97,7 +97,7 @@ class PermissionAwarePurchaseOrderSerializer(PurchaseOrderSerializer):
     
     @transaction.atomic
     def create(self, validated_data):
-        """✅ CREAR con lógica de permisos mejorada"""
+        """CREAR con lógica de permisos mejorada"""
         
         if self._permission:
             # Creación con permisos (admin)

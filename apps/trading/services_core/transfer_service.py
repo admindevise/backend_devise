@@ -128,6 +128,12 @@ class TokenTransferService:
         print(f"   - Item units: {item.units}")
         
         try:
+            print(f"🔍 Llamando a _get_reserved_tokens_for_sales_order con:")
+            print(f"   - sales_order.id: {item.sales_order.id}")
+            print(f"   - sales_order.seller_user: {item.sales_order.seller_user.id}")
+            print(f"   - sales_order.fund: {item.sales_order.fund.id}")
+            print(f"   - required_units: {item.units}")
+            
             # 1. Obtener tokens reservados para este sales order
             reserved_tokens = self._get_reserved_tokens_for_sales_order(
                 item.sales_order, item.units
@@ -311,7 +317,7 @@ class TokenTransferService:
     def _update_token_ownership(self, token_id: str, new_owner):
         """Actualiza la propiedad del token en base de datos"""
         
-        from apps.fund.models import FundToken
+        from apps.fund.models.tokens import FundToken
         
         try:
             fund_token = FundToken.objects.get(token_id=token_id)
@@ -329,24 +335,28 @@ class TokenTransferService:
             raise TransferServiceError(f"Erro inesperado en la ejecucion de actualizar ownership {e}")
     
     def _get_reserved_tokens_for_sales_order(self, sales_order, required_units: int) -> List[str]:
-        """Obtiene tokens reservados para una sales order específica"""
+        """Obtiene tokens reservados para una sales order específica desde la BD"""
         
-        # Verificar en reserved_tokens_info (nuevo formato)
-        if hasattr(sales_order, 'reserved_tokens_info') and sales_order.reserved_tokens_info:
-            reserved_tokens = sales_order.reserved_tokens_info.get('reserved_tokens', [])
-            if len(reserved_tokens) >= required_units:
-                return reserved_tokens[:required_units]
+        from apps.fund.models.tokens import FundToken  # o el modelo donde guardas Token
         
-        # Fallback a metadata (formato anterior)
-        if sales_order.metadata and 'reserved_tokens' in sales_order.metadata:
-            reserved_tokens = sales_order.metadata['reserved_tokens']
-            if len(reserved_tokens) >= required_units:
-                return reserved_tokens[:required_units]
+        # ✅ CONSULTAR DIRECTAMENTE LA BD
+        reserved_tokens = FundToken.objects.filter(
+            owner_user=sales_order.seller_user,
+            reserved_for_sale=True,
+            fund=sales_order.fund,
+            status=True
+        ).values_list('token_id', flat=True)[:required_units]
         
-        raise TransferServiceError(
-            f"No hay suficientes tokens reservados para la orden de compra {sales_order.id}. "
-            f"Requeridos: {required_units}, Disponibles: {len(reserved_tokens) if 'reserved_tokens' in locals() else 0}"
-        )
+        reserved_tokens_list = list(reserved_tokens)
+        
+        if len(reserved_tokens_list) < required_units:
+            raise TransferServiceError(
+                f"No hay suficientes tokens reservados para la orden de venta {sales_order.id}. "
+                f"Requeridos: {required_units}, Disponibles: {len(reserved_tokens_list)}"
+            )
+        
+        print(f"✅ Tokens reservados encontrados: {reserved_tokens_list}")
+        return reserved_tokens_list
 
     def _get_active_selection_for_purchase_order(self, purchase_order: PurchaseOrder) -> MatchSelection:
         """
