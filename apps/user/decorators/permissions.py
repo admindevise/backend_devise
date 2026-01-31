@@ -212,6 +212,7 @@ class TradingPermissionMixin:
     
     def get_target_user(self, request):
         """Extrae el usuario objetivo"""
+        TradingPermissionMixin.validate_target_user(request.user)
         if hasattr(request, 'data'):
             if 'supplier_user' in request.data:
                 from apps.user.models import User
@@ -245,3 +246,18 @@ class TradingPermissionMixin:
         if hasattr(request, 'data') and 'fund' in request.data:
             return request.data['fund']
         return None
+    
+
+    # ========================================
+    # FUNCIONES AUXILIARES
+    # ========================================
+
+    @staticmethod
+    def validate_target_user(user):
+        """Valida que el usuario objetivo exista"""
+        from apps.user.models import User
+        try:
+            target_user = User.objects.get(id=user)
+            return target_user
+        except User.DoesNotExist:
+            raise ValueError(f"El usuario con ID {user} no existe.")

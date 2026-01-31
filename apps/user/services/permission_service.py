@@ -216,12 +216,26 @@ class TradingPermissionService:
         permission.usage_count += 1
         permission.save(update_fields=['usage_count'])
         
+        print(f"ACTION DATA: {action_data} y {action_data.get('total_amount')} itemsss {action_data.items()}")
+        serializable_data = {}
+        for key, value in action_data.items():
+            if key in ['fund', 'expiration_date', 'user', 'supplier_user']:
+                continue  # Omitir campos no serializables
+            if isinstance(value, Decimal):
+                serializable_data[key] = str(value)
+            else:
+                serializable_data[key] = value
+        
         # Crear registro de ejecución
         PermissionExecution.objects.create(
             permission=permission,
             action_type=action_type,
-            action_data=action_data,
+            purchase_order_id=action_data.get('purchase_order_id'),
+            sales_order_id=action_data.get('sales_order_id'),
+            amount=Decimal(action_data.get('amount')) if action_data.get('amount') else None,
+            units=action_data.get('units'),
             success=success,
+            result_data=serializable_data,  # ✅ usar datos serializables
             executed_at=timezone.now()
         )
     

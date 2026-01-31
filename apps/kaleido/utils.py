@@ -173,16 +173,18 @@ def create_instance_token_contract_721(user, name, symbol, promote_contract=None
 #! ================ Funciones de verificación ================ #
 def is_investor_valid(user, fund_id):
     from apps.fund.models.membership import InvestorContract
-    
+    print(f"Verifying investor {user.id} for fund {fund_id}")
     try:
         investment = InvestorContract.objects.filter(
             user=user,
             fund_id=fund_id,
-            status='contract_signed'
+            status=InvestorContract.InvestorContractStatus.CONTRACT_SIGNED
         ).first()
+        
         if investment is None:
             return None, "El usuario no cuenta con un proceso de vinculacion activo"
         return investment, None
+    
     except Exception as e:
         return None, str(e)
 

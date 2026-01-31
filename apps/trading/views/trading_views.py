@@ -13,7 +13,6 @@ from decimal import Decimal
 from apps.trading.models.core_models import PurchaseOrder, SalesOrder, Transaction
 from apps.trading.services.order_query_service import OrderQueryService
 from apps.trading.services.order_service import OrderManagementService
-from apps.trading.services.payment_execution_service import PaymentExecutionService
 from apps.utils.views.Mixins import DateFilterMixin
 from apps.user.decorators.permissions import TradingPermissionMixin
 from apps.trading.serializers.core_serializer import (
@@ -47,7 +46,6 @@ class PurchaseOrderViewSet(TradingPermissionMixin,
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.order_management_service = OrderManagementService()
-        self.payment_execution_service = PaymentExecutionService()
 
     def get_target_user(self, request):
         """Extrae el usuario objetivo para validación de permisos"""

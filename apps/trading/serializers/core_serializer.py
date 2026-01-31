@@ -130,9 +130,15 @@ class PurchaseOrderSerializer(BaseOrderSerializer):
     matched_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     processing_payment_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     paid_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    
     supplier_user = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
-        required=False
+        required=False,
+        allow_null=True,
+        error_messages={
+            'does_not_exist': 'El usuario con ID "{pk_value}" no existe en el sistema.',
+            'incorrect_type': 'El ID del usuario debe ser un número entero.',
+        }
     )
     order_prefix = 'PO'
     
@@ -140,6 +146,15 @@ class PurchaseOrderSerializer(BaseOrderSerializer):
         model = PurchaseOrder
         fields = BaseOrderSerializer.common_fields + ['processing_payment_at','paid_at','supplier_user']
         read_only_fields = BaseOrderSerializer.common_read_only
+    
+    def validate_supplier_user(self, value):
+        """Validación personalizada del supplier_user"""
+        # value ya es un objeto User
+        if value is None:
+            return value  # Permitido ser null
+        
+        if not value.is_active:
+            raise serializers.ValidationError("El usuario no está activo.")
     
     def validate(self, data):
         """SIMPLIFICADO: Solo validaciones de negocio, NO permisos"""
