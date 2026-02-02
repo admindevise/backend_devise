@@ -13,8 +13,13 @@ from decimal import Decimal
 from apps.trading.models.core_models import PurchaseOrder, SalesOrder, Transaction
 from apps.trading.services.order_query_service import OrderQueryService
 from apps.trading.services.order_service import OrderManagementService
-from apps.utils.views.Mixins import DateFilterMixin
 from apps.user.decorators.permissions import TradingPermissionMixin
+from apps.utils.views.Mixins import DateFilterMixin
+
+from apps.trading.serializers_flow.permission_aware_serializers import (
+    PermissionAwarePurchaseOrderSerializer,
+    PermissionAwareSalesOrderSerializer
+)
 from apps.trading.serializers.core_serializer import (
     PurchaseOrderSerializer,
     SalesOrderSerializer,
@@ -34,7 +39,6 @@ class PurchaseOrderViewSet(TradingPermissionMixin,
     """
     API endpoint para gestionar órdenes de compra de unidades de fondos.
     """
-    serializer_class = PurchaseOrderSerializer
     permission_classes = [IsAuthenticated]
     permission_action_type = 'CREATE_PURCHASE_ORDER'
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
@@ -62,7 +66,6 @@ class PurchaseOrderViewSet(TradingPermissionMixin,
     def get_serializer_class(self):
         """Usar serializer con validación de permisos"""
         if self.action == 'create':
-            from apps.trading.serializers_flow.permission_aware_serializers import PermissionAwarePurchaseOrderSerializer
             return PermissionAwarePurchaseOrderSerializer
         return PurchaseOrderSerializer
 
@@ -146,7 +149,6 @@ class SalesOrderViewSet(TradingPermissionMixin,
     """
     API endpoint para gestionar órdenes de venta de unidades de fondos.
     """
-    serializer_class = SalesOrderSerializer
     permission_classes = [IsAuthenticated]
     permission_action_type = 'CREATE_SALES_ORDER'  # ✅ Agregar validación automática
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
@@ -170,6 +172,12 @@ class SalesOrderViewSet(TradingPermissionMixin,
         if hasattr(request, 'data') and 'total_amount' in request.data:
             return Decimal(str(request.data['total_amount']))
         return None
+    
+    def get_serializer_class(self):
+        """Usar serializer con validación de permisos"""
+        if self.action == 'create':
+            return PermissionAwareSalesOrderSerializer
+        return SalesOrderSerializer    
 
     def perform_create(self, serializer):
         """Override para usar el contexto de request"""

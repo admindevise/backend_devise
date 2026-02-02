@@ -211,7 +211,7 @@ class TradingPermissionService:
     @staticmethod
     def log_permission_usage(permission: UserAdminPermission, action_type: str, action_data: Dict[str, Any], success: bool = True):
         """Registra el uso de un permiso para auditoría"""
-        
+        from datetime import date, datetime
         # Incrementar contador de uso
         permission.usage_count += 1
         permission.save(update_fields=['usage_count'])
@@ -219,10 +219,14 @@ class TradingPermissionService:
         print(f"ACTION DATA: {action_data} y {action_data.get('total_amount')} itemsss {action_data.items()}")
         serializable_data = {}
         for key, value in action_data.items():
-            if key in ['fund', 'expiration_date', 'user', 'supplier_user']:
+            if key in ['fund', 'expiration_date', 'user', 'supplier_user', 'saller_user']:
                 continue  # Omitir campos no serializables
             if isinstance(value, Decimal):
                 serializable_data[key] = str(value)
+            elif isinstance(value, (date, datetime)):
+                serializable_data[key] = str(value)
+            elif hasattr(value, 'id'):  # ✅ Convertir objetos Django a IDs
+                serializable_data[key] = value.id
             else:
                 serializable_data[key] = value
         

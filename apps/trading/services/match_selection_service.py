@@ -71,6 +71,7 @@ class MatchSelectionService:
             # 2. Obtener matches disponibles ordenados por mejor precio
             available_matches = self._get_available_matches(purchase_order)
             
+            print("DEBUG ANTES DE AUTO SELECTION")
             # 3. Generar selección automática
             auto_selection_result = self._generate_auto_selection(
                 purchase_order, available_matches, force_partial
@@ -201,13 +202,15 @@ class MatchSelectionService:
         validated_selections = []
         total_cost = Decimal('0')
         
+        
+        print(f"DEBUG target_units={purchase_order.available_units} units={purchase_order.units}", flush=True)
         # Iterar matches en orden de mejor precio
         for match in available_matches:
             if remaining_units <= 0:
                 break
             
             sales_order = match['sales_order']
-            available_units = sales_order.available_units or sales_order.units
+            available_units = sales_order.available_units
             
             # Calcular unidades a tomar de esta orden
             units_to_take = min(remaining_units, available_units)

@@ -17,7 +17,7 @@ class IdTypeAdmin(admin.ModelAdmin):
 admin.site.register(IdType, IdTypeAdmin)
 
 class UserAdminPermissionAdmin(admin.ModelAdmin):
-    list_display = ['id',]
+    list_display = ['user', 'id', 'admin_user', 'permission_type', 'status', 'granted_at', 'expires_at']
 admin.site.register(UserAdminPermission, UserAdminPermissionAdmin)
 
 @admin.register(PasswordReset)

@@ -169,7 +169,6 @@ class PurchaseOrderSerializer(BaseOrderSerializer):
         return data
     
     # NUEVO: Integración con servicio de creación segura
-    @transaction.atomic
     def create(self, validated_data):
         """Crear orden de compra usando el servicio de seguridad"""
         request = self.context.get('request')
@@ -262,49 +261,26 @@ class SalesOrderSerializer(BaseOrderSerializer):
     
         return data
     
-    # ✅ NUEVO: Integración con servicio de creación segura
-    @transaction.atomic  
+    # Integración con servicio de creación segura
     def create(self, validated_data):
         """Crear orden de venta usando el servicio de seguridad"""
         request = self.context.get('request')
         user = request.user if request else None
-        token_ids = validated_data.pop('token_ids', None)  # Extraer token_ids si existe
         
         if not user:
             raise serializers.ValidationError("No se pudo determinar el usuario")
         
-        # ✅ NUEVO: Determinar usuario objetivo y usuario que crea
+        # Determinar usuario objetivo y usuario que crea
         seller_user = validated_data.get('seller_user', user)  # Usuario que vende
         created_by_user = user  # Usuario que crea (puede ser admin)
         
-        # ✅ LOGGING para debugging
+        # LOGGING para debugging
         if user.is_staff and seller_user != user:
             print(f"🔧 Admin {user.email} creating sales order for {seller_user.email}")
         
         validated_data = self._generate_order_number(validated_data)
         
         try:
-            # ✅ VALIDACIÓN DE OWNERSHIP: Usar seller_user (no el admin)
-            if token_ids:
-                from apps.trading.security.token_validators import TradingTokenValidator
-                validator = TradingTokenValidator()
-                
-                # ✅ IMPORTANTE: Validar ownership del seller_user, no del admin
-                ownership_result = validator.validate_ownership(
-                    seller_user, token_ids, validated_data['fund'].id  # ← seller_user
-                )
-                
-                if not ownership_result['valid']:
-                    raise serializers.ValidationError({
-                        'token_ownership': f'El usuario {seller_user.email} no es propietario de los tokens especificados',
-                        'invalid_tokens': ownership_result['invalid_tokens']
-                    })
-                
-                # Actualizar units basado en tokens especificados
-                validated_data['units'] = len(token_ids)
-                validated_data['total_amount'] = len(token_ids) * validated_data['price_per_unit']
-            
-            # ✅ USAR SERVICIO CON USUARIOS CORRECTOS
             # El servicio necesita saber quién crea (admin) y para quién (seller_user)
             result = self.order_creation_service.create_sales_order(
                 user=created_by_user,  # Admin que crea

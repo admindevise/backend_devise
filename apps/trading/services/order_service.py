@@ -50,7 +50,7 @@ class OrderCreationService:
                 for error in feasibility['errors']:
                     error_details.append(f"• {error}")
                 
-                error_msg = f"Orden no viable:\n" + "\n".join(error_details)
+                error_msg = f"Orden no viable: " + " ".join(error_details)
                 raise ValueError(error_msg)
             
             # 2. Obtener tokens seleccionados automáticamente

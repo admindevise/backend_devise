@@ -193,7 +193,7 @@ class PurchaseMatchSelectionService(MatchSelectionCore):
                 break
             
             sales_order = match['sales_order']
-            available_units = sales_order.available_units or sales_order.units
+            available_units = sales_order.available_units
             
             # Calcular unidades a tomar de esta orden
             units_to_take = min(remaining_units, available_units)
@@ -212,7 +212,7 @@ class PurchaseMatchSelectionService(MatchSelectionCore):
                 max_affordable_units = int(remaining_budget / sales_order.price_per_unit)
                 
                 if max_affordable_units > 0:
-                    units_to_take = max_affordable_units
+                    units_to_take = min(remaining_units, available_units)
                     unit_cost = Decimal(str(units_to_take)) * sales_order.price_per_unit
                     total_cost = (total_cost - unit_cost) + unit_cost
                 else:

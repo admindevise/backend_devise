@@ -31,6 +31,13 @@ class PermissionAwareBaseSerializer(serializers.Serializer):
             return User.objects.get(id=target)
         except User.DoesNotExist:
             raise serializers.ValidationError("Usuario objetivo no encontrado")
+    
+    def _validate_staff_user(self, requesting_user, target_user):
+        # Metodo para no permitir que un staff cree una orden para otro staff o si mismo
+        if requesting_user.is_staff and target_user.id == requesting_user.id:
+            raise serializers.ValidationError(
+                "Los administradores no pueden crear órdenes para sí mismos"
+            )
 
     def _validate_admin_permission(self, requesting_user, target_user, action_type, attrs):
         permission_check = TradingPermissionService.check_permission(
@@ -68,7 +75,6 @@ class PermissionAwarePurchaseOrderSerializer(PermissionAwareBaseSerializer, Purc
         self._requires_confirmation = False
 
     def validate(self, attrs):
-        print(f"Validating PermissionAwarePurchaseOrderSerializer with attrs: {attrs}")
         request = self.context.get('request')
         requesting_user = request.user if request else None
         if not requesting_user:
@@ -77,6 +83,9 @@ class PermissionAwarePurchaseOrderSerializer(PermissionAwareBaseSerializer, Purc
         # supplier_user = target_user
         target_user = self._get_target_user(attrs, 'supplier_user') or requesting_user
 
+        # Validar que un admin no cree orden para otro admin o para sí mismo
+        self._validate_staff_user(requesting_user, target_user)
+        
         if target_user and target_user.id != requesting_user.id:
             if not requesting_user.is_staff:
                 raise serializers.ValidationError(
@@ -156,6 +165,11 @@ class PermissionAwareSalesOrderSerializer(PermissionAwareBaseSerializer, SalesOr
 
         # seller_user = target_user
         target_user = self._get_target_user(attrs, 'seller_user') or requesting_user
+        
+        print(f"IN SERILAIZERS TARGET USER:", {target_user})
+        
+        # Validar que un admin no cree orden para otro admin o para sí mismo
+        self._validate_staff_user(requesting_user, target_user) or requesting_user
 
         if target_user and target_user.id != requesting_user.id:
             if not requesting_user.is_staff:

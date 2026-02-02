@@ -61,6 +61,7 @@ class AutoMatchSelectionSerializer(serializers.Serializer):
         purchase_order = self._purchase_order
         force_partial = self.validated_data.get('force_partial', False)
         
+        print("DEBUG: Iniciando proceso de selección automática")
         try:
             # Procesar usando el servicio unificado
             result = self.selection_service.process_auto_match_selection(

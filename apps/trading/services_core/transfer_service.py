@@ -208,7 +208,7 @@ class TokenTransferService:
     ) -> TokenTransferRecord:
         """Ejecuta una transferencia individual de token"""
         
-        # 1. ✅ CORREGIDO: Crear registro con campos correctos
+        # 1. Crear registro con campos correctos
         transfer_record = TokenTransferRecord.objects.create(
             selection=match_item.selection,
             selection_item=match_item,

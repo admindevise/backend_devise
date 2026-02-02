@@ -33,7 +33,7 @@ class TradingTokenValidator(BaseTokenValidator):
         Returns:
             Dict con resultados de validación: {'valid': bool, 'owned_tokens': list, 'invalid_tokens': list, 'errors': list}
         """
-        print(f"🔍 Validating ownership for user {user.email} on {len(token_ids)} tokens for fund {fund_id}")
+        print(f"🔍 Validating ownership for targetUser {user.email} on {len(token_ids)} tokens for fund {fund_id}")
         
         # ✅ BYPASS TOTAL PARA ADMIN/STAFF
         #if user.is_staff:
@@ -116,7 +116,7 @@ class TradingTokenValidator(BaseTokenValidator):
                 'valid': False,
                 'error_data': {
                     'token_id': token_id,
-                    'error': f'Token not owned by user {user.email} in local database',
+                    'error': f'El token no pertenece al usuario {user.email} en la base de datos',
                     'reason': 'NOT_OWNED_LOCALLY'
                 }
             }
@@ -281,6 +281,8 @@ class TradingTokenValidator(BaseTokenValidator):
         Valida que el usuario sea un inversor válido del fondo
         Utiliza is_investor_valid de kaleido/utils.py
         """
+        
+        print(f"SE ENCONTRÓ TARGET USER EN VALIDATOR:", {target_user})
         # ✅ NUEVO: Si hay target_user, validar ese usuario en lugar del admin
         user_to_validate = target_user if target_user else user
         
@@ -351,7 +353,7 @@ class TradingTokenValidator(BaseTokenValidator):
             if len(user_tokens_list) < quantity:
                 return {
                     'valid': False,
-                    'error': f'Tokens insuficientes. Usuario tiene {len(user_tokens_list)}, necesita {quantity}',
+                    'error': f'Tokens insuficientes. El usuario posee {len(user_tokens_list)}, cantidad requerida {quantity}',
                     'available_tokens': user_tokens_list,
                     'shortage': quantity - len(user_tokens_list)
                 }
@@ -570,7 +572,7 @@ class TradingAvailabilityService:
                 
                 if not auto_select['valid']:
                     validation_results['feasible'] = False
-                    validation_results['errors'].append(f"Cannot auto-select tokens: {auto_select['error']}")
+                    validation_results['errors'].append(f"No fue posible seleccionar ningun token: {auto_select['error']}")
                     print(f"❌ Auto-select failed: {auto_select['error']}")
                 else:
                     token_ids = auto_select['token_ids']
@@ -580,15 +582,6 @@ class TradingAvailabilityService:
             if token_ids:
                 print("🔍 Step 3: Validating token ownership...")
                 ownership_validation = self.validator.validate_ownership(final_user, token_ids, fund_id, target_user=None)
-
-                # ✅ PERO si el usuario que valida es admin, pasar parámetros correctos
-                if user.is_staff and target_user:
-                    ownership_validation = self.validator.validate_ownership(
-                        user,              # Admin que valida
-                        token_ids, 
-                        fund_id,
-                        target_user=final_user  # Usuario final propietario
-                    )
                 
                 validation_results['validations']['ownership'] = ownership_validation
                 

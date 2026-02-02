@@ -34,11 +34,19 @@ class ListUserPermissionsView(generics.ListAPIView):
     """Vista para listar permisos otorgados por el usuario"""
     
     serializer_class = UserAdminPermissionSerializer
-    
     def get_queryset(self):
+        user = self.request.user
+        
+        # Superadmin ve TODOS los permisos
+        if user.is_superuser:
+            return UserAdminPermission.objects.all().select_related(
+                'admin_user', 'user', 'fund'
+            ).order_by('-granted_at')
+        
+        # Usuarios normales solo ven permisos que ellos otorgaron
         return UserAdminPermission.objects.filter(
-            user=self.request.user
-        ).select_related('admin_user').order_by('-granted_at')
+            user=user
+        ).select_related('admin_user', 'fund').order_by('-granted_at')
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

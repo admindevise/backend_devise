@@ -146,7 +146,7 @@ class TokenTransferRecord(models.Model):
     )
     
     # Token data
-    token_id = models.CharField(max_length=100, unique=True)
+    token_id = models.CharField(max_length=100)
     from_user = models.ForeignKey(
         'user.User', 
         on_delete=models.CASCADE, 
