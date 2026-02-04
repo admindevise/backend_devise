@@ -243,7 +243,13 @@ class PermissionGrantSerializer(serializers.Serializer):
         ],
         required=True
     )
-    fund_id = serializers.IntegerField(required=False)
+    fund_id = serializers.IntegerField(
+        required=True,
+        error_messages={
+            'does_not_exist': "Fondo no encontrado.",
+            'incorrect_type': "ID de fondo inválido.",
+        }
+        )
     duration_hours = serializers.IntegerField(default=24, min_value=1, max_value=168)  # Máximo 1 semana
     max_order_amount = serializers.DecimalField(
         max_digits=15, decimal_places=2, 
@@ -287,9 +293,29 @@ class PermissionGrantSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Fondo no encontrado")
         return None
     
+    def validate(self, attrs):
+        target_user = attrs['target_user_id']
+        admin_user = attrs['admin_user_id']
+        
+        if target_user.id == admin_user.id:
+            raise serializers.ValidationError("El administrador no puede otorgarse permisos a sí mismo")
+        
+        # Validar que el registro no este duplicado
+        existing_permissions = TradingPermissionService.get_active_permissions(
+            user=target_user,
+            admin_user=admin_user,
+            permission_type=attrs['permission_type'],
+            fund=attrs['fund_id'].id
+        )
+        if existing_permissions.exists():
+            raise serializers.ValidationError({
+                'permission_duplicate': "Ya existe un permiso activo similar para este administrador y fondo."
+            })
+        return attrs
+    
     def create(self, validated_data):
         """Crear permiso de trading"""
-        
+        print("CREATING PERMISSION WITH DATA:", validated_data)
         target_user = validated_data['target_user_id']
         admin_user = validated_data['admin_user_id']
         fund = validated_data.get('fund_id')
@@ -308,3 +334,33 @@ class PermissionGrantSerializer(serializers.Serializer):
         )
         
         return permission
+    
+    def to_representation(self, instance):
+        """Serializa el permiso creado (UserAdminPermission)"""
+        from datetime import date, datetime
+        
+        # Si instance es un UserAdminPermission modelo
+        if hasattr(instance, 'id'):
+            return {
+                'id': instance.id,
+                'user': instance.user.id if instance.user else None,
+                'user_email': instance.user.email if instance.user else None,
+                'admin_user': instance.admin_user.id if instance.admin_user else None,
+                'admin_email': instance.admin_user.email if instance.admin_user else None,
+                'permission_type': instance.permission_type,
+                'fund': instance.fund.id if instance.fund else None,
+                'fund_name': instance.fund.name if instance.fund else None,
+                'status': instance.status,
+                'max_order_amount': str(instance.max_order_amount) if instance.max_order_amount else None,
+                'max_daily_amount': str(instance.max_daily_amount) if instance.max_daily_amount else None,
+                'auto_approve_under_amount': str(instance.auto_approve_under_amount) if instance.auto_approve_under_amount else None,
+                'require_confirmation': instance.require_confirmation,
+                'granted_at': instance.granted_at.isoformat() if instance.granted_at else None,
+                'expires_at': instance.expires_at.isoformat() if instance.expires_at else None,
+                'reason': instance.reason,
+                'message': 'Permiso otorgado exitosamente'
+            }
+        
+        # Si es un dict, retornar tal cual
+        return instance
+    

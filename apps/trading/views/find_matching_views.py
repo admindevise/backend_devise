@@ -1,36 +1,10 @@
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 
-from apps.trading.models.core_models import PurchaseOrder, SalesOrder, Transaction
+from apps.trading.models.core_models import PurchaseOrder, SalesOrder
 from apps.trading.order_matching import OrderMatch
-
-# DEPRECADO: execute_match ya no se usa en el nuevo flujo
-# El proceso ahora es: find_matches -> select_matches -> pay_selection
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def execute_match(request):
-    """
-    DEPRECADO: Esta función ha sido reemplazada por el flujo pay_selection
-    
-    El nuevo flujo es:
-    1. find_matches - para buscar coincidencias
-    2. select_matches - para seleccionar matches específicos  
-    3. pay_selection - para pagar y ejecutar automáticamente
-    
-    Esta función se mantiene solo para compatibilidad con código legacy
-    """
-    return Response({
-        "error": "Esta función está deprecada",
-        "message": "Usa el nuevo flujo: find_matches -> select_matches -> pay_selection",
-        "deprecated": True,
-        "new_endpoints": {
-            "find_matches": "/api/trading/find-matches/",
-            "select_matches": "/api/trading/select-matches/", 
-            "pay_selection": "/api/trading/pay-selection/"
-        }
-    }, status=status.HTTP_410_GONE)
 
 
 @api_view(['POST'])

@@ -11,6 +11,9 @@ from apps.trading.models.core_models import (
     OrderBook
 )
 
+# ================================================
+# SERIALIZER BASE DE ÓRDENES DE COMPRA Y VENTA
+# ================================================
 class BaseOrderSerializer(serializers.ModelSerializer):
     fund_name = serializers.CharField(source='fund.name', read_only=True)
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
@@ -126,6 +129,10 @@ class BaseOrderSerializer(serializers.ModelSerializer):
         
         return super().create(validated_data)
 
+
+# ===============================================
+# SERIALIZERS ESPECÍFICOS DE ÓRDENES
+# ===============================================
 class PurchaseOrderSerializer(BaseOrderSerializer):
     matched_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     processing_payment_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
@@ -168,7 +175,6 @@ class PurchaseOrderSerializer(BaseOrderSerializer):
         
         return data
     
-    # NUEVO: Integración con servicio de creación segura
     def create(self, validated_data):
         """Crear orden de compra usando el servicio de seguridad"""
         request = self.context.get('request')
@@ -177,20 +183,12 @@ class PurchaseOrderSerializer(BaseOrderSerializer):
         if not user:
             raise serializers.ValidationError("No se pudo determinar el usuario")
         
-        # NUEVO: Determinar usuario objetivo y usuario que crea
-        supplier_user = validated_data.get('supplier_user', user)  # Usuario que compra
-        created_by_user = user  # Usuario que crea (puede ser admin)
-        
-        # LOGGING para debugging
-        if user.is_staff and supplier_user != user:
-            print(f"🔧 Admin {user.email} creating purchase order for {supplier_user.email}")
-        
         validated_data = self._generate_order_number(validated_data)
         
         try:
             # Usar el servicio de creación que incluye todas las validaciones
             result = self.order_creation_service.create_purchase_order(
-                user=created_by_user,  # Admin que crea
+                user=user,  # Admin que crea
                 order_data=validated_data,  # Ya contiene supplier_user correcto
                 request=request
             )
@@ -235,7 +233,7 @@ class SalesOrderSerializer(BaseOrderSerializer):
         queryset=User.objects.all(),
         required=False
     )
-    # ✅ NUEVO: Campo opcional para especificar tokens específicos
+    # Campo opcional para especificar tokens específicos
     token_ids = serializers.ListField(
         child=serializers.IntegerField(),
         required=False,
@@ -250,18 +248,17 @@ class SalesOrderSerializer(BaseOrderSerializer):
         read_only_fields = BaseOrderSerializer.common_read_only
     
     def validate(self, data):
-        """✅ SIMPLIFICADO: Solo validaciones de negocio, NO permisos"""
+        """Solo validaciones de negocio, NO permisos"""
         data = super().validate(data)
         
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
-            # ✅ SIMPLE: Solo asignar seller_user si no se especificó
+            # Solo asignar seller_user si no se especificó
             if 'seller_user' not in data or data['seller_user'] is None:
                 data['seller_user'] = request.user
     
         return data
     
-    # Integración con servicio de creación segura
     def create(self, validated_data):
         """Crear orden de venta usando el servicio de seguridad"""
         request = self.context.get('request')
@@ -270,20 +267,12 @@ class SalesOrderSerializer(BaseOrderSerializer):
         if not user:
             raise serializers.ValidationError("No se pudo determinar el usuario")
         
-        # Determinar usuario objetivo y usuario que crea
-        seller_user = validated_data.get('seller_user', user)  # Usuario que vende
-        created_by_user = user  # Usuario que crea (puede ser admin)
-        
-        # LOGGING para debugging
-        if user.is_staff and seller_user != user:
-            print(f"🔧 Admin {user.email} creating sales order for {seller_user.email}")
-        
         validated_data = self._generate_order_number(validated_data)
         
         try:
             # El servicio necesita saber quién crea (admin) y para quién (seller_user)
             result = self.order_creation_service.create_sales_order(
-                user=created_by_user,  # Admin que crea
+                user=user,  # Usuario que crea (admin/seller_user)
                 order_data=validated_data,  # Ya contiene seller_user correcto
                 request=request
             )
@@ -323,6 +312,10 @@ class SalesOrderSerializer(BaseOrderSerializer):
         
         return validated_data
 
+
+# ================================================
+# SERIALIZERS DE CANCELACIÓN Y TRANSACCIONES
+# ================================================
 class OrderCancellationSerializer(serializers.Serializer):
     """Serializer para manejar cancelación de órdenes"""
     cancellation_reason = serializers.CharField(
@@ -376,6 +369,7 @@ class TransactionSerializer(serializers.ModelSerializer):
             'created_at',
         ]
         read_only_fields = ['transaction_date', 'created_at', 'updated_at']
+
 
 class OrderBookSerializer(serializers.ModelSerializer):
     """Serializer for order book which shows open buy/sell orders for a fund"""

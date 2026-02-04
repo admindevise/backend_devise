@@ -9,9 +9,10 @@ from apps.utils.views.Mixins import DateFilterMixin
 from apps.fund.models.membership import InvestorContract
 from apps.fund.models.core import (
     Fund,
-    FundSemestralDocument,
     OthersI,
-    TrustAgreement
+    FundCategory,
+    TrustAgreement,
+    FundSemestralDocument,
 )
 from apps.fund.models.tokens import (
     FundToken,
@@ -20,6 +21,7 @@ from apps.fund.models.tokens import (
 from apps.fund.models.receipts import TransferReceipt
 from apps.fund.serializers.core_serializers import(
     FundSerializer,
+    FundCategorySerializer,
     OthersISerializer,
     FundTokenSerializer,
     FundMemberSerializer,
@@ -29,6 +31,16 @@ from apps.fund.serializers.core_serializers import(
 )
 from apps.fund.serializers.transaction_serializers import TokenTransactionSerializer
 
+
+class FundCategoryViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint que permite gestionar categorías de fondos.
+    Proporciona acciones `list`, `create`, `retrieve`, `update` y `destroy`.
+    """
+    queryset = FundCategory.objects.all()
+    serializer_class = FundCategorySerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
 
 class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
     """

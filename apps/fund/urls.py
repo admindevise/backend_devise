@@ -20,6 +20,7 @@ from rest_framework.routers import DefaultRouter
 # ============================================================================
 from apps.fund.views.core_views import (
     FundViewSet,
+    FundCategoryViewSet,
     FundMembersViewSet,
     FundTokenViewSet,
     TransferReceiptViewSet,
@@ -185,6 +186,7 @@ router = DefaultRouter()
 
 # Core Fund
 router.register(r'main', FundViewSet, basename='fund')
+router.register(r'category', FundCategoryViewSet, basename='fund-category')
 router.register(r'members', FundMembersViewSet, basename='fund-members')
 router.register(r'semestral-document', FundSemestralDocumentViewSet, basename='semestral-document')
 router.register(r'othersi', OthersIViewSet, basename='otrosi')

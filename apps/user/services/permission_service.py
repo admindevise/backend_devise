@@ -267,4 +267,20 @@ class TradingPermissionService:
         )
         
         return pending_action
+    
+    @staticmethod
+    def get_active_permissions(user, admin_user, permission_type: Optional[str] = None, fund: Optional[Any] = None):
+        """Obtiene permisos activos para un usuario y admin específicos"""
+        
+        query = UserAdminPermission.objects.filter(
+            user=user,
+            admin_user=admin_user,
+            status='ACTIVE',
+            fund=fund,
+        )
+        
+        if permission_type:
+            query = query.filter(permission_type=permission_type)
+        
+        return query
 

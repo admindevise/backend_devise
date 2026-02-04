@@ -8,6 +8,31 @@ from apps.utils.models import base_model
 from apps.user.models import User
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
 
+
+class FundCategory(models.Model):
+    """
+    Modelo para categorizar fondos de inversión
+    """
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        verbose_name="Nombre de la categoría"
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Descripción de la categoría"
+    )
+    
+    class Meta:
+        verbose_name = "Categoría de Fondo"
+        verbose_name_plural = "Categorías de Fondos"
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
+
 class Fund(models.Model):
     """
     Modelo principal para gestionar fondos de inversión
@@ -23,6 +48,14 @@ class Fund(models.Model):
         blank=True,
         related_name='fund_core',
         verbose_name="Usuario propietario"
+    )
+    
+    category = models.ForeignKey(
+        FundCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Categoría del fondo"
     )
     
     financial_institution = models.ForeignKey(

@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from django.utils import timezone
 
 from apps.trading.models.core_models import OrderContract
 

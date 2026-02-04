@@ -5,7 +5,6 @@ from apps.trading.models.core_models import PurchaseOrder, SalesOrder
 from apps.trading.models.selection_models import (
     MatchSelection,
     MatchSelectionItem,
-    TokenTransferRecord,
     PaymentRecord,
 )
 from apps.audit.audit_service import AuditService

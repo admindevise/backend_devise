@@ -3,6 +3,7 @@ from django.core.validators import RegexValidator
 from rest_framework.exceptions import ValidationError
 
 from apps.fund.models.core import (
+    FundCategory,
     Fund,
     FundSemestralDocument,
     OthersI,
@@ -20,6 +21,13 @@ from apps.kaleido.serializers.serializer_wallet import WalletFundSerializer
 
 # Servicios
 from apps.fund.services.fund_service import FundCreationService, FundServiceError
+
+
+class FundCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FundCategory
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 class FundSemestralDocumentSerializer(serializers.ModelSerializer):
     uploaded_date = serializers.DateField(format="%Y-%m-%d", read_only=True)

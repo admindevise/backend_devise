@@ -4,6 +4,7 @@ from apps.kaleido.utils import get_owner_of, is_investor_valid
 from django.utils import timezone
 from django.db import transaction
 
+
 class BaseTokenValidator(ABC):
     """Clase base para validadores de tokens"""
     
@@ -14,6 +15,7 @@ class BaseTokenValidator(ABC):
     @abstractmethod
     def validate_availability(self, token_ids: list, fund_id: int) -> dict:
         pass
+
 
 class TradingTokenValidator(BaseTokenValidator):
     """
@@ -371,6 +373,7 @@ class TradingTokenValidator(BaseTokenValidator):
                 'reason': 'AUTO_SELECT_ERROR'
             }
 
+
 class TokenReservationManager:
     """
     Maneja las reservas temporales de tokens para operaciones de trading
@@ -508,6 +511,7 @@ class TokenReservationManager:
                 'success': False,
                 'error': str(e)
             }
+
 
 class TradingAvailabilityService:
     """

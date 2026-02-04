@@ -83,7 +83,7 @@ class PaymentExecutionSerializer(serializers.Serializer):
                 f"La orden debe estar en estado MATCHES_SELECTED, PENDING o PARTIALLY_EXECUTED. Estado actual: {purchase_order.status}"
             )
         
-        # ✅ CORREGIDO: Buscar selección activa que tenga esta PO como main order
+        # Buscar selección activa que tenga esta PO como main order
         try:
             selection = purchase_order.match_selection  # Relación directa OneToOne
             if selection.status != 'ACTIVE':
@@ -94,7 +94,7 @@ class PaymentExecutionSerializer(serializers.Serializer):
                     "Debes crear una nueva selección antes de proceder al pago."
                 )
         except MatchSelection.DoesNotExist:
-            # ✅ ALTERNATIVA: Buscar selecciones donde esta PO esté como item
+            # ALTERNATIVA: Buscar selecciones donde esta PO esté como item
             selection = MatchSelection.objects.filter(
                 items__purchase_order=purchase_order,
                 status='ACTIVE'
@@ -170,7 +170,6 @@ class PaymentExecutionSerializer(serializers.Serializer):
             'method': self.validated_data.get('payment_method', 'automatic'),
             'reference': self.validated_data.get('reference'),
             'metadata': self.validated_data.get('metadata', {}),
-            # ✅ AMOUNT DESDE MODELO: selection.total_amount
             'amount': float(selection.total_amount),
             'selection_id': str(selection.id)
         }
