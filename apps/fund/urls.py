@@ -175,6 +175,7 @@ from apps.fund.views.operating_views import (
 from apps.fund.views.utils_views import (
     get_token_count,
     ai_generate_content,
+    TrustMembersViewSet,
     testing,
 )
 
@@ -194,6 +195,7 @@ router.register(r'token', FundTokenViewSet, basename='fund-token')
 router.register(r'transaction', TokenTransactionViewSet, basename='token-transaction')
 router.register(r'transfer_receipt', TransferReceiptViewSet, basename='transfer-receipt')
 router.register(r'trust-agreement', TrustAgreementViewSet, basename='trust-agreement')
+router.register(r'members', TrustMembersViewSet, basename='members')
 
 # Investments
 router.register(r'investment', InvestmentViewSet, basename='investment')

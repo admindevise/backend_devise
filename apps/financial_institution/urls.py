@@ -14,6 +14,7 @@ from apps.financial_institution.views.utils_views import (
     MembersFinancialInstitutionViewSet,
     FinancialInstitutionApplicationViewSet,
     PendingFinancialInstitutionApplicationViewSet,
+    get_dashboard_stats
 )
 from apps.financial_institution.views.permission_views import (
     FIPermissionViewSet,
@@ -53,5 +54,10 @@ urlpatterns = [
     # ================================
     path('api/permission/assing-user-to-group/', assign_user_to_group, name='assing-user-from-group'),
     path('api/permission/remove-user-from-group/', remove_user_from_group, name='rermove-user-from-group'),
-    path('api/permission/my-permissions/', my_fi_permissions, name='my-permissions')
+    path('api/permission/my-permissions/', my_fi_permissions, name='my-permissions'),
+    
+    # ================================
+    # DASHBOARD STATS
+    # ================================
+    path('api/dashboard/stats/', get_dashboard_stats, name='financial_institution_dashboard_stats'),
 ]

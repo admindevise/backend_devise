@@ -3,35 +3,62 @@ import json
 import requests
 from django.db.models import Sum, Count, Q
 
-from rest_framework import response, status
+from rest_framework import response, status, viewsets, filters
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, permission_classes
+from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.fund.utils import _generate_customer_support_prompt
 from apps.fund.serializers.utils_serializers import (
     AISerializer,
     CustomerSupportSerializer,
-    TokenCounterUserSerializer
+    TokenCounterUserSerializer,
+    TrustMembersSerializer
 )
+from apps.fund.models.membership import InvestorContract
 from apps.fund.models.membership import (
     FundInvestment,
 )
 
+from apps.utils.views.Mixins import DateFilterMixin
+
+class TrustMembersViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
+    queryset = InvestorContract.objects.all()
+    serializer_class = TrustMembersSerializer
+    permission_classes = ['IsAuthenticated']
+    
+    #filter_backends = [DjangoFilterBackend, filters.#SearchFilter, filters.OrderingFilter]
+    #search_fields = ['user',]
+    
+    def get_queryset(self):
+        user = self.request.user
+        queryset = InvestorContract.objects.select_related(
+            'user',
+            'fund',
+        )
+
+        if not user.is_staff:
+            queryset = queryset.filter(user=user)
+        
+        return self.apply_date_filters(queryset)
+
+
+
 # =======================================
 # TESTING SERVICE
+# =======================================
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def testing(request):
-    from apps.fund.services.kpis.fund_calculations import FundCalculationService
-    from apps.fund.models.membership import FundInvestment
-    from apps.fund.models.core import Fund
+    from apps.user.models import User
     
-    investment = FundInvestment.objects.get(id=9)
-    fund=Fund.objects.get(id=1)
-    calc_service = FundCalculationService(fund)
-    return str(calc_service.calculate_tkn_value_change(request.user)) 
-    
+    user_contracts_investors = User.objects.filter(
+        investor_contracts__isnull=False
+    )
+    return response.Response({
+        'user_contracts_investors': str(user_contracts_investors.get(id=3))
+    }, status=status.HTTP_200_OK)
     
 
 @api_view(['POST'])
@@ -150,70 +177,6 @@ def ai_generate_content(request):
     
     return response.Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-""" @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def ai_generate_content(request):
-    
-    #Endpoint para generar contenido utilizando la API de Gemini.
-    #Genera automáticamente un prompt para valoración de bienes raíces comerciales
-    #usando los datos proporcionados.
-    
-    serializer = AISerializer(data=request.data)
-    
-    if serializer.is_valid():
-        # Generar prompt de valoración usando los datos del serializer
-        prompt = _generate_cre_valuation_prompt(serializer.validated_data)
-        
-        headers = {
-            'X-goog-api-key': API_KEY,
-            'Content-Type': 'application/json'
-        }
-        
-        data = {
-            "contents": [{
-                "parts": [{
-                    "text": prompt
-                }]
-            }]
-        }
-        
-        api_response = requests.post(url, headers=headers, json=data)
-        
-        if api_response.status_code == 200:
-            # ✅ EXTRAER Y FORMATEAR EL TEXTO
-            gemini_data = api_response.json()
-            
-            # Extraer el texto de la respuesta
-            ai_text = ""
-            if 'candidates' in gemini_data and len(gemini_data['candidates']) > 0:
-                candidate = gemini_data['candidates'][0]
-                if 'content' in candidate and 'parts' in candidate['content']:
-                    parts = candidate['content']['parts']
-                    if len(parts) > 0 and 'text' in parts[0]:
-                        ai_text = parts[0]['text']
-            
-            # ✅ LIMPIAR Y FORMATEAR EL TEXTO
-            formatted_text = _clean_text(ai_text)
-            
-            # ✅ EXTRAER Y PARSEAR JSON DE LA RESPUESTA
-            parsed_json = _extract_and_parse_json(formatted_text)
-            
-            # ✅ RESPUESTA LIMPIA Y FORMATEADA
-            clean_response = {
-                "success": True,
-                "prompt": prompt,
-                "response": parsed_json if parsed_json else formatted_text,  # JSON parseado o texto original
-                "raw_response": ai_text,  # Por si necesitas el original
-                "input_data": serializer.validated_data,  # Datos de entrada para referencia
-                "is_json": parsed_json is not None  # Indica si se pudo parsear como JSON
-            }
-            
-            return response.Response(clean_response, status=status.HTTP_200_OK)
-        else:
-            return response.Response(api_response.json(), status=api_response.status_code)
-    
-    return response.Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) """
 
 def _enrich_user_data(self, user, serializer_data):
     """

@@ -1,6 +1,8 @@
 from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework import response, status
 
 from apps.financial_institution.models.core import (
     FinancialInstitutionApplication,
@@ -9,6 +11,9 @@ from apps.financial_institution.models.core import (
 from apps.financial_institution.serializers.core_serializers import FIApplicationSerializer
 from apps.utils.core_permissions.api_permissions import RegistryPermission
 from apps.financial_institution.serializers.utils_serializers import MembersFinancialInstitutionSerializer
+
+from apps.financial_institution.serializers.dashboard_serializers import DashboardStatsSerializer
+from apps.financial_institution.services.dashboard_stats_service import DashboardStatsService
 
 from apps.utils.views.Mixins import DateFilterMixin
 
@@ -71,3 +76,18 @@ class PendingFinancialInstitutionApplicationViewSet(DateFilterMixin, viewsets.Re
     ordering_fields = ['created_at', 'status']
     ordering = ['-created_at']
     
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_dashboard_stats(request):
+    """Vista para obtener estadísticas del dashboard financiero"""
+    
+    try:
+        stast = DashboardStatsService.get_dashboard_stats(use_cache=True)
+        serializer = DashboardStatsSerializer(stast)
+        return response.Response(serializer.data, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return response.Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -1,15 +1,16 @@
 from rest_framework import serializers
 from apps.fund.models.tokens import FundToken
+from apps.fund.models.membership import InvestorContract
 
 from apps.user.serializers.basic_info_user_serializer import UserShortInfoSerializer
 
-""" class FundMembersSerializers(serializers.ModelSerializer):
-    approval_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+class TrustMembersSerializer(serializers.ModelSerializer):
+    contract_signed_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     user = UserShortInfoSerializer()
     
     class Meta:
-        model = FundApproval
-        fields = ['user', 'approval_date', 'approved_amount', 'approved_units'] """
+        model = InvestorContract
+        fields = ['user', 'contract_signed_at', 'created_at']
 
 class TokenCounterUserSerializer(serializers.Serializer):
     """
