@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from django_filters.rest_framework import DjangoFilterBackend
+from django_filters import rest_framework as django_filters
 from apps.utils.views.Mixins import DateFilterMixin
 
 from apps.fund.models.membership import FundInvestment, InvestmentApplication
@@ -19,16 +20,25 @@ from apps.fund.serializers.investment_serializers import (
     IAContractSignSerializer
 )
 
+class InvestmentApplicationFilterSet(django_filters.FilterSet):
+    application_status = django_filters.ChoiceFilter(
+        choices=InvestmentApplication.ApplicationStatus.choices
+    )
+    
+    class Meta:
+        model = InvestmentApplication
+        fields = ['user', 'fund', 'application_status']
+
 class InvestmentApplicationViewSet(DateFilterMixin, viewsets.ModelViewSet):
     serializer_class = InvestmentApplicationSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ['get', 'post']
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['user', 'fund']
+    filterset_class = InvestmentApplicationFilterSet
     search_fields = ['user__email', 'fund__name']
-    ordering_fields = ['created_at', 'status']
-    ordering = ['-created_at']    
+    ordering_fields = ['created_at', 'application_status']
+    ordering = ['-created_at']
     
     def get_queryset(self):
         user = self.request.user
@@ -38,6 +48,7 @@ class InvestmentApplicationViewSet(DateFilterMixin, viewsets.ModelViewSet):
             queryset = queryset.filter(user=user)
         
         return self.apply_date_filters(queryset)
+
 
 class PendingApplicationViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     # A este vista luego solo podran acceder los staff/admin, por esa razon no se agrego get_queryset()
@@ -49,9 +60,9 @@ class PendingApplicationViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['user', 'fund']
+    filterset_class = InvestmentApplicationFilterSet
     search_fields = ['user__email', 'fund__name']
-    ordering_fields = ['created_at', 'status']
+    ordering_fields = ['created_at', 'application_status']
     ordering = ['-created_at']
 
 class InvestmentViewSet(DateFilterMixin, viewsets.ModelViewSet):
@@ -61,8 +72,8 @@ class InvestmentViewSet(DateFilterMixin, viewsets.ModelViewSet):
     http_methods_names = ['get', 'post']
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['application', 'units_owned']
-    search_fields = ['application__user__email', 'application__fund__name']
+    filterset_fields = ['application', 'units_owned', 'application__user__id', 'application__fund__id']
+    search_fields = ['application__user__id', 'application__fund__name']
     ordering_fields = ['created_at', 'status']
     ordering = ['-created_at']
     
