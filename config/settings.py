@@ -39,10 +39,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    
     #Security
     'django_password_validators',
     'django_password_validators.password_history',
-    #'easyaudit',
 
     #Complements:
     'cities_light',
@@ -51,19 +51,17 @@ INSTALLED_APPS = [
     'django_js_reverse',
     'import_export',
     'widget_tweaks',
+    'storages',
+    
     #Import ApiRest:
     'rest_framework',
     'rest_framework.authtoken',
     'rest_framework_simplejwt',
+    
     #Import Cors headers
     'corsheaders',
+    
     #import project apps
-    #'apps.dashboard.apps.DashboardConfig',
-    #'apps.asset.apps.AssetConfig',
-    #'apps.fiducia.apps.FiduciaConfig',
-    #'apps.notaria.apps.NotariaConfig',
-    #'apps.sponsor_company.apps.SponsorCompanyConfig',
-    #'apps.menu.apps.MenuConfig',
     'apps.user.apps.UserConfig',
     'apps.asset.apps.AssetConfig',
     'apps.info_residential.apps.InfoResidentialConfig',
@@ -74,8 +72,10 @@ INSTALLED_APPS = [
     'apps.weetrust.apps.WeetrustConfig',
     'apps.academia.apps.AcademiaConfig',
     'apps.kaleido.apps.KaleidoConfig',
+    
     #Custom Config Values
     'apps.security.apps.SecurityConfig',
+    
     #custom drf errors
     'drf_standardized_errors',
     
@@ -254,16 +254,46 @@ LANGUAGES = (
     ('en', _('English')),
 )
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/3.2/howto/static-files/
-
-
+# =================================
+# Static & Media Files
+# =================================
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-if not DEBUG:
-    # Simplified static file serving.
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media/'
+
+# =================================
+# AWS S3 (Static & Media)
+# =================================
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
+AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'us-east-2')
+
+if AWS_STORAGE_BUCKET_NAME:
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.us-east-2.amazonaws.com'
+    AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+    AWS_QUERYSTRING_AUTH = False  # Evita que se añadan tokens de autenticación a las URLs
+    AWS_DEFAULT_ACL = None  # Evita que los archivos sean públicos por defecto
+
+    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {
+                "location": "media",  # ← Prefija automáticamente con media/
+            }
+        },
+        "staticfiles": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {
+                "location": "static",  # ← Prefija automáticamente con static/
+            }
+        },
+    }
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
@@ -271,8 +301,8 @@ if not DEBUG:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 #=====    Custom Configurations    ===================
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media/'
+#MEDIA_URL = '/media/'
+#MEDIA_ROOT = BASE_DIR / 'media/'
 AUTH_USER_MODEL = 'user.User'
 
 LOGIN_URL = '/auth/login/'
