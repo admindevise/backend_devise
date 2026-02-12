@@ -1,6 +1,7 @@
 from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
+from django_filters import rest_framework as django_filters
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import response, status
 
@@ -42,13 +43,22 @@ class MembersFinancialInstitutionViewSet(DateFilterMixin, viewsets.ReadOnlyModel
         return self.apply_date_filters(queryset)
 
 
+class FiApplicationFilterSet(django_filters.FilterSet):
+    status = django_filters.ChoiceFilter(
+        choices=FinancialInstitutionApplication.ApplicationStatus.choices
+    )
+    
+    class Meta:
+        model = FinancialInstitutionApplication
+        fields = ['status']
+
 class FinancialInstitutionApplicationViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = FIApplicationSerializer
     permission_classes = [IsAuthenticated]
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['requested_investment_amount']
-    search_fields = ['financial_institution__name', 'user__email', 'user__first_name', 'user__last_name']
+    filterset_class = FiApplicationFilterSet
+    search_fields = ['financial_institution__name', 'user__email', 'user__first_name', 'user__last_name', 'user__phone']
     ordering_fields = ['created_at', 'status']
     ordering = ['-created_at']
     
@@ -56,16 +66,18 @@ class FinancialInstitutionApplicationViewSet(DateFilterMixin, viewsets.ReadOnlyM
         user = self.request.user
         
         if user.is_staff:
-            return FinancialInstitutionApplication.objects.select_related(
+            queryset = FinancialInstitutionApplication.objects.select_related(
                 'financial_institution', 'user'
             ).order_by('-created_at')
+        else:
+            queryset = FinancialInstitutionApplication.objects.select_related(
+                    'financial_institution', 'user'
+                ).filter(user=user).order_by('-created_at')
         
-        return FinancialInstitutionApplication.objects.select_related(
-                'financial_institution', 'user'
-            ).filter(user=user).order_by('-created_at')
+        return self.apply_date_filters(queryset)
 
 class PendingFinancialInstitutionApplicationViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
-    queryset = FinancialInstitutionApplication.objects.select_related('financial_institution').filter(status='pending')
+    queryset = FinancialInstitutionApplication.objects.select_related('financial_institution').filter(status=FinancialInstitutionApplication.ApplicationStatus.PENDING)
     serializer_class = FIApplicationSerializer
     permission_classes = [IsAuthenticated]
     date_field = 'created_at'

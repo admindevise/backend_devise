@@ -2,6 +2,7 @@ from rest_framework import serializers
 from apps.financial_institution.models.core import FinancialInstitution, FinancialInstitutionApplication
 from apps.financial_institution.services.fi_application_service import FinancialInstitutionApplicationService
 from apps.financial_institution.services.actions_application_service import FIActionsService
+from apps.user.serializers.basic_info_user_serializer import UserShortInfoSerializer
 
 class FISerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
@@ -29,6 +30,7 @@ class FIApplicationSerializer(serializers.ModelSerializer):
         required=True,
         help_text="Perfil del inversor"
     )
+    user = UserShortInfoSerializer(read_only=True)
     
     class Meta:
         model = FinancialInstitutionApplication
