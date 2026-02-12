@@ -1,4 +1,5 @@
 from django.core.cache import cache
+from decimal import Decimal
 from django.db.models import Count, Q, Sum
 
 from apps.fund.models.core import Fund
@@ -29,11 +30,12 @@ class DashboardStatsService:
             stats = {
                 'total_funds': cls._get_total_funds(),
                 'active_funds': cls._get_active_funds(),
+                'aum_by_fund': cls._get_aum_by_fund(),
+                'total_aum': cls._get_total_aum(),
                 'total_transactions': cls._get_total_transactions(),
                 'total_volume': cls._get_total_volume(),
-                'pending_approvals': cls._get_pending_approvals(),
                 'active_investors': cls._get_active_investors(),
-                'active_investments': cls._get_active_investments(),
+                'investors_with_investments': cls._get_active_investments(),
                 'investors_without_investments': cls._get_investors_without_investments(),
                 'pending_investor_approvals': cls._get_pending_investor_approvals(),
             }
@@ -55,6 +57,33 @@ class DashboardStatsService:
         return Fund.objects.filter(status='active').count()
     
     @classmethod
+    def _get_aum_by_fund(cls):
+        """Obtener AUM por fondo, ordenado de mayor a menor"""
+        funds = FundInvestment.objects.values(
+            'application__fund__id',
+            'application__fund__name'
+        ).annotate(
+            total_aum=Sum('final_invested_amount')
+        ).order_by('-total_aum')
+        
+        return [
+            {
+                'fund_id': fund['application__fund__id'],
+                'fund_name': fund['application__fund__name'],
+                'aum': float(fund['total_aum'] or Decimal('0.00'))
+            }
+            for fund in funds
+        ]
+        
+    @classmethod
+    def _get_total_aum(cls):
+        """ Calcula el AUM total de todos los fi"""
+        aum = FundInvestment.objects.aggregate(
+            total=Sum('final_invested_amount')
+        )['total'] or Decimal('0.00')
+        return float(aum)
+    
+    @classmethod
     def _get_total_transactions(cls):
         return PurchaseOrder.objects.count() + SalesOrder.objects.count()
     
@@ -69,10 +98,6 @@ class DashboardStatsService:
             )['total'] or 0
         
         return float(po_volume + so_volume)
-    
-    @classmethod
-    def _get_pending_approvals(cls):
-        return InvestorContract.objects.filter(status='pending').count()
     
     @classmethod
     def _get_active_investors(cls):
@@ -93,18 +118,25 @@ class DashboardStatsService:
     
     @classmethod
     def _get_investors_without_investments(cls):
+        """Cuenta inversores con contrato firmado pero sin inversiones activas"""
+        # Obtener IDs de usuarios con inversiones activas
+        users_with_active_investments = FundInvestment.objects.filter(
+            investment_status=FundInvestment.InvestmentStatus.ACTIVE
+        ).values_list('application__user_id', flat=True).distinct()
+        
+        # Contar usuarios con contratos firmados que NO están en la lista anterior
         return User.objects.filter(
-            investor_contracts=True
-        ).exclude(
             investor_contracts__status=InvestorContract.InvestorContractStatus.CONTRACT_SIGNED
-        ).count()
+        ).exclude(
+            id__in=users_with_active_investments
+        ).distinct().count()
     
     @classmethod
     def _get_pending_investor_approvals(cls):
         pending_status = getattr(
             InvestorContract.InvestorContractStatus,
-            "PENDING",
-            "pending"
+            "PENDING_SIGNATURE",
+            "pending_signature"
         )
         return InvestorContract.objects.filter(
             status=pending_status
