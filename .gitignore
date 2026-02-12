@@ -10,6 +10,8 @@ media
 secret_key.txt
 env
 .env
+staticfiles
+staticfiles/*
 # Python # 
 *.py[cod] 
 *$py.class 
