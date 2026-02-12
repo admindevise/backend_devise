@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from apps.utils.models.file_helpers import fund_investment_payment_receipt_path
 
 class InvestorContract(models.Model):
     """
@@ -516,7 +517,7 @@ class FundInvestment(models.Model):
     # DOCUMENTACIÓN
     # ========================================
     payment_receipt = models.FileField(
-        upload_to='investments/receipts/',
+        upload_to=fund_investment_payment_receipt_path,
         null=True,
         blank=True,
         verbose_name="Comprobante de pago"

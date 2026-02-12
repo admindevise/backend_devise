@@ -1,16 +1,10 @@
-from apps.utils.models import base_model
-from apps.user.models import User
-from apps.druo.models import Bank, AccountType, AccountSubtype
 from django.db import models
 
-from os import path
+from apps.user.models import User
+from apps.druo.models import Bank, AccountType, AccountSubtype
 
-def owner_file_path(instance, filename):
-    if instance.user :
-        folder_user_document = '{}_{}'.format(instance.user.document_number, instance.user.last_name)
-    else:
-        folder_user_document = 'fiducia'
-    return path.join('financial_certs', folder_user_document, filename)
+from apps.utils.models import base_model
+from apps.utils.models.file_helpers import info_financial_certification_file_path
 
 class Financial(base_model.BaseModel):
     user = models.OneToOneField(
@@ -48,7 +42,7 @@ class Financial(base_model.BaseModel):
         related_name ='account_type'
         )
     certification_file = models.FileField(
-        upload_to = owner_file_path
+        upload_to = info_financial_certification_file_path
         )
     aba_code = models.CharField(
         max_length=64,

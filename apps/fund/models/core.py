@@ -4,6 +4,19 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator
 from apps.utils.models import base_model
+from apps.utils.models.file_helpers import (
+    fund_image_path,
+    fund_image_admin_path,
+    fund_terms_and_conditions_path,
+    fund_data_processing_policy_path,
+    fund_fiduciary_draft_path,
+    fund_mercantile_trust_agreement_path,
+    fund_other_documents_path,
+    fund_semestral_document_path,
+    othersi_document_path,
+    trust_agreement_signed_document_path,
+    trust_agreement_electronic_envelope_path,
+)
 
 from apps.user.models import User
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
@@ -106,13 +119,13 @@ class Fund(models.Model):
     
     # Imágenes
     image = models.ImageField(
-        upload_to='funds/images/', 
+        upload_to=fund_image_path, 
         null=True, 
         blank=True,
         verbose_name="Imagen principal"
     )
     image_admin = models.ImageField(
-        upload_to='funds/images/', 
+        upload_to=fund_image_admin_path, 
         null=True, 
         blank=True,
         verbose_name="Imagen administrativa"
@@ -423,35 +436,35 @@ class Fund(models.Model):
     # DOCUMENTOS Y POLÍTICAS
     # ========================================
     terms_and_conditions = models.FileField(
-        upload_to='funds/terms/', 
+        upload_to=fund_terms_and_conditions_path, 
         blank=True, 
         null=True, 
         help_text="Documento de términos y condiciones",
         verbose_name="Términos y condiciones"
     )
     data_processing_policy = models.FileField(
-        upload_to='funds/policies/', 
+        upload_to=fund_data_processing_policy_path, 
         blank=True, 
         null=True, 
         help_text="Documento de política de tratamiento de datos",
         verbose_name="Política de tratamiento de datos"
     )
     fiduciary_draft = models.FileField(
-        upload_to='funds/fiduciary_draft/',
+        upload_to=fund_fiduciary_draft_path,
         blank=True,
         null=True,
         help_text="Documento de Minuta Fiduciaria",
         verbose_name="Minuta Fiduciaria"
     )
     mercantile_trust_agreement = models.FileField(
-        upload_to="funds/mercantile_trust_agreement/",
+        upload_to=fund_mercantile_trust_agreement_path,
         blank=True,
         null=True,
         help_text="Documento de contrato de fiducia mercantil",
         verbose_name="Contrato de fiducia mercantil"
     )
     other_documents = models.FileField(
-        upload_to='funds/other_documents/',
+        upload_to=fund_other_documents_path,
         blank=True,
         null=True,
         help_text="Otros documentos",
@@ -529,7 +542,7 @@ class FundSemestralDocument(models.Model):
     
     # Documento y metadatos
     document = models.FileField(
-        upload_to='funds/semestral_documents/', 
+        upload_to=fund_semestral_document_path, 
         verbose_name="Documento semestral"
     )
     title = models.CharField(
@@ -601,7 +614,7 @@ class OthersI(base_model.BaseModel):
         help_text="Descripción breve del contenido"
     )
     document = models.FileField(
-        upload_to='funds/othersi/',
+        upload_to=othersi_document_path,
         verbose_name="Documento"
     )
     description = models.TextField(
@@ -702,8 +715,8 @@ class TrustAgreement(base_model.BaseModel):
     #========================================
     # ESTADO Y DOCUMENTOS
     #========================================
-    signed_document_url = models.FileField(upload_to='funds/trust_agreements/signed_documents/', blank=True, null=True, help_text="Documento firmado del contrato fiduciario")
-    electronic_envelope = models.FileField(upload_to='funds/trust_agreements/electronic_envelopes/', blank=True, null=True, help_text="Sobre electrónico del contrato fiduciario")
+    signed_document_url = models.FileField(upload_to=trust_agreement_signed_document_path, blank=True, null=True, help_text="Documento firmado del contrato fiduciario")
+    electronic_envelope = models.FileField(upload_to=trust_agreement_electronic_envelope_path, blank=True, null=True, help_text="Sobre electrónico del contrato fiduciario")
     
     class Meta:
         verbose_name = "Contrato fiduciario"

@@ -1,14 +1,16 @@
-from apps.utils.models import base_model
-from apps.user.models import User
-from cities_light.models import Country
 from django.db import models
 
-from os import path
-
-
-def owner_file_path(instance, filename):
-    folder_user_document = '{}_{}'.format(instance.user.document_number, instance.user.last_name)
-    return path.join('socioeconomic_info', folder_user_document, filename)
+from apps.user.models import User
+from apps.utils.models import base_model
+from cities_light.models import Country
+from apps.utils.models.file_helpers import (
+    info_socioeconomic_last_year_income_statement_path,
+    info_socioeconomic_economic_dependency_letter_path,
+    info_socioeconomic_certified_public_accountant_path,
+    info_socioeconomic_professional_accountant_card_path,
+    info_socioeconomic_pension_payment_receipt_path,
+    info_socioeconomic_source_funds_support_path,
+)
 
 class OriginFund(base_model.BaseModel):
     name = models.CharField(max_length=128)
@@ -52,32 +54,32 @@ class Socioeconomic(base_model.BaseModel):
     tin_number_or_equivalent = models.CharField(max_length=128, blank=True, null=True)
     is_declarant = models.BooleanField(default=False)
     last_year_income_statement = models.FileField( #declaracion renta ultimo año
-        upload_to=owner_file_path,
+        upload_to=info_socioeconomic_last_year_income_statement_path,
         blank=True,
         null=True,
     )
     economic_dependency_letter = models.FileField(
-        upload_to=owner_file_path,
+        upload_to=info_socioeconomic_economic_dependency_letter_path,
         blank=True,
         null=True,
     )
     certified_public_accountant = models.FileField(
-        upload_to=owner_file_path,
+        upload_to=info_socioeconomic_certified_public_accountant_path,
         blank=True,
         null=True,
     )
     profesional_accountant_card = models.FileField(
-        upload_to=owner_file_path,
+        upload_to=info_socioeconomic_professional_accountant_card_path,
         blank=True,
         null=True,
     )
     pension_payment_receipt = models.FileField(
-        upload_to=owner_file_path,
+        upload_to=info_socioeconomic_pension_payment_receipt_path,
         blank=True,
         null=True,
     )
     source_funds_support = models.FileField(
-        upload_to=owner_file_path,
+        upload_to=info_socioeconomic_source_funds_support_path,
         blank=True,
         null=True,
     )

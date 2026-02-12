@@ -1,6 +1,8 @@
 from django.db import models
-from cities_light.models import Country, Region, City
 from django.utils import timezone
+
+from cities_light.models import Country, Region, City
+from apps.utils.models.file_helpers import fi_logo_path
 
 class FinancialInstitution(models.Model):
     """
@@ -29,7 +31,7 @@ class FinancialInstitution(models.Model):
     institution_type = models.CharField(max_length=20, choices=FinancialInstitutionType.choices)
     nit = models.CharField(max_length=20, unique=True, verbose_name="NIT")
     description = models.TextField(blank=True, null=True, verbose_name="Descripción")
-    logo = models.ImageField(upload_to='financial_institution/logos/', blank=True, null=True, verbose_name="Logo")
+    logo = models.ImageField(upload_to=fi_logo_path, blank=True, null=True, verbose_name="Logo")
     entity_code = models.CharField(max_length=50, unique=True, verbose_name="Código de la entidad")
     established_date = models.DateField(verbose_name="Fecha de constitución")
     country = models.ForeignKey(

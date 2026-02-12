@@ -22,3 +22,6 @@ python manage.py migrate
 #DJANGO_SUPERUSER_PASSWORD=admin \
 #DJANGO_SUPERUSER_PHONE=3227177889 \
 #python manage.py createsuperuser --noinput || true
+
+# commant to upload .env
+#set -a; source .env; set +a

@@ -271,3 +271,5 @@ class IAContractSignSerializer(serializers.Serializer):
             'message': 'Contrato firmado exitosamente. Su solicitud de inversión ha sido aprobada.'
         }
 
+
+

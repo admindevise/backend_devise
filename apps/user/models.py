@@ -1,30 +1,24 @@
-from apps.utils.models import base_model
-
-from cities_light.models import Country, Region, SubRegion
-from config import settings
-
-from django.contrib.auth.models import (AbstractUser, BaseUserManager, Group)
-from django.core.mail import EmailMessage
-from django.db import models
-from django.template.loader import render_to_string
-from django.dispatch import receiver
-from django.db.models.signals import pre_save, post_save
+import uuid
+import random
+import string
 import datetime as dt
 
-import random
+from django.db import models
+from django.dispatch import receiver
+from django.core.mail import EmailMessage
+from django.template.loader import render_to_string
+from django.db.models.signals import pre_save, post_save
+from django.contrib.auth.models import (AbstractUser, BaseUserManager, Group)
 
-import string
-import uuid
-
-
-from os import path
-
-def owner_file_path(instance, filename):
-    try:#in apirest is here
-        folder_user_document = '{}_{}'.format(instance.user.document_number, instance.user.last_name)
-    except:#in back oficce is here
-        folder_user_document = '{}_{}'.format(instance.document_number, instance.last_name)
-    return path.join('user_docs', folder_user_document, filename)
+from cities_light.models import Country, Region, SubRegion
+from apps.utils.models import base_model
+from apps.utils.models.file_helpers import (
+    user_juridic_xlsx_path,
+    user_document_front_path,
+    user_document_back_path,
+    user_profile_selfie_path
+)
+from config import settings
 
 class Role(base_model.BaseModel):
     name = models.CharField(max_length=126)
@@ -89,7 +83,7 @@ class User(AbstractUser,):
     phone = models.CharField("teléfono", max_length=64)
     #after validate email
     is_natural_person = models.BooleanField(default=True)
-    juridic_xlsx = models.FileField( upload_to=owner_file_path,
+    juridic_xlsx = models.FileField( upload_to=user_juridic_xlsx_path,
         blank=True,
         null=True,)
     first_name = models.CharField(max_length=128, blank= True, null=True)
@@ -129,14 +123,14 @@ class User(AbstractUser,):
         max_length=128,
         unique=True
         )
-    document_front_image = models.ImageField(upload_to=owner_file_path)
+    document_front_image = models.ImageField(upload_to=user_document_front_path)
     document_back_image = models.ImageField(
-        upload_to=owner_file_path,
+        upload_to=user_document_back_path,
         blank=True,
         null=True,
         )
     selfie = models.ImageField(
-        upload_to=owner_file_path,
+        upload_to=user_profile_selfie_path,
         blank=True,
         null=True,
         )

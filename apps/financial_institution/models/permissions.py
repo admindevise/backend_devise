@@ -1,5 +1,4 @@
 from django.db import models
-from django.contrib.contenttypes.models import ContentType
 
 """
 Sistema de permisos multi-tenant para instituciones financieras

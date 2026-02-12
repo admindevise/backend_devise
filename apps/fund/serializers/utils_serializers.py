@@ -10,7 +10,7 @@ class TrustMembersSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = InvestorContract
-        fields = ['user', 'contract_signed_at', 'created_at']
+        fields = ['user', 'contract_signed_at', 'created_at', 'fund']
 
 class TokenCounterUserSerializer(serializers.Serializer):
     """

@@ -5,6 +5,12 @@ import django.db.models.deletion
 import django.utils.timezone
 from django.conf import settings
 from django.db import migrations, models
+from apps.utils.models.file_helpers import (
+    user_juridic_xlsx_path,
+    user_document_front_path,
+    user_document_back_path,
+    user_profile_selfie_path
+)
 
 
 class Migration(migrations.Migration):
@@ -48,14 +54,14 @@ class Migration(migrations.Migration):
                 ('indicative', models.CharField(max_length=32, verbose_name='indicativo')),
                 ('phone', models.CharField(max_length=64, verbose_name='teléfono')),
                 ('is_natural_person', models.BooleanField(default=True)),
-                ('juridic_xlsx', models.FileField(blank=True, null=True, upload_to=apps.user.models.owner_file_path)),
+                ('juridic_xlsx', models.FileField(blank=True, null=True, upload_to=user_juridic_xlsx_path)),
                 ('first_name', models.CharField(blank=True, max_length=128, null=True)),
                 ('last_name', models.CharField(blank=True, max_length=128, null=True)),
                 ('birth_date', models.DateField(blank=True, null=True)),
                 ('document_number', models.CharField(blank=True, max_length=128, null=True, unique=True)),
-                ('document_front_image', models.ImageField(upload_to=apps.user.models.owner_file_path)),
-                ('document_back_image', models.ImageField(blank=True, null=True, upload_to=apps.user.models.owner_file_path)),
-                ('selfie', models.ImageField(blank=True, null=True, upload_to=apps.user.models.owner_file_path)),
+                ('document_front_image', models.ImageField(upload_to=user_document_front_path)),
+                ('document_back_image', models.ImageField(blank=True, null=True, upload_to=user_document_back_path)),
+                ('selfie', models.ImageField(blank=True, null=True, upload_to=user_profile_selfie_path)),
                 ('expedition_date', models.DateField(blank=True, null=True)),
                 ('kyc_validated', models.CharField(choices=[('pending_document', 'Pendiente por cargar documento'), ('ready_for_kyc', 'Pendiente por subir a WeeTrust'), ('validating_document', 'Documento en Validación'), ('fail_document', 'Fallo en Documento'), ('sucessfull_document', 'KYC Validado')], default='pending_document', max_length=64)),
                 ('mail_delivery', models.CharField(blank=True, choices=[('E-MAIL', 'Correo Electronico'), ('DOMICILIO', 'A la Dirección del Domicilio'), ('TRABAJO', 'A la Direccion del Trabajo')], max_length=126, null=True)),

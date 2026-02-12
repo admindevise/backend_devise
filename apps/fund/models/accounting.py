@@ -2,7 +2,13 @@ from decimal import Decimal
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.utils.models import base_model
-
+from apps.utils.models.file_helpers import (
+    accounting_entry_attachment_path,
+    accountability_document_path,
+    invoice_record_attachment_path,
+    invoice_record_xml_attachment_path,
+    accounting_import_batch_file_path,
+)
 
 # ============================================================================
 # CATÁLOGO DE CUENTAS CONTABLES
@@ -383,7 +389,7 @@ class AccountingEntry(base_model.BaseModel):
     # DOCUMENTOS SOPORTE
     # ========================================
     attachment = models.FileField(
-        upload_to='funds/accounting/entries/',
+        upload_to=accounting_entry_attachment_path,
         blank=True,
         null=True,
         verbose_name="Documento soporte"
@@ -455,7 +461,7 @@ class Accountability(base_model.BaseModel):
     )
     
     document = models.FileField(
-        upload_to='funds/accountability/%Y/',
+        upload_to=accountability_document_path,
         verbose_name="Documento aprobado"
     )
     
@@ -625,13 +631,13 @@ class InvoiceRecord(base_model.BaseModel):
     
     # Documentos
     attachment = models.FileField(
-        upload_to='funds/invoices/%Y/',
+        upload_to=invoice_record_attachment_path,
         blank=True,
         null=True,
         verbose_name="Documento de la factura"
     )
     xml_attachment = models.FileField(
-        upload_to='funds/invoices/xml/%Y/',
+        upload_to=invoice_record_xml_attachment_path,
         blank=True,
         null=True,
         verbose_name="Archivo XML de la factura"
@@ -793,8 +799,8 @@ class AccountingImportBatch(base_model.BaseModel):
     # ========================================
     # ARCHIVO
     # ========================================
-    file = models.FileField(
-        upload_to='funds/accounting/imports/',
+    accounting_file = models.FileField(
+        upload_to=accounting_import_batch_file_path,
         verbose_name="Archivo XLSX"
     )
     

@@ -2,6 +2,7 @@ from django.db import models
 from decimal import Decimal
 from django.core.validators import MinValueValidator
 from apps.utils.models import base_model
+from apps.utils.models.file_helpers import commission_transfer_doc_transfer_path
 
 
 # ============================================================================
@@ -299,7 +300,7 @@ class Transfers(base_model.BaseModel):
         verbose_name="Fondo"
     )
     doc_transfer = models.FileField(
-        upload_to="funds/transfer/",
+        upload_to=commission_transfer_doc_transfer_path,
         null=True,
         blank=True,
         verbose_name="Documento de cesion"
