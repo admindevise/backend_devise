@@ -4,6 +4,7 @@ from django.db.models import Count, Q, Sum
 
 from apps.fund.models.core import Fund
 from apps.user.models import User
+from apps.financial_institution.models.core import FinancialInstitutionApplication
 from apps.fund.models.membership import FundInvestment, InvestorContract
 from apps.trading.models.core_models import PurchaseOrder, SalesOrder
 
@@ -38,6 +39,8 @@ class DashboardStatsService:
                 'investors_with_investments': cls._get_active_investments(),
                 'investors_without_investments': cls._get_investors_without_investments(),
                 'pending_investor_approvals': cls._get_pending_investor_approvals(),
+                'members_financial_institution': cls._get_members_financial_institution(),
+                'onboarding_users_financial_institution': cls.onboarding_users_financial_institution()
             }
             # Guardar en caché
             if use_cache:
@@ -109,6 +112,34 @@ class DashboardStatsService:
         return InvestorContract.objects.filter(
             status=signed_status
         ).values('user').distinct().count()
+        
+    @classmethod
+    def _get_members_financial_institution(cls):
+        signed_status = getattr(
+            FinancialInstitutionApplication.ApplicationStatus,
+            "APPROVED",
+            "approved"
+        )
+        return FinancialInstitutionApplication.objects.filter(
+            status=signed_status
+        ).select_related('user').values('user__id', 'user__email').distinct().count()
+        
+    @classmethod
+    def onboarding_users_financial_institution(cls):
+        pending_status = getattr(
+            FinancialInstitutionApplication.ApplicationStatus,
+            "APPROVED",
+            "approved"
+        )
+        cancelled_status = getattr(
+            FinancialInstitutionApplication.ApplicationStatus,
+            "CANCELLED",
+            "cancelled"
+        )
+        
+        return FinancialInstitutionApplication.objects.exclude(
+            status__in=[pending_status, cancelled_status]
+        ).count()
     
     @classmethod
     def _get_active_investments(cls):

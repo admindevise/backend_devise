@@ -14,5 +14,8 @@ class DashboardStatsSerializer(serializers.Serializer):
     investors_with_investments = serializers.IntegerField(read_only=True)
     investors_without_investments = serializers.IntegerField(read_only=True)
     pending_investor_approvals = serializers.IntegerField(read_only=True)
+    members_financial_institution = serializers.IntegerField(read_only=True)
+    onboarding_users_financial_institution = serializers.IntegerField(read_only=True)
+    
     
     
