@@ -25,6 +25,7 @@ from apps.fund.views.core_views import (
     FundTokenViewSet,
     TransferReceiptViewSet,
     TokenTransactionViewSet,
+    FundTypeSemestralDocumentViewSet,
     FundSemestralDocumentViewSet,
     OthersIViewSet,
     TrustAgreementViewSet,
@@ -196,6 +197,7 @@ router.register(r'transaction', TokenTransactionViewSet, basename='token-transac
 router.register(r'transfer_receipt', TransferReceiptViewSet, basename='transfer-receipt')
 router.register(r'trust-agreement', TrustAgreementViewSet, basename='trust-agreement')
 router.register(r'members', TrustMembersViewSet, basename='members')
+router.register(r'type-semestral-document', FundTypeSemestralDocumentViewSet, basename='type-semestral-document')
 
 # Investments
 router.register(r'investment', InvestmentViewSet, basename='investment')

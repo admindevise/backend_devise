@@ -5,7 +5,7 @@ from django.contrib import admin
 # ===================================
 
 # Core
-from apps.fund.models.core import Fund, OthersI, TrustAgreement
+from apps.fund.models.core import Fund, OthersI, TrustAgreement, FundSemestralDocument
 
 # Membership
 from apps.fund.models.membership import (
@@ -65,6 +65,11 @@ class FundAdmin(admin.ModelAdmin):
 class OthersIAdmin(admin.ModelAdmin):
     list_display = ('doc_number', 'document', 'name')
     list_filter = ('doc_number',)
+    
+@admin.register(FundSemestralDocument)
+class FundSemestralDocumentAdmin(admin.ModelAdmin):
+    list_display = ('fund', 'period_start_date', 'periodicity', 'document')
+    list_filter = ('fund', 'period_start_date', 'periodicity')
 
 
 # ===================================

@@ -208,11 +208,22 @@ def get_burn_from_kaleido(contract_address, token_id):
 @permission_classes([IsAuthenticated])
 def get_wallet_address(request):
     fund_id = request.data.get('fund_id')
+    user_id = request.data.get('user_id')
+    
+    # Si es staff, requiere user_id obligatorio
+    if request.user.is_staff:
+        if not user_id:
+            return Response({'error': 'user_id is required for staff users'}, status=400)
+        user = user_id
+    else:
+        # Si no es staff, ignora user_id y usa request.user
+        user = request.user.id
+    
     if not fund_id:
         return Response({'error': 'fund_id is required'}, status=400)
     
-    try:
-        InvestorContract.objects.get(user=request.user, fund=fund_id)
+    try:    
+        InvestorContract.objects.get(user=user, fund=fund_id)
     except InvestorContract.DoesNotExist:
         return Response({'error': 'User is not associated with the specified fund'}, status=404)
     

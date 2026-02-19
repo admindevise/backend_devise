@@ -78,6 +78,14 @@ def fund_other_documents_path(instance, filename):
     """Para Fund.other_documents_file"""
     return generate_upload_path('fund', 'other_documents')(instance, filename)
 
+def fund_assignment_contract_path(instance, filename):
+    """Para Fund.assignment_contract"""
+    return generate_upload_path('fund', 'assignment_contract')(instance, filename)
+
+def fund_operating_contract_path(instance, filename):
+    """Para Fund.operating_contract"""
+    return generate_upload_path('fund', 'operating_contract')(instance, filename)
+
 def fund_semestral_document_path(instance, filename):
     """Para FundSemestralDocument.document"""
     return generate_upload_path('fund_semestral_document', 'document')(instance, filename)

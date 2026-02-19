@@ -4,6 +4,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from django_filters.rest_framework import DjangoFilterBackend
+from django_filters import rest_framework as django_filters
 from apps.utils.views.Mixins import DateFilterMixin
 
 from apps.fund.models.membership import InvestorContract
@@ -12,6 +13,7 @@ from apps.fund.models.core import (
     OthersI,
     FundCategory,
     TrustAgreement,
+    TypeSemestralDocument,
     FundSemestralDocument,
 )
 from apps.fund.models.tokens import (
@@ -26,12 +28,15 @@ from apps.fund.serializers.core_serializers import(
     FundTokenSerializer,
     FundMemberSerializer,
     TransferReceiptSerializer,
+    TypeSemestralDocumentSerializer,
     FundSemestralDocumentSerializer,
     TrustAgreementSerializer
 )
 from apps.fund.serializers.transaction_serializers import TokenTransactionSerializer
 
-
+# ============================================================================
+# Fund Core Views
+# ============================================================================
 class FundCategoryViewSet(viewsets.ModelViewSet):
     """
     API endpoint que permite gestionar categorías de fondos.
@@ -123,7 +128,32 @@ class FundMembersViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
         # ✅ Aplicar filtros de fecha
         return self.apply_date_filters(queryset)
 
-class FundSemestralDocumentViewSet(viewsets.ModelViewSet):
+
+# ============================================================================
+# Fund Semestral Documents Views
+# ============================================================================
+class FundTypeSemestralDocumentViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint que permite gestionar tipos de documentos semestrales de fondos.
+    Proporciona acciones `list`, `create`, `retrieve`, `update` y `destroy`.
+    """
+    queryset = TypeSemestralDocument.objects.all()
+    serializer_class = TypeSemestralDocumentSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+# Filter
+class FundSemestralDocumentFilterSet(django_filters.FilterSet):
+    fund = django_filters.NumberFilter(field_name='fund__id')
+    document_type = django_filters.NumberFilter(field_name='document_type__id')
+    periodicity = django_filters.ChoiceFilter(choices=FundSemestralDocument.PeriodicityChoices.choices)
+    cycle = django_filters.NumberFilter(field_name='cycle')
+    
+    class Meta:
+        model = FundSemestralDocument
+        fields = ['fund', 'period_start_date', 'period_end_date', 'document_type', 'periodicity', 'cycle'] 
+
+class FundSemestralDocumentViewSet(DateFilterMixin, viewsets.ModelViewSet):
     """
     API endpoint que permite gestionar documentos semestrales de fondos.
     Proporciona acciones `list`, `create`, `retrieve`, `update` y `destroy`.
@@ -132,13 +162,15 @@ class FundSemestralDocumentViewSet(viewsets.ModelViewSet):
     serializer_class = FundSemestralDocumentSerializer
     authentication_classes = [JWTAuthentication]
     parser_classes = [MultiPartParser, FormParser]
-    http_method_names = ['get', 'post', 'delete']
+    http_method_names = ['get', 'post', 'delete', 'patch']
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['fund']
+    filterset_class = FundSemestralDocumentFilterSet
     search_fields = ['document']
     ordering_fields = ['uploaded_date']
     ordering = ['-uploaded_date']
+    date_field = 'uploaded_date'  # Campo de fecha para filtros de fecha
+    
 
     def get_queryset(self):
         """
@@ -147,13 +179,13 @@ class FundSemestralDocumentViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         queryset = FundSemestralDocument.objects.select_related('fund').filter(fund__user=user)
-            
-        return queryset
+        
+        return self.apply_date_filters(queryset)
    
    
-# ========================================
+# ============================================================================
 # OTROSI VIEWS
-# ========================================
+# ============================================================================
 
 class OthersIViewSet(viewsets.ModelViewSet):
     queryset = OthersI.objects.all()

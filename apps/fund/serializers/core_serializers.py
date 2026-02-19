@@ -5,6 +5,7 @@ from rest_framework.exceptions import ValidationError
 from apps.fund.models.core import (
     FundCategory,
     Fund,
+    TypeSemestralDocument,
     FundSemestralDocument,
     OthersI,
     TrustAgreement,
@@ -22,34 +23,70 @@ from apps.kaleido.serializers.serializer_wallet import WalletFundSerializer
 # Servicios
 from apps.fund.services.fund_service import FundCreationService, FundServiceError
 
-
-class FundCategorySerializer(serializers.ModelSerializer):
+# ============================================================================
+# Fund Semestral Document Serializers
+# ============================================================================
+class TypeSemestralDocumentSerializer(serializers.ModelSerializer):
+    code = serializers.CharField(read_only=True)
     class Meta:
-        model = FundCategory
+        model = TypeSemestralDocument
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+        
+    def validate_name(self, value):
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("El nombre del tipo de documento no puede estar vacío.")
+        if len(value) < 3:
+            raise serializers.ValidationError("El nombre del tipo de documento debe tener al menos 3 caracteres.")
+        if len(value) > 50:
+            raise serializers.ValidationError("El nombre del tipo de documento no puede exceder los 50 caracteres.")
+        if TypeSemestralDocument.objects.filter(name__iexact=value.strip()).exists():
+            raise serializers.ValidationError("Ya existe un tipo de documento con ese nombre.")
+        return value.strip()
+    
+    def generate_code(self, name):
+        """
+        Genera un código único para el tipo de documento semestral basado en su nombre.
+        Formato: "TSD-XXX" (ej: "TSD-001")
+        """
+        from django.db.models import Max
+        prefix = "TSD"
+        last_id = TypeSemestralDocument.objects.aggregate(max_id=Max('id'))['max_id'] or 0
+        new_id = last_id + 1
+        return f"{prefix}-{new_id:03d}"
+    
+    def create(self, validated_data):
+        validated_data['code'] = self.generate_code(validated_data['name'])
+        return super().create(validated_data)
 
 class FundSemestralDocumentSerializer(serializers.ModelSerializer):
     uploaded_date = serializers.DateField(format="%Y-%m-%d", read_only=True)
     period_start_date = serializers.DateField(read_only=False)
     period_end_date = serializers.DateField(read_only=False)
-    document_type = serializers.ChoiceField(
-        choices=FundSemestralDocument.DocumentType.choices,
+    periodicity = serializers.ChoiceField(
+        choices=[('monthly', 'Mensual'), ('quarterly', 'Trimestral'), ('semi_annually', 'Semestral'), ('annually', 'Anual')],
         required=True
     )
-    semester = serializers.ChoiceField(
-        choices=[
-            (1, 'Primer Semestre'),
-            (2, 'Segundo Semestre')
-            ],
-        required=True
-    )
-    year = serializers.IntegerField(required=True)
+    cycle = serializers.IntegerField(required=True, min_value=1)
+    periodicity_cycles = serializers.IntegerField(read_only=True)
+    document_type_name = serializers.CharField(source='document_type.name', read_only=True)
     
     class Meta:
         model = FundSemestralDocument
         fields = '__all__'
         read_only_fields = ['id', 'fund', 'uploaded_date', 'uploaded_by']
+    
+    def validate_cycle(self, value):
+        periodicity = self.initial_data.get('periodicity')
+        if periodicity == 'monthly' and not (1 <= value <= 12):
+            raise serializers.ValidationError("Para periodicidad mensual, el ciclo debe estar entre 1 y 12.")
+        elif periodicity == 'quarterly' and not (1 <= value <= 4):
+            raise serializers.ValidationError("Para periodicidad trimestral, el ciclo debe estar entre 1 y 4.")
+        elif periodicity == 'semi_annually' and not (1 <= value <= 2):
+            raise serializers.ValidationError("Para periodicidad semestral, el ciclo debe estar entre 1 y 2.")
+        elif periodicity == 'annually' and value != 1:
+            raise serializers.ValidationError("Para periodicidad anual, el ciclo debe ser 1.")
+        return value
     
     def validate(self, attrs):
         user = self.context['request'].user
@@ -65,22 +102,28 @@ class FundSemestralDocumentSerializer(serializers.ModelSerializer):
             raise ValidationError({
                 "fund": "El usuario está asociado a múltiples fondos."
             })
+            
+        # Obtener valores: del request o de la instancia existente (para PATCH)
+        document_type = attrs.get('document_type') or (self.instance.document_type if self.instance else None)
+        periodicity = attrs.get('periodicity') or (self.instance.periodicity if self.instance else None)
+        cycle = attrs.get('cycle') or (self.instance.cycle if self.instance else None)
         
-        # Validar que no exista ya un documento para el mismo semestre y tipo
-        existing_doc = FundSemestralDocument.objects.select_related('fund').filter(
-            fund=fund,
-            document_type=attrs['document_type'],
-            year=attrs['year'],
-            semester=attrs['semester'],
-        ).exists()
-        
-        if existing_doc:
-            raise ValidationError({
-                "document": "Ya existe un documento para el mismo semestre y tipo."
-                })
+        if document_type and periodicity and cycle:
+            query = FundSemestralDocument.objects.filter(
+                fund=fund,
+                document_type=document_type,
+                periodicity=periodicity,
+                cycle=cycle,
+            )
+            
+            # En actualización, excluir la instancia actual
+            if self.instance:
+                query = query.exclude(pk=self.instance.pk)
+            
+            if query.exists():
+                raise ValidationError({"document": "Ya existe un documento para esta combinación."})
         
         attrs['_fund'] = fund
-        
         return attrs
     
     def create(self, validated_data):
@@ -94,8 +137,8 @@ class FundSemestralDocumentSerializer(serializers.ModelSerializer):
         document = FundSemestralDocument.objects.create(
             fund=fund,
             document_type=validated_data['document_type'],
-            year=validated_data['year'],
-            semester=validated_data['semester'],
+            periodicity=validated_data['periodicity'],
+            cycle=validated_data['cycle'],
             title=validated_data.get('title', ''),
             description=validated_data.get('description', ''),
             document=validated_data['document'],
@@ -105,6 +148,16 @@ class FundSemestralDocumentSerializer(serializers.ModelSerializer):
         )
         
         return document
+
+
+# =======================================================================
+# Fund Serializers
+# =======================================================================
+class FundCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FundCategory
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 class FundSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
@@ -199,6 +252,10 @@ class FundSerializer(serializers.ModelSerializer):
         except Exception as e:
             raise ValidationError({"detail": [f"Ha ocurrido un error inesperado: {str(e)}"]})
 
+
+# ============================================================================
+# Fund MEMBERSHIP Serializers
+# ============================================================================
 class FundMemberSerializer(serializers.ModelSerializer):
     user = UserShortInfoSerializer()
     contract_signed_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)    
@@ -208,6 +265,10 @@ class FundMemberSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'fund', 'contract_signed_at']
         read_only_fields = ['id', 'user']
 
+
+# ============================================================================
+# Token y Receipts Serializers
+# ============================================================================
 class TransferReceiptSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     
@@ -226,6 +287,10 @@ class FundTokenSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'fund', 'owner_user', 'status', 'reserved_at', 'reservation_expires_at']
 
+
+# ============================================================================
+# OthersI y TrustAgreement Serializers
+# ============================================================================
 class OthersISerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     

@@ -12,6 +12,8 @@ from apps.utils.models.file_helpers import (
     fund_fiduciary_draft_path,
     fund_mercantile_trust_agreement_path,
     fund_other_documents_path,
+    fund_assignment_contract_path,
+    fund_operating_contract_path,
     fund_semestral_document_path,
     othersi_document_path,
     trust_agreement_signed_document_path,
@@ -21,6 +23,9 @@ from apps.utils.models.file_helpers import (
 from apps.user.models import User
 from apps.kaleido.models import Wallet, InstanceOfTokenContract721
 
+# ============================================================================
+# FIDEICOMISOS
+# ============================================================================
 
 class FundCategory(models.Model):
     """
@@ -44,7 +49,6 @@ class FundCategory(models.Model):
     
     def __str__(self):
         return self.name
-
 
 class Fund(models.Model):
     """
@@ -463,12 +467,20 @@ class Fund(models.Model):
         help_text="Documento de contrato de fiducia mercantil",
         verbose_name="Contrato de fiducia mercantil"
     )
-    other_documents = models.FileField(
-        upload_to=fund_other_documents_path,
+    
+    assignment_contract = models.FileField(
+        upload_to=fund_assignment_contract_path,
         blank=True,
         null=True,
-        help_text="Otros documentos",
-        verbose_name="Otros documentos"
+        help_text="Contrato de cesión",
+        verbose_name="Contrato de cesión"
+    )
+    operating_contract = models.FileField(
+        upload_to=fund_operating_contract_path,
+        blank=True,
+        null=True,
+        help_text="Contrato de operación",
+        verbose_name="Contrato de operación"
     )
     
     # ========================================
@@ -509,15 +521,67 @@ class Fund(models.Model):
         return self.amount_units * self.price_per_unit if self.price_per_unit else 0
 
 
+# ============================================================================
+# DOCUMENTOS SEMESTRALES
+# ============================================================================
+class TypeSemestralDocument(models.Model):
+    """
+    Tipos de documentos semestrales asociados a un fondo
+    """
+    code = models.CharField(
+        max_length=50, 
+        unique=True, 
+        verbose_name="Código del tipo de documento"
+    )
+    name = models.CharField(
+        max_length=100, 
+        verbose_name="Nombre del tipo de documento"
+    )
+    description = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Descripción del tipo de documento"
+    )
+    
+    class Meta:
+        verbose_name = "Tipo de Documento Semestral"
+        verbose_name_plural = "Tipos de Documentos Semestrales"
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
 class FundSemestralDocument(models.Model):
     """
     Modelo para manejar documentos semestrales asociados a un fondo
     """
     
-    class DocumentType(models.TextChoices):
-        ACCOUNTTABILITY = 'accountability', 'Rendición de cuentas'
-        TAX_CERTIFICATE = 'tax_certificate', 'Certificado tributario'
-        OPERATOR_REPORT = 'operator_report', 'Reporte del operador'
+    class PeriodicityChoices(models.TextChoices):
+        MONTHLY = 'monthly', 'Mensual'
+        QUARTERLY = 'quarterly', 'Trimestral'
+        SEMI_ANNUALLY = 'semi_annually', 'Semestral'
+        ANNUALLY = 'annually', 'Anual'
+    
+    class CycleChoices(models.IntegerChoices):
+        CYCLE_1 = 1, 'Ciclo 1'
+        CYCLE_2 = 2, 'Ciclo 2'
+        CYCLE_3 = 3, 'Ciclo 3'
+        CYCLE_4 = 4, 'Ciclo 4'
+        CYCLE_5 = 5, 'Ciclo 5'
+        CYCLE_6 = 6, 'Ciclo 6'
+        CYCLE_7 = 7, 'Ciclo 7'
+        CYCLE_8 = 8, 'Ciclo 8'
+        CYCLE_9 = 9, 'Ciclo 9'
+        CYCLE_10 = 10, 'Ciclo 10'
+        CYCLE_11 = 11, 'Ciclo 11'
+        CYCLE_12 = 12, 'Ciclo 12' 
+        
+    PERIODICITY_CYCLES = {
+        'monthly': 12,
+        'quarterly': 4,
+        'semi_annually': 2,
+        'annually': 1,
+    }
     
     fund = models.ForeignKey(
         Fund, 
@@ -525,19 +589,27 @@ class FundSemestralDocument(models.Model):
         related_name="semestral_documents",
         verbose_name="Fondo"
     )
-    document_type = models.CharField(
-        max_length=50,
-        choices=DocumentType.choices,
-        verbose_name="Tipo de documento"
+    
+    document_type = models.ForeignKey(
+        TypeSemestralDocument,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Tipo de documento",
+        related_name="semestral_documents"
     )
     
-    # Información temporal
-    year = models.PositiveSmallIntegerField(
-        verbose_name="Año del documento"
+    # Información de periodicidad
+    periodicity = models.CharField(
+        max_length=20,
+        choices=PeriodicityChoices.choices,
+        verbose_name="Periodicidad del documento"
     )
-    semester = models.PositiveSmallIntegerField(
-        choices=[(1, 'Primer semestre'), (2, 'Segundo semestre')],
-        verbose_name="Semestre del documento"
+    
+    cycle = models.PositiveSmallIntegerField(
+        choices=CycleChoices.choices,
+        verbose_name="Número de ciclo",
+        help_text="Número del ciclo dentro de la periodicidad (Ej: 1-12 para mensual, 1-4 para trimestral, etc.)",
     )
     
     # Documento y metadatos
@@ -590,8 +662,28 @@ class FundSemestralDocument(models.Model):
     def period_display(self):
         """Retorna una representación legible del período"""
         return f"{self.year} - Semestre {self.semester}"
+    
+    @property
+    def cycles_per_year(self):
+        """Retorna la cantidad de ciclos por año según la periodicidad"""
+        return self.PERIODICITY_CYCLES.get(self.periodicity, 1)
+    
+    @property
+    def periodicity_cycles(self):
+        """Retorna el numero de ciclos por año"""
+        cycles_map = {
+            'monthly': 12,
+            'quarterly': 4,
+            'semi_annually': 2,
+            'annually': 1,
+        }
+        
+        return cycles_map.get(self.periodicity, 1)
+    
 
-
+# ============================================================================
+# OTROSÍES
+# ============================================================================
 class OthersI(base_model.BaseModel):
     """
     Documentos de Otrosí adjuntos al fondo.
@@ -659,7 +751,7 @@ class FundPriceHistory(models.Model):
 
 class TrustAgreement(base_model.BaseModel):
     """
-    Modelo para gestionar contratos fiduciarios asociados a un fondo.
+    Modelo para gestionar contratos fiduciarios asociados a un fondo. Es decir el dueño le entrega el fi a la institucion financiera
     """
     class TypesAgreement(models.TextChoices):
         ADMINISTRATION = 'administration', 'Administración'
@@ -722,3 +814,4 @@ class TrustAgreement(base_model.BaseModel):
         verbose_name = "Contrato fiduciario"
         verbose_name_plural = "Contratos fiduciarios"
         ordering = ['-created_at']
+        

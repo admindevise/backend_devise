@@ -1,6 +1,7 @@
 from django.utils import timezone
 from datetime import datetime, timedelta
 import pytz
+from rest_framework.exceptions import ValidationError
 
 class DateFilterMixin:
     """
@@ -33,7 +34,12 @@ class DateFilterMixin:
             try:
                 start_date_obj = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
             except ValueError:
-                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d")
+                try:
+                    start_date_obj = datetime.strptime(start_date, "%Y-%m-%d")
+                except ValueError:
+                    raise ValidationError({
+                        "start_date": "Formato de fecha inválido. Use 'YYYY-MM-DD' o 'YYYY-MM-DD HH:MM:SS'."
+                    })
             
             # Hacer la fecha consciente de la zona horaria
             current_tz = timezone.get_current_timezone()
@@ -48,9 +54,14 @@ class DateFilterMixin:
             try:
                 end_date_obj = datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S")
             except ValueError:
-                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
-                # Si solo es fecha sin hora, establecer a final del día
-                end_date_obj = end_date_obj.replace(hour=23, minute=59, second=59)
+                try:
+                    end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
+                    # Si solo es fecha sin hora, establecer a final del día
+                    end_date_obj = end_date_obj.replace(hour=23, minute=59, second=59)
+                except ValueError:
+                    raise ValidationError({
+                        "end_date": "Formato de fecha inválido. Use 'YYYY-MM-DD' o 'YYYY-MM-DD HH:MM:SS'."
+                    })
             
             # Hacer la fecha consciente de la zona horaria
             current_tz = timezone.get_current_timezone()
