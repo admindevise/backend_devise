@@ -1,6 +1,9 @@
 from rest_framework import viewsets, filters
+from rest_framework.response import Response
+from django.http import Http404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -171,7 +174,29 @@ class FundSemestralDocumentViewSet(DateFilterMixin, viewsets.ModelViewSet):
     ordering = ['-uploaded_date']
     date_field = 'uploaded_date'  # Campo de fecha para filtros de fecha
     
-
+    def get_fund(self):
+        fund_id = self.kwargs.get('fund_id')
+        
+        try:
+            fund = Fund.objects.get(id=fund_id)
+        except Fund.DoesNotExist:
+            raise Http404(f"El fondo con ID {fund_id} no existe.")
+        
+        # ========
+        # Luego mover esto a permisos 'can_access_fund_docuemnts'
+        is_staff_or_admin = self.request.user.is_staff or self.request.user.is_superuser
+        
+        if not is_staff_or_admin:
+            if fund.user != self.request.user:
+                raise Http404(f"No tienes permiso para acceder a los documentos de este fondo.")
+        # ========
+        return fund
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['fund'] = self.get_fund()
+        return context
+    
     def get_queryset(self):
         """
         Filtra los documentos para mostrar solo los del usuario autenticado,
@@ -181,6 +206,43 @@ class FundSemestralDocumentViewSet(DateFilterMixin, viewsets.ModelViewSet):
         queryset = FundSemestralDocument.objects.select_related('fund').filter(fund__user=user)
         
         return self.apply_date_filters(queryset)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_cycle_options(request):
+    """
+    Retorna las opciones de ciclos disponibles según la periodicidad.
+    
+    Query params:
+    - periodicity: monthly, quarterly, semi_annually, annually
+    
+    Ejemplo: GET /api/fund/cycle-options/?periodicity=monthly
+    """
+    periodicity = request.query_params.get('periodicity')
+    
+    if not periodicity:
+        return Response({
+            'error': 'El parámetro "periodicity" es requerido'
+        }, status=400)
+    
+    cycle_labels = FundSemestralDocumentSerializer.CYCLE_LABELS.get(periodicity)
+    
+    if not cycle_labels:
+        return Response({
+            'error': f'Periodicidad inválida: {periodicity}'
+        }, status=400)
+    
+    # Formatear como lista de opciones
+    options = [
+        {'value': cycle, 'label': label}
+        for cycle, label in cycle_labels.items()
+    ]
+    
+    return Response({
+        'periodicity': periodicity,
+        'options': options
+    })
    
    
 # ============================================================================

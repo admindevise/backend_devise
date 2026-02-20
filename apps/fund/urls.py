@@ -27,6 +27,7 @@ from apps.fund.views.core_views import (
     TokenTransactionViewSet,
     FundTypeSemestralDocumentViewSet,
     FundSemestralDocumentViewSet,
+    get_cycle_options,
     OthersIViewSet,
     TrustAgreementViewSet,
 ) 
@@ -190,7 +191,7 @@ router = DefaultRouter()
 router.register(r'main', FundViewSet, basename='fund')
 router.register(r'category', FundCategoryViewSet, basename='fund-category')
 router.register(r'members', FundMembersViewSet, basename='fund-members')
-router.register(r'semestral-document', FundSemestralDocumentViewSet, basename='semestral-document')
+router.register(r'(?P<fund_id>\d+)/semestral-document', FundSemestralDocumentViewSet, basename='semestral-document')
 router.register(r'othersi', OthersIViewSet, basename='otrosi')
 router.register(r'token', FundTokenViewSet, basename='fund-token')
 router.register(r'transaction', TokenTransactionViewSet, basename='token-transaction')
@@ -334,6 +335,7 @@ urlpatterns = [
     # ========================================================================
     path('api/utils/token-count/', get_token_count, name='get-token-count'),
     path('api/ai/generate-content/', ai_generate_content, name='ai-generate-content'),
+    path('api/cycle-options/', get_cycle_options, name='cycle-options'),    
     
     # Testing (Solo desarrollo)
     path('testing/', testing, name='testing'),

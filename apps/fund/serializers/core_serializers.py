@@ -68,41 +68,101 @@ class FundSemestralDocumentSerializer(serializers.ModelSerializer):
         required=True
     )
     cycle = serializers.IntegerField(required=True, min_value=1)
+    cycle_display = serializers.SerializerMethodField(read_only=True)
     periodicity_cycles = serializers.IntegerField(read_only=True)
     document_type_name = serializers.CharField(source='document_type.name', read_only=True)
+    
+    # Mapeo de ciclos a representaciones amigables
+    CYCLE_LABELS = {
+        'monthly':{
+            1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+        },
+        'quarterly': {
+            1: 'Q1 (Ene-Mar)', 2: 'Q2 (Abr-Jun)', 3: 'Q3 (Jul-Sep)', 4: 'Q4 (Oct-Dic)'
+        },
+        'semi_annually': {
+            1: 'S1 (Ene-Jun)', 2: 'S2 (Jul-Dic)'
+        },
+        'annually': {
+            1: 'Anual'
+        }
+    }
     
     class Meta:
         model = FundSemestralDocument
         fields = '__all__'
         read_only_fields = ['id', 'fund', 'uploaded_date', 'uploaded_by']
+        
+
+    def get_cycle_display(self, obj):
+        """
+        Retorna una representación amigable del ciclo basado en la periodicidad.
+        
+        Ejemplo:
+        - Para periodicidad mensual y ciclo 1, retorna "Enero"
+        - Para periodicidad trimestral y ciclo 2, retorna "Q2 (Abr-Jun)"
+        - Para periodicidad semestral y ciclo 1, retorna "S1 (Ene-Jun)"
+        """
+        periodicity = obj.periodicity
+        cycle = obj.cycle
+        
+        return self.CYCLE_LABELS.get(periodicity, {}).get(cycle, f"Ciclo {cycle}")
     
     def validate_cycle(self, value):
+        """Valida el ciclo con mensajes compactos y amigables"""
         periodicity = self.initial_data.get('periodicity')
-        if periodicity == 'monthly' and not (1 <= value <= 12):
-            raise serializers.ValidationError("Para periodicidad mensual, el ciclo debe estar entre 1 y 12.")
-        elif periodicity == 'quarterly' and not (1 <= value <= 4):
-            raise serializers.ValidationError("Para periodicidad trimestral, el ciclo debe estar entre 1 y 4.")
-        elif periodicity == 'semi_annually' and not (1 <= value <= 2):
-            raise serializers.ValidationError("Para periodicidad semestral, el ciclo debe estar entre 1 y 2.")
-        elif periodicity == 'annually' and value != 1:
-            raise serializers.ValidationError("Para periodicidad anual, el ciclo debe ser 1.")
+        
+        periodicity_names = {
+            'monthly': 'Mensual',
+            'quarterly': 'Trimestral',
+            'semi_annually': 'Semestral',
+            'annually': 'Anual'
+        }
+        
+        valid_ranges = {
+            'monthly': (1, 12),
+            'quarterly': (1, 4),
+            'semi_annually': (1, 2),
+            'annually': (1, 1)
+        }
+        
+        # Mensajes compactos
+        error_messages = {
+            'monthly': f"debe estar entre Enero (1) y Diciembre (12)",
+            'quarterly': f"debe estar entre Q1 (1) y Q4 (4)",
+            'semi_annually': f"debe ser S1 (1) o S2 (2)",
+            'annually': f"debe ser 1 (Año Completo)"
+        }
+        
+        if periodicity in valid_ranges:
+            min_val, max_val = valid_ranges[periodicity]
+            
+            if not (min_val <= value <= max_val):
+                periodicity_name = periodicity_names.get(periodicity, periodicity)
+                error_msg = error_messages.get(periodicity, f"entre {min_val} y {max_val}")
+                
+                raise serializers.ValidationError(
+                    f"Para '{periodicity_name}', el ciclo {error_msg}"
+                )
+        
         return value
     
     def validate(self, attrs):
-        user = self.context['request'].user
+        """Validar que no exista ya un documento para la misma combinación"""
         
-        try:
-            fund = Fund.objects.get(user=user)
-        except Fund.DoesNotExist:
+        # El fondo ya viene en el request (read_only=False sería necesario si lo editas)
+        # O si es nested route, viene desde el ViewSet
+        fund = self.instance.fund if self.instance else attrs.get('fund')
+        
+        if not fund:
+            # Si aún no está disponible, obtenerlo desde el contexto del ViewSet
+            fund = self.context.get('fund')
+        
+        if not fund:
             raise ValidationError({
-                "fund": "El usuario no tiene un fondo asociado."
-            }
-            )
-        except Fund.MultipleObjectsReturned:
-            raise ValidationError({
-                "fund": "El usuario está asociado a múltiples fondos."
+                "fund": "No se pudo determinar el fideicomiso."
             })
-            
+        
         # Obtener valores: del request o de la instancia existente (para PATCH)
         document_type = attrs.get('document_type') or (self.instance.document_type if self.instance else None)
         periodicity = attrs.get('periodicity') or (self.instance.periodicity if self.instance else None)
@@ -121,7 +181,9 @@ class FundSemestralDocumentSerializer(serializers.ModelSerializer):
                 query = query.exclude(pk=self.instance.pk)
             
             if query.exists():
-                raise ValidationError({"document": "Ya existe un documento para esta combinación."})
+                raise ValidationError({
+                    "document": "Ya existe un documento para esta combinación."
+                })
         
         attrs['_fund'] = fund
         return attrs
