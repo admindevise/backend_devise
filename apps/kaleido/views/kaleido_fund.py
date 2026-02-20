@@ -207,6 +207,8 @@ def get_burn_from_kaleido(contract_address, token_id):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def get_wallet_address(request):
+    from apps.user.models import User
+    
     fund_id = request.data.get('fund_id')
     user_id = request.data.get('user_id')
     
@@ -214,26 +216,34 @@ def get_wallet_address(request):
     if request.user.is_staff:
         if not user_id:
             return Response({'error': 'user_id is required for staff users'}, status=400)
-        user = user_id
+        
+        # Obtener el objeto User desde el ID
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
     else:
-        # Si no es staff, ignora user_id y usa request.user
-        user = request.user.id
+        # Si no es staff, usa request.user directamente
+        user = request.user
     
     if not fund_id:
         return Response({'error': 'fund_id is required'}, status=400)
     
-    try:    
-        InvestorContract.objects.get(user=user, fund=fund_id)
-    except InvestorContract.DoesNotExist:
-        return Response({'error': 'User is not associated with the specified fund'}, status=404)
+    # Validar InvestorContract SOLO para usuarios no-staff
+    if not (request.user.is_superuser or request.user.is_staff):
+        try:
+            InvestorContract.objects.get(user=user, fund=fund_id)
+        except InvestorContract.DoesNotExist:
+            return Response({'error': 'User is not associated with the specified fund'}, status=404)
     
-    wallet_data, error = get_wallet_index(request.user, fund_id)
+    wallet_data, error = get_wallet_index(user, fund_id)
     if error or not wallet_data:
         return Response({'error': error or "No wallet index found"}, status=400)
     
     address = wallet_data.get('address')
     private_key = wallet_data.get('privateKey')
     return Response({'address': address, 'privateKey': private_key}, status=200)
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -1130,9 +1140,13 @@ class TokenOwnershipView(APIView):
             fund = Fund.objects.get(id=fund_id)
             
             # 2. Verificar si el usuario es inversor del fondo
-            investment, error = is_investor_valid(request.user, fund_id)
-            if not investment:
-                return Response({"error": error}, status=status.HTTP_403_FORBIDDEN)
+            try:
+                if not (request.user.is_superuser or request.user.is_staff):
+                    investment, error = is_investor_valid(request.user, fund_id)
+                    if not investment:
+                        return Response({"error": error}, status=status.HTTP_403_FORBIDDEN)
+            except Exception as e:
+                return Response({"error": f"Error verifying investor status: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             # 3. Verificar dirección del contrato
             #fund = investment.fund

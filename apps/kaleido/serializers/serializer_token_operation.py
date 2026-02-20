@@ -303,7 +303,7 @@ class TokenMintBatchSerializer(BaseTokenOperationSerializer):
         # SOLUCION: Generar timestamp una sola vez y reutilizarlo
         now = datetime.now()
         date_part = now.strftime('%y%m%d')
-        fund_id_part = f"{int(fund.id):03d}"
+        fund_id_part = f"{int(fund.id):06d}"
         
         # Usar transacción atómica para obtener el contador actual y bloquearlo
         with transaction.atomic():

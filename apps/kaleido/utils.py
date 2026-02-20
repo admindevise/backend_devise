@@ -228,20 +228,25 @@ def get_wallet_index(user, fund_id, max_retries=3):
     ✅ MEJORADO: Obtiene wallet index con reintentos para problemas de conectividad
     """
     try:
-        # 1. Verificar si el usuario está asociado al fondo
-        investment, error = is_investor_valid(user, fund_id)
-        if error is not None:
-            return None, error
+        # 1. Obtener el fondo directamente
+        try:
+            fund = Fund.objects.get(id=fund_id)
+        except Fund.DoesNotExist:
+            return None, f"Fund with id {fund_id} not found"
         
-        fund = investment.fund
+        # 2. Verificar si el usuario está asociado al fondo (SOLO para no-staff)
+        if not (user.is_superuser or user.is_staff):
+            investment, error = is_investor_valid(user, fund_id)
+            if error is not None:
+                return None, error
         
-        # 2. Verificar que el fondo tenga un wallet asociado
+        # 3. Verificar que el fondo tenga un wallet asociado
         if not fund.hd_wallet:
             return None, f"El fondo {fund.name} no tiene un wallet asociado"
         
         wallet_id_value = fund.hd_wallet.id_wallet
         
-        # 3. ✅ CONSTRUIR URL CON MANEJO DE REINTENTOS
+        # 4. CONSTRUIR URL CON MANEJO DE REINTENTOS
         retry_delay = 1
         
         for attempt in range(max_retries):
@@ -257,17 +262,17 @@ def get_wallet_index(user, fund_id, max_retries=3):
                 print(f"🔍 Attempt {attempt + 1}/{max_retries} - Getting wallet for user {user.id}")
                 print(f"🔍 URL: {url}")
                 
-                # ✅ AGREGAR TIMEOUT Y REINTENTOS
+                #  AGREGAR TIMEOUT Y REINTENTOS
                 response = requests.get(
                     url, 
                     headers=headers, 
                     auth=HTTPBasicAuth(USERNAME, PASSWORD),
-                    timeout=30  # ✅ Timeout de 30 segundos
+                    timeout=30  #  Timeout de 30 segundos
                 )
                 
                 if response.status_code == 200:
                     wallet_data = response.json()
-                    print(f"✅ Wallet obtained successfully: {wallet_data.get('address', 'No address')}")
+                    print(f"Wallet obtained successfully: {wallet_data.get('address', 'No address')}")
                     return wallet_data, None
                 else:
                     error_response = response.text
