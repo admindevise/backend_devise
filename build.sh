@@ -8,20 +8,20 @@ python manage.py migrate
 #python manage.py collectstatic --no-input
 
 # Initialize audit actions
-#python manage.py init_audit_actions
+python manage.py init_audit_actions
 
 # Load initial data cities
-#python manage.py cities_light --force-all
+python manage.py cities_light --force-all
 
 # Import DRUO Data
-#python manage.py import_druo_data --all
+python manage.py import_druo_data --all
 
 # First Superuser Creation
-#DJANGO_SUPERUSER_USERNAME=admin \
-#DJANGO_SUPERUSER_EMAIL=admin@admin.com \
-#DJANGO_SUPERUSER_PASSWORD=admin \
-#DJANGO_SUPERUSER_PHONE=3227177889 \
-#python manage.py createsuperuser --noinput || true
+DJANGO_SUPERUSER_USERNAME=admin \
+DJANGO_SUPERUSER_EMAIL=admin@admin.com \
+DJANGO_SUPERUSER_PASSWORD=admin \
+DJANGO_SUPERUSER_PHONE=3227177889 \
+python manage.py createsuperuser --noinput || true
 
 # commant to upload .env
 #set -a; source .env; set +a
