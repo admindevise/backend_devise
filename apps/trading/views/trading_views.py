@@ -27,6 +27,8 @@ from apps.trading.serializers.core_serializer import (
     OrderBookSerializer,
     OrderCancellationSerializer
 )
+from apps.trading.serializers.utils_serializers import UnifiedOrderSerializer
+
 from apps.user.models import User
 
 class PurchaseOrderViewSet(TradingPermissionMixin,
@@ -335,9 +337,9 @@ class TransactionViewSet(DateFilterMixin,
         # El serializer ya maneja la ejecución segura con servicios
         serializer.save()
 
-#+ =================================
-#+ ActiveOrdersAPIView
-#+ =================================
+# =================================
+# ActiveOrdersAPIView
+# =================================
 class ActiveOrdersPagination(PageNumberPagination):
     """
     Paginación personalizada para órdenes activas
@@ -625,4 +627,74 @@ def cleanup_expired_reservations(request):
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# =================================
+# ListOrders
+# =================================
+from rest_framework.pagination import PageNumberPagination
+from django.utils.dateparse import parse_datetime
 
+
+class OrdersPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+def apply_order_filters(purchase_qs, sales_qs, params):
+    order_type = params.get('order_type')  # purchase | sales | all
+    status_param = params.get('status')
+    user_id = params.get('user_id')
+    start_date = params.get('start_date')
+    end_date = params.get('end_date')
+
+    if status_param:
+        purchase_qs = purchase_qs.filter(status=status_param)
+        sales_qs = sales_qs.filter(status=status_param)
+
+    if user_id:
+        purchase_qs = purchase_qs.filter(supplier_user_id=user_id)
+        sales_qs = sales_qs.filter(seller_user_id=user_id)
+
+    if start_date:
+        dt = parse_datetime(start_date)
+        if dt:
+            purchase_qs = purchase_qs.filter(created_at__gte=dt)
+            sales_qs = sales_qs.filter(created_at__gte=dt)
+
+    if end_date:
+        dt = parse_datetime(end_date)
+        if dt:
+            purchase_qs = purchase_qs.filter(created_at__lte=dt)
+            sales_qs = sales_qs.filter(created_at__lte=dt)
+
+    if order_type == 'purchase':
+        sales_qs = sales_qs.none()
+    elif order_type == 'sales':
+        purchase_qs = purchase_qs.none()
+
+    return purchase_qs, sales_qs
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_orders(request):
+    purchase_orders = PurchaseOrder.objects.all().order_by('-created_at')
+    sales_orders = SalesOrder.objects.all().order_by('-created_at')
+    
+    # Aplicar filtros de consulta
+    purchase_orders, sales_orders = apply_order_filters(purchase_orders, sales_orders, request.query_params)
+
+    # Combinar y ordenar por fecha de creación (más recientes primero)
+    unified = [
+        *[UnifiedOrderSerializer.from_purchase(o) for o in purchase_orders],
+        *[UnifiedOrderSerializer.from_sales(o) for o in sales_orders],
+    ]
+
+    # Ordenar por fecha de creación (más recientes primero)
+    unified.sort(key=lambda x: x['created_at'], reverse=True)
+
+    # Aplicar paginación
+    paginator = OrdersPagination()
+    paginated_unified = paginator.paginate_queryset(unified, request)
+    
+    # Serializar datos paginados
+    serializer = UnifiedOrderSerializer(paginated_unified, many=True)
+    return paginator.get_paginated_response(serializer.data)

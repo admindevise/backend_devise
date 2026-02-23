@@ -13,6 +13,7 @@ class BaseOrder(base_model.BaseModel):
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order_number = models.CharField(max_length=50, unique=True, blank=True)
+    origin = models.CharField(max_length=20, blank=True)
     units = models.PositiveIntegerField(blank=False, null=False)
     available_units = models.PositiveIntegerField(null=True, blank=True) 
     units_executed = models.PositiveIntegerField(default=0)   

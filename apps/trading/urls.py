@@ -7,6 +7,7 @@ from apps.trading.views.trading_views import (
     TransactionViewSet,
     ActiveOrdersAPIView,
     cleanup_expired_reservations,
+    get_orders
 )
 
 from apps.trading.views.find_matching_views import find_matches
@@ -75,4 +76,7 @@ urlpatterns = [
     # Negotiation Dashboard
     path('api/negotiations/dashboard/', NegotiationOrdersListAPIView.as_view(), name='negotiation-dashboard'),
     path('api/negotiations/metrics/', NegotiationStatusOptionsAPIView.as_view(), name='negotiation-metrics'),
+    
+    # Listado unificado de órdenes (compra + venta)
+    path('api/orders/', get_orders, name='get-orders'),
 ]
