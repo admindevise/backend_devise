@@ -18,13 +18,12 @@ import datetime as dt
 class UserBasicInfoSerializer(serializers.ModelSerializer):
     role = RoleSerializerDetail(read_only=True)
     subrole = serializers.SerializerMethodField('get_subrole_info')
-    has_datos_basicos =  serializers.SerializerMethodField('datos_basicos')
+    has_basic_info =  serializers.SerializerMethodField('basic_info')
     has_resident_info =  serializers.SerializerMethodField('resident_info')
     has_workplace_info =  serializers.SerializerMethodField('workplace_info')
     has_financial_info =  serializers.SerializerMethodField('financial_info')
     has_socioeconomic_info = serializers.SerializerMethodField('socioeconomic_info')
-    full_name = serializers.SerializerMethodField('get_full_name')
-    perfil_image = serializers.SerializerMethodField('get_perfil_image')
+    profile_image = serializers.SerializerMethodField('get_profile_image')
     last_login =serializers.SerializerMethodField('get_last_login')
     password_expires = serializers.SerializerMethodField('get_password_expires')
 
@@ -32,9 +31,9 @@ class UserBasicInfoSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'code', 'phone', 'role', 'subrole',
-            'full_name',
-            'perfil_image',
-            'has_datos_basicos',
+            'first_name', 'last_name',
+            'profile_image',
+            'has_basic_info',
             'has_resident_info',
             'has_workplace_info',
             'has_financial_info',
@@ -53,17 +52,12 @@ class UserBasicInfoSerializer(serializers.ModelSerializer):
             dict['name'] = ''
         return dict
     
-    def get_full_name(self, obj):
-        if obj.first_name != '':
-            return f'{obj.first_name} {obj.last_name}'
-        return ''
-    
-    def get_perfil_image(self, obj):
+    def get_profile_image(self, obj):
         if obj.selfie != '':
             return obj.selfie.url
         return ''
     
-    def datos_basicos(self, obj):
+    def basic_info(self, obj):
         if obj.first_name != None:
             return True
         return False
