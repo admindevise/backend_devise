@@ -58,6 +58,9 @@ class InvestmentService:
             # 1. Validar que el usuario sea miembro
             InvestmentValidator._validate_investor_contract(fund, user)
             
+            # 2. Validar cantidad de tokens en el fideicomiso
+            InvestmentValidator._validate_sufficient_tokens(fund, requested_amount)
+            
             # 2. Validar el monto
             InvestmentValidator._validate_investment_amount(requested_amount, user)
             

@@ -92,6 +92,10 @@ class InvestmentValidator:
         if (application.contract_signature_deadline and application.contract_signature_deadline <= timezone.now()):
             raise ValueError(f"El tiempo limite permitido para firmar el contrato ha expirado")
         
+    @staticmethod
+    def _validate_sufficient_tokens(fund: Fund, amount: Decimal):
+        if fund.amount_tokens < amount:
+            raise ValueError("No hay suficientes tokens disponibles en el fideicomiso para esta inversión.")
     
 
     
