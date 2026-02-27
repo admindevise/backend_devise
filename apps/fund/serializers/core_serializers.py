@@ -257,6 +257,8 @@ class FundSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("El campo 'secret' es obligatorio.")
         if len(value.split()) < 12:
             raise serializers.ValidationError("El campo 'secret' debe contener al menos 12 palabras.")
+        if Fund.objects.filter(secret=value).exists():
+            raise serializers.ValidationError("El valor del campo 'secret' ya está en uso por otro fondo.")
         return value
     
     def validate_amount_units(self, value):
