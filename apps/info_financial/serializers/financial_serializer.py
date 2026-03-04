@@ -8,3 +8,15 @@ class CreateFinancialSerializer(serializers.ModelSerializer):
         fields = [ 'bank', 'account_number', 'account_type', 'account_subtype',
                 'certification_file', 'aba_code', 'swift_code',
                 ]
+
+
+class ListFinancialSerializer(serializers.ModelSerializer):
+    bank = serializers.StringRelatedField()
+    account_type = serializers.StringRelatedField()
+    account_subtype = serializers.StringRelatedField()
+    
+    class Meta:
+        model = Financial
+        fields = ['id', 'bank', 'account_number', 'account_type', 'account_subtype',
+                'certification_file', 'aba_code', 'swift_code',
+                ]

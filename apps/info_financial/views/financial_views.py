@@ -1,44 +1,61 @@
-from ..models import Financial
-from ..serializers.financial_serializer import CreateFinancialSerializer
-from rest_framework.exceptions import ValidationError
-
-from rest_framework import generics
-
+from rest_framework import generics, status
 from rest_framework.decorators import permission_classes
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
+from django.shortcuts import get_object_or_404
 
+from ..models import Financial
+from ..serializers.financial_serializer import (
+    CreateFinancialSerializer, ListFinancialSerializer
+)
 from apps.druo.functions.accounts_api import create_account
 
 
 @permission_classes([IsAuthenticated])
 class CreateFinancialUserInfo(generics.CreateAPIView):
-    queryset = Financial.objects.all()
+    """
+    Create financial information for the authenticated user.
+    Only one financial record per user is allowed.
+    """
     serializer_class = CreateFinancialSerializer
 
+    def get_queryset(self):
+        return Financial.objects.select_related('bank', 'account_type', 'account_subtype')
+
     def perform_create(self, serializer):
-        if Financial.objects.filter(user = self.request.user).exists():
+        if Financial.objects.filter(user=self.request.user).exists():
             raise ValidationError(
-                detail = {'detail': 'Financial info already created'},
-                code = status.HTTP_403_FORBIDDEN
+                detail={'detail': 'Financial info already exists for this user.'},
+                code=status.HTTP_400_BAD_REQUEST
             )
+        
         account_info = serializer.save(user=self.request.user)
-        print("25. financial_views: ", account_info.account_number )
-        #Creando la cuenta en DRUO
-        create_account(self.request.user, account_info)
+        
+        # Create account in DRUO - continue even if it fails
+        try:
+            create_account(self.request.user, account_info)
+        except Exception as e:
+            print(f"Failed to create DRUO account for user {self.request.user.id}: {str(e)}")
+            # Don't raise exception, just log the error
 
 
 @permission_classes([IsAuthenticated])
 class UpdateReadFinancialUserInfo(generics.RetrieveUpdateAPIView):
-    queryset = Financial.objects.all()
-    serializer_class = CreateFinancialSerializer
+    """
+    Retrieve or update financial information for the authenticated user.
+    """
+    
+    def get_queryset(self):
+        return Financial.objects.select_related('bank', 'account_type', 'account_subtype')
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return CreateFinancialSerializer
+        return ListFinancialSerializer
 
     def get_object(self):
-
-        if Financial.objects.filter(user = self.request.user).exists():
-            return Financial.objects.get(user=self.request.user)
-        
-        raise ValidationError(
-                detail = {'detail': 'Financial info not created'},
-                code = status.HTTP_403_FORBIDDEN
-            )
+        obj = get_object_or_404(
+            Financial.objects.select_related('bank', 'account_type', 'account_subtype'),
+            user=self.request.user
+        )
+        return obj
