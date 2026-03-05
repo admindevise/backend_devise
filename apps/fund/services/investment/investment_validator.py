@@ -94,9 +94,14 @@ class InvestmentValidator:
         
     @staticmethod
     def _validate_sufficient_tokens(fund: Fund, amount: Decimal):
-        if fund.amount_tokens < amount:
-            raise ValueError("No hay suficientes tokens disponibles en el fideicomiso para esta inversión.")
-    
-
-    
-    
+        if fund.price_per_unit <= 0:
+            raise ValueError("El precio por unidad del fondo no está configurado correctamente.")
+        
+        # Convertir monto en COP a cantidad de tokens requeridos
+        tokens_required = amount / fund.price_per_unit
+        
+        if fund.amount_tokens < tokens_required:
+            raise ValueError(
+                f"No hay suficientes tokens disponibles en el fideicomiso. "
+                f"Se requieren {tokens_required} tokens pero solo hay {fund.amount_tokens}."
+            )
