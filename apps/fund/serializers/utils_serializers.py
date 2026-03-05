@@ -130,3 +130,59 @@ class CustomerSupportSerializer(serializers.Serializer):
         if len(value.strip()) < 10:
             raise serializers.ValidationError("El contexto debe tener al menos 10 caracteres")
         return value
+    
+
+class InvestmentTrendSerializer(serializers.Serializer):
+    """
+    Serializer para mostrar tendencias de inversiones con diferentes períodos de tiempo.
+    Permite analizar el comportamiento de las inversiones en distintos rangos temporales.
+    """
+    TIME_PERIOD_CHOICES = [
+        ('1M', '1 Mes'),
+        ('3M', '3 Meses'),
+        ('6M', '6 Meses'),
+        ('1Y', '1 Año'),
+    ]
+    
+    fund_id = serializers.IntegerField(required=False, allow_null=True)
+    time_period = serializers.ChoiceField(
+        choices=TIME_PERIOD_CHOICES,
+        default='1M',
+        help_text="Período de tiempo para analizar la tendencia"
+    )
+    
+    # Datos de salida (read_only)
+    total_investments = serializers.IntegerField(read_only=True)
+    total_amount = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
+    average_investment = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
+    growth_percentage = serializers.FloatField(read_only=True)
+    period_data = serializers.ListField(
+        child=serializers.DictField(),
+        read_only=True,
+        help_text="Datos detallados por período (diarios, semanales o mensuales)"
+    )
+    
+    def validate_fund_id(self, value):
+        """Validar que fund_id sea un entero positivo si se proporciona"""
+        if value is not None and (not isinstance(value, int) or value <= 0):
+            raise serializers.ValidationError("El ID de fondo debe ser un entero positivo.")
+        return value
+    
+    def to_representation(self, instance):
+        """
+        Personalizar la representación de los datos de tendencia
+        """
+        representation = super().to_representation(instance)
+        
+        # Agregar información adicional sobre el período
+        time_period = representation.get('time_period')
+        period_info = {
+            '1M': {'days': 30, 'label': 'Último mes'},
+            '3M': {'days': 90, 'label': 'Últimos 3 meses'},
+            '6M': {'days': 180, 'label': 'Últimos 6 meses'},
+            '1Y': {'days': 365, 'label': 'Último año'},
+        }
+        
+        representation['period_info'] = period_info.get(time_period, {})
+        
+        return representation

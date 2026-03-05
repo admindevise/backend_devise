@@ -176,6 +176,7 @@ from apps.fund.views.operating_views import (
 # ============================================================================
 from apps.fund.views.utils_views import (
     get_token_count,
+    investment_trend,
     ai_generate_content,
     TrustMembersViewSet,
     testing,
@@ -335,7 +336,8 @@ urlpatterns = [
     # ========================================================================
     path('api/utils/token-count/', get_token_count, name='get-token-count'),
     path('api/ai/generate-content/', ai_generate_content, name='ai-generate-content'),
-    path('api/cycle-options/', get_cycle_options, name='cycle-options'),    
+    path('api/cycle-options/', get_cycle_options, name='cycle-options'),   
+    path('api/investment-trend/', investment_trend, name='investment-trend'), 
     
     # Testing (Solo desarrollo)
     path('testing/', testing, name='testing'),

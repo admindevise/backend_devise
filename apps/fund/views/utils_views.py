@@ -13,7 +13,8 @@ from apps.fund.serializers.utils_serializers import (
     AISerializer,
     CustomerSupportSerializer,
     TokenCounterUserSerializer,
-    TrustMembersSerializer
+    TrustMembersSerializer,
+    InvestmentTrendSerializer,
 )
 from apps.fund.models.membership import InvestorContract
 from apps.fund.models.membership import (
@@ -43,6 +44,36 @@ class TrustMembersViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
         return self.apply_date_filters(queryset)
 
 
+# =======================================
+# INVESTMENT TREND
+# =======================================
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def investment_trend(request):
+    """
+    Vista para administradores que muestra la tendencia de inversiones.
+    Query params: fund_id (opcional), time_period (1M, 3M, 6M, 1Y)
+    """
+    if not request.user.is_staff:
+        return response.Response(
+            {'detail': 'No tienes permiso para acceder a esta información.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Validar entrada
+    serializer = InvestmentTrendSerializer(data=request.query_params)
+    if not serializer.is_valid():
+        return response.Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Obtener tendencias usando el servicio
+    from apps.fund.services.investment.investment_trend_service import InvestmentTrendService
+    
+    trend_data = InvestmentTrendService.get_investment_trend(
+        fund_id=serializer.validated_data.get('fund_id'),
+        time_period=serializer.validated_data.get('time_period', '1M')
+    )
+    
+    return response.Response(trend_data, status=status.HTTP_200_OK)
 
 # =======================================
 # TESTING SERVICE
