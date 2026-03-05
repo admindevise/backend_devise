@@ -16,6 +16,9 @@ python manage.py migrate
 # Import DRUO Data
 #python manage.py import_druo_data --all
 
+# Importing Origin Funds
+python manage.py load_origin_funds
+
 # First Superuser Creation
 #DJANGO_SUPERUSER_USERNAME=admin \
 #DJANGO_SUPERUSER_EMAIL=admin@admin.com \
