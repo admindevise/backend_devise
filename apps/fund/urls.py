@@ -234,110 +234,110 @@ router.register(r'accountability', AccountabilityViewSet, basename='accountabili
 # ============================================================================
 urlpatterns = [
     # Router URLs
-    path('api/', include(router.urls)),
+    path('', include(router.urls)),
     
     # ========================================================================
     # KALEIDO - Token Operations
     # ========================================================================
-    path('api/mint/', TokenMintView.as_view(), name='mint-token'),
-    path('api/mint-batch/', TokenMintBatchView.as_view(), name='mint-token-batch'),
-    path('api/burn/', TokenBurnView.as_view(), name='burn-token'),
-    path('api/burn-batch/', TokenBurnBatchView.as_view(), name='burn-token-batch'),
-    path('api/purchase/', PurchaseTokenView.as_view(), name='purchase-token'),
-    path('api/purchase-batch/', PurchaseTokenBatchView.as_view(), name='purchase-token-batch'),
-    path('api/purchase-user/', PurchaseTokenIndexToIndexView.as_view(), name='purchase-token-user'),
-    path('api/<int:fund_id>/batch-progress/', batch_creation_progress_view, name='batch-creation-progress'),
+    path('mint/', TokenMintView.as_view(), name='mint-token'),
+    path('mint-batch/', TokenMintBatchView.as_view(), name='mint-token-batch'),
+    path('burn/', TokenBurnView.as_view(), name='burn-token'),
+    path('burn-batch/', TokenBurnBatchView.as_view(), name='burn-token-batch'),
+    path('purchase/', PurchaseTokenView.as_view(), name='purchase-token'),
+    path('purchase-batch/', PurchaseTokenBatchView.as_view(), name='purchase-token-batch'),
+    path('purchase-user/', PurchaseTokenIndexToIndexView.as_view(), name='purchase-token-user'),
+    path('<int:fund_id>/batch-progress/', batch_creation_progress_view, name='batch-creation-progress'),
     
     # ========================================================================
     # INVESTMENTS - Applications & Contracts
     # ========================================================================
-    path('api/investment-trust/submit/', submit_investment_application, name='submit-investment'),
-    path('api/investment-trust/application/<int:application_id>/under-review/', under_review_investment_application, name='under-review-investment-application'),
-    path('api/investment-trust/application/<int:application_id>/send-contract/', send_contrat_investment_application, name='send-contract-investment-application'),
-    path('api/investment-trust/application/<int:application_id>/sign-contract/', sign_contract_investment_application, name='sign-contract-investment-application'),
+    path('<int:fund_id>/investment-trust/submit/', submit_investment_application, name='submit-investment'),
+    path('investment-trust/application/<int:application_id>/under-review/', under_review_investment_application, name='under-review-investment-application'),
+    path('investment-trust/application/<int:application_id>/send-contract/', send_contrat_investment_application, name='send-contract-investment-application'),
+    path('investment-trust/application/<int:application_id>/sign-contract/', sign_contract_investment_application, name='sign-contract-investment-application'),
     
     # Investor Contracts
-    path('api/investment-trust/contract/create/', create_investor_contract, name='create-investor-contract'),
-    path('api/investment-trust/contract/<int:contract_id>/sign/', sign_investor_contract, name='sign-investor-contract'),
+    path('investment-trust/contract/create/', create_investor_contract, name='create-investor-contract'),
+    path('investment-trust/contract/<int:contract_id>/sign/', sign_investor_contract, name='sign-investor-contract'),
     
     # ========================================================================
     # DISTRIBUTIONS
     # ========================================================================
-    path('api/distributions/create-period/', create_distribution_period, name='create-distribution-period'),
-    path('api/distributions/records/', distributions_records, name='distributions-records'),
+    path('distributions/create-period/', create_distribution_period, name='create-distribution-period'),
+    path('distributions/records/', distributions_records, name='distributions-records'),
     
     # ========================================================================
     # TRANSFERS (Cesiones)
     # ========================================================================
-    path('api/transfers/create/', create_transfer, name='create-transfer'),
-    path('api/transfers/<int:transfer_id>/delete/', delete_transfer, name='delete-transfer'),
-    path('api/<int:fund_id>/transfers/summary/', fund_transfer_summary, name='fund-transfer-summary'),
+    path('transfers/create/', create_transfer, name='create-transfer'),
+    path('transfers/<int:transfer_id>/delete/', delete_transfer, name='delete-transfer'),
+    path('<int:fund_id>/transfers/summary/', fund_transfer_summary, name='fund-transfer-summary'),
     
-    path('api/accounting-validate/', validate_accounting_file, name='validate-accounting'),
-    path('api/import-account-file/', import_accounting_file, name='import-account-file'),
-    path('api/accounting-default-mapping/', get_default_mapping, name='default-mapping'),
+    path('accounting-validate/', validate_accounting_file, name='validate-accounting'),
+    path('import-account-file/', import_accounting_file, name='import-account-file'),
+    path('accounting-default-mapping/', get_default_mapping, name='default-mapping'),
     
     # ========================================================================
     # ACCOUNTABILITY
     # ========================================================================
-    path('api/accounting-invoice/create-invoice-record/', create_invoice_record, name='create-invoice-record'),
+    path('accounting-invoice/create-invoice-record/', create_invoice_record, name='create-invoice-record'),
     
     # ========================================================================
     # COMMISSIONS
     # ========================================================================
-    path('api/commissions/create/', create_commission, name='create-commission'),
-    path('api/commissions/<int:commission_id>/update/', update_commission, name='update-commission'),
-    path('api/commissions/<int:commission_id>/delete/', delete_commission, name='delete-commission'),
+    path('commissions/create/', create_commission, name='create-commission'),
+    path('commissions/<int:commission_id>/update/', update_commission, name='update-commission'),
+    path('commissions/<int:commission_id>/delete/', delete_commission, name='delete-commission'),
     
     # ========================================================================
     # KPIs - OLD (Legacy)
     # ========================================================================
     # Token Metrics
-    path('api/kpis/old/token-value-change/', calculate_token_value_change, name='token-value-change'),
-    path('api/kpis/old/distributions-12m/', get_fund_distributions_12m, name='distributions-12m'),
-    path('api/kpis/old/yield-from-distributions/', calculate_yield_from_distributions, name='yield-from-distributions'),
+    path('kpis/old/token-value-change/', calculate_token_value_change, name='token-value-change'),
+    path('kpis/old/distributions-12m/', get_fund_distributions_12m, name='distributions-12m'),
+    path('kpis/old/yield-from-distributions/', calculate_yield_from_distributions, name='yield-from-distributions'),
     
     # User Metrics
-    path('api/kpis/old/user/price-change/', user_price_change, name='user-price-change'),
-    path('api/kpis/old/user/rent-12m/', user_rent_12m_per_unit, name='user-rent-12m-per-unit'),
-    path('api/kpis/old/user/cash-on-cash/', user_cash_on_cash, name='user-cash-on-cash'),
-    path('api/kpis/old/user/current-value/', user_current_value, name='user-current-value'),
-    path('api/kpis/old/user/simple-return/', user_simple_total_return, name='user-simple-total-return'),
+    path('kpis/old/user/price-change/', user_price_change, name='user-price-change'),
+    path('kpis/old/user/rent-12m/', user_rent_12m_per_unit, name='user-rent-12m-per-unit'),
+    path('kpis/old/user/cash-on-cash/', user_cash_on_cash, name='user-cash-on-cash'),
+    path('kpis/old/user/current-value/', user_current_value, name='user-current-value'),
+    path('kpis/old/user/simple-return/', user_simple_total_return, name='user-simple-total-return'),
     
     # Portfolio Aggregations
-    path('api/kpis/old/portfolio/total/', user_total_portfolio, name='user-total-portfolio'),
-    path('api/kpis/old/portfolio/distributions/', user_total_distributions_all_funds, name='user-total-distributions-all-funds'),
-    path('api/kpis/old/portfolio/cash-received/', user_total_cash_received_all_funds, name='user-total-cash-received-all-funds'),
-    path('api/kpis/old/portfolio/simple-return/', user_total_simple_return_all_funds, name='user-total-simple-return-all-funds'),
-    path('api/kpis/old/portfolio/weighted-return/', user_weighted_average_return_all_funds, name='user-weighted-average-return'),
-    path('api/kpis/old/portfolio/weighted-cash-on-cash/', user_weighted_average_cash_on_cash_all_funds, name='user-weighted-average-cash-on-cash'),
+    path('kpis/old/portfolio/total/', user_total_portfolio, name='user-total-portfolio'),
+    path('kpis/old/portfolio/distributions/', user_total_distributions_all_funds, name='user-total-distributions-all-funds'),
+    path('kpis/old/portfolio/cash-received/', user_total_cash_received_all_funds, name='user-total-cash-received-all-funds'),
+    path('kpis/old/portfolio/simple-return/', user_total_simple_return_all_funds, name='user-total-simple-return-all-funds'),
+    path('kpis/old/portfolio/weighted-return/', user_weighted_average_return_all_funds, name='user-weighted-average-return'),
+    path('kpis/old/portfolio/weighted-cash-on-cash/', user_weighted_average_cash_on_cash_all_funds, name='user-weighted-average-cash-on-cash'),
     
     # Dividend Yield
-    path('api/kpis/old/dividend-yield/historical/', dividend_yield_historical, name='dividend-yield-historical'),
-    path('api/kpis/old/dividend-yield/current/', dividend_yield_current, name='dividend-yield-current'),
-    path('api/kpis/old/accumulated-investment/', accumulated_investment, name='accumulated-investment'),
+    path('kpis/old/dividend-yield/historical/', dividend_yield_historical, name='dividend-yield-historical'),
+    path('kpis/old/dividend-yield/current/', dividend_yield_current, name='dividend-yield-current'),
+    path('kpis/old/accumulated-investment/', accumulated_investment, name='accumulated-investment'),
     
     # ========================================================================
     # KPIs - NEW (Strategies)
     # ========================================================================
-    path('api/kpis/noi/', calculate_fund_noi, name='calculate-fund-noi'),
-    path('api/kpis/fund-valuation/', calculate_fund_valuation, name='calculate-fund-valuation'),
-    path('api/kpis/cap-rate/', calculate_fund_cap_rate, name='calculate-cap-rate'),
-    path('api/kpis/output-value/', calculate_output_value, name='calculate-output-value'),
-    path('api/kpis/free-cash-flow/', calculate_fund_free_cash_flow, name='calculate-fund-free-cash-flow'),
-    path('api/kpis/cash-on-cash/', calculate_fund_cash_on_cash, name='calculate-fund-cash-on-cash'),
-    path('api/kpis/dividend-yield/', calculate_fund_dividend_yield, name='calculate-fund-dividend-yield'),
-    path('api/kpis/dividend-yield-moving/', calculate_fund_dividend_yield_moving_average, name='calculate-fund-dividend-yield-moving'),
-    path('api/kpis/irr/', calculate_fund_irr, name='calculate-fund-irr'),
-    path('api/kpis/moic/', calculate_fund_moic, name='calculate-fund-moic'),
+    path('kpis/noi/', calculate_fund_noi, name='calculate-fund-noi'),
+    path('kpis/fund-valuation/', calculate_fund_valuation, name='calculate-fund-valuation'),
+    path('kpis/cap-rate/', calculate_fund_cap_rate, name='calculate-cap-rate'),
+    path('kpis/output-value/', calculate_output_value, name='calculate-output-value'),
+    path('kpis/free-cash-flow/', calculate_fund_free_cash_flow, name='calculate-fund-free-cash-flow'),
+    path('kpis/cash-on-cash/', calculate_fund_cash_on_cash, name='calculate-fund-cash-on-cash'),
+    path('kpis/dividend-yield/', calculate_fund_dividend_yield, name='calculate-fund-dividend-yield'),
+    path('kpis/dividend-yield-moving/', calculate_fund_dividend_yield_moving_average, name='calculate-fund-dividend-yield-moving'),
+    path('kpis/irr/', calculate_fund_irr, name='calculate-fund-irr'),
+    path('kpis/moic/', calculate_fund_moic, name='calculate-fund-moic'),
     
     # ========================================================================
     # UTILS & AI
     # ========================================================================
-    path('api/utils/token-count/', get_token_count, name='get-token-count'),
-    path('api/ai/generate-content/', ai_generate_content, name='ai-generate-content'),
-    path('api/cycle-options/', get_cycle_options, name='cycle-options'),   
-    path('api/investment-trend/', investment_trend, name='investment-trend'), 
+    path('utils/token-count/', get_token_count, name='get-token-count'),
+    path('ai/generate-content/', ai_generate_content, name='ai-generate-content'),
+    path('cycle-options/', get_cycle_options, name='cycle-options'),   
+    path('investment-trend/', investment_trend, name='investment-trend'), 
     
     # Testing (Solo desarrollo)
     path('testing/', testing, name='testing'),

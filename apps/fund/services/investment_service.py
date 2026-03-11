@@ -3,6 +3,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.fund.models.core import Fund
+from apps.fund.models.tokens import FundToken
+from apps.user.models import User
 from apps.fund.models.membership import FundInvestment, InvestmentApplication
 
 from apps.fund.services.investment.investment_validator import InvestmentValidator
@@ -30,10 +32,17 @@ class InvestmentService:
     @staticmethod
     def submit_investment(
         fund: Fund,
-        user,
+        user: User,
         requested_amount: Decimal,
         accepts_terms_and_conditions: bool,
         accepts_risk_disclosure: bool,
+        assistance_notes: str = "",
+        authorization_channel: str = "",
+        authorization_evidence: str = "",
+        data_processing_consent: bool = False,
+        data_processing_consent_at=None,
+        data_processing_consent_evidence: str = "",
+        created_by: User = None,
         request=None
     ) -> InvestmentApplication:
         """
@@ -87,7 +96,7 @@ class InvestmentService:
             
             # 7. Crear la inversión
             with transaction.atomic():
-                investment = InvestmentService._create_fund_investment(fund, user, requested_amount, accepts_terms_and_conditions, accepts_risk_disclosure)
+                investment = InvestmentService._create_fund_investment(fund, user, requested_amount, accepts_terms_and_conditions, accepts_risk_disclosure, assistance_notes, authorization_channel, authorization_evidence, data_processing_consent, data_processing_consent_at, data_processing_consent_evidence, created_by)
             
             # Actualizar auditoría a éxito
             InvestmentAuditService._update_audit_success(audit_log)
@@ -99,14 +108,33 @@ class InvestmentService:
             raise InvestmentError(f"Error al crear inversión: {str(e)}")
     
     @staticmethod
-    def _create_fund_investment(fund: Fund, user, amount: Decimal, accepts_terms, accepts_risk) -> InvestmentApplication:
+    def _create_fund_investment(
+        fund: Fund,
+        user: User,
+        amount: Decimal,
+        accepts_terms,
+        accepts_risk,
+        assistance_notes: str = "",
+        authorization_channel: str = "",
+        authorization_evidence: str = "",
+        data_processing_consent: bool = False,
+        data_processing_consent_at=None,
+        data_processing_consent_evidence: str = "",
+        created_by: User = None,
+        ) -> InvestmentApplication:
         investment = InvestmentApplication.objects.create(
             fund=fund,
             user=user,
             requested_amount=amount,
             accepts_terms_and_conditions=accepts_terms,
             accepts_risk_disclosure=accepts_risk,
-            
+            assistance_notes=assistance_notes,
+            authorization_channel=authorization_channel,
+            authorization_evidence=authorization_evidence,
+            data_processing_consent=data_processing_consent,
+            data_processing_consent_at=data_processing_consent_at,
+            data_processing_consent_evidence=data_processing_consent_evidence,
+            created_by=created_by
         )
         return investment
     
@@ -242,10 +270,8 @@ class InvestmentService:
                 # 4. Calcular tkn_cost
                 tkn_cost = InvestmentCalculator._calculate_tkn_cost(application)
                 
-                application.application_status = InvestmentApplication.ApplicationStatus.APPROVED
-                application.contract_signed_at = timezone.now()
-                application.save(update_fields=['application_status', 'contract_signed_at'])
-                
+                # 5. Crear inversion primero
+                tokens_transferred = int(transfer_result.get('tokens_transferred', 0))
                 fund_investment = FundInvestment.objects.create(
                     application=application,
                     final_invested_amount=application.requested_amount,
@@ -254,6 +280,19 @@ class InvestmentService:
                     purchase_price_per_unit=application.fund.price_per_unit,
                     tkn_cost=tkn_cost
                 )
+                
+                # 6. Enlazar FundToken -> fund_investment
+                BlockchainTransferService._assign_tokens_to_fund_investment(
+                    application=application,
+                    fund_investment=fund_investment,
+                    quantity=tokens_transferred,
+                    request=request
+                )
+                
+                # 7. Aprobar solicitud
+                application.application_status = InvestmentApplication.ApplicationStatus.APPROVED
+                application.contract_signed_at = timezone.now()
+                application.save(update_fields=['application_status', 'contract_signed_at'])                
             
             InvestmentAuditService._update_audit_success(audit_log)
             InvestmentAuditService._create_audit_investment_approved(application, request)

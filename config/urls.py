@@ -44,53 +44,24 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    #Include Auth urls
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    
-    #Include Cities app Urls
-    path('cities/', include('apps.cities.urls')),
+    # API v1
+    path('api/v1/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/v1/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    #Include dashboard app
-    #path('', include(dashboard_urls)),
-
-    #Include User custom Urls
-    path('user/', include(user_urls)),
-    path('user/', include(user_info_residential_urls)), #Resident and Workplace info
-    path('user/', include(user_workplace_urls)), #Resident and Workplace info
-    path('user/', include(user_info_financial_urls)), #Resident and Workplace info
-    path('user/', include(user_socioeconomic_urls)), #Socioeconimic info
-
-    #Backoffice urls
-    # Druo
-    path('druo/', include(druo_urls)),
-
-    #Security Urls:
-    path('security/', include(security_urls)),
-
-    #Academia Urls:
-    path('academia/', include(academia_urls)),
-    
-    #Asset Urls:
-    path('asset/', include(asset_urls)),
-
-    #Kaleido Urls:
-    path('kaleido/', include(kaleido_urls)),
-    
-    #Fund Urls
-    path('fund/', include(fund_urls)),
-    
-    #Audit Urls
-    path('audit/', include(audit_urls)),
-    
-    #Trading Urls
-    path('trading/', include(trading_urls)),
-    
-    #Financial Institution Urls
-    path('financial-institution/', include(financial_institution_urls)),
-
-    # #wee trust
-    # path('weetrust/', include(weetrust_urls)),
+    path('api/v1/user/', include(user_urls)),
+    path('api/v1/user/', include(user_info_residential_urls)),
+    path('api/v1/user/', include(user_workplace_urls)),
+    path('api/v1/user/', include(user_info_financial_urls)),
+    path('api/v1/user/', include(user_socioeconomic_urls)),
+    path('api/v1/fund/', include(fund_urls)),
+    path('api/v1/audit/', include(audit_urls)),
+    path('api/v1/trading/', include(trading_urls)),
+    path('api/v1/kaleido/', include(kaleido_urls)),
+    path('api/v1/security/', include(security_urls)),
+    path('api/v1/academia/', include(academia_urls)),
+    path('api/v1/asset/', include(asset_urls)),
+    path('api/v1/financial-institution/', include(financial_institution_urls)),
+    path('api/v1/druo/', include(druo_urls)),
 
     #Generic auth Views
     path('auth/login/',  auth_views.LoginView.as_view( template_name='adminlte/base/login.html' ), name='login'),

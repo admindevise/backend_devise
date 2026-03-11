@@ -55,7 +55,7 @@ from apps.fund.models.commissions import Transfers
 
 @admin.register(Fund)
 class FundAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'amount_units', 'amount_tokens', 'price_per_unit', 'created_at')
+    list_display = ('id', 'name', 'last_token_seq', 'amount_units', 'amount_tokens', 'price_per_unit', 'created_at')
     search_fields = ('name',)
     list_filter = ('created_at',)
     ordering = ('-created_at',)

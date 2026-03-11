@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
+from rest_framework.fields import empty
 
 from apps.fund.models.membership import FundInvestment, InvestmentApplication
 from apps.fund.models.core import Fund
@@ -50,41 +52,136 @@ class InvestmentDashboardSerializer(serializers.ModelSerializer):
 
 class SubmitInvestmentSerializer(serializers.Serializer):
     requested_amount = serializers.DecimalField(max_digits=14, decimal_places=2,required=True)
-    fund = serializers.IntegerField(required=True)
+    user = serializers.IntegerField(required=False, allow_null=True)
     accepts_terms_and_conditions = serializers.BooleanField(required=True)
     accepts_risk_disclosure = serializers.BooleanField(required=True)
     
-    def validate_fund(self, value):
-        try:
-            fund = Fund.objects.get(id=value)
-        except Fund.DoesNotExist:
-            raise serializers.ValidationError(f"El fondo con ID {value} no existe")
-        return fund
+    assistance_notes = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=1000,
+        help_text="Notas adicionales para el equipo de soporte (opcional)"
+    )
+    authorization_evidence = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=1000,
+        help_text="Evidencia de autorización para invertir (opcional, puede ser texto o URL a documento)"
+    )
+    authorization_channel = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=1000,
+        help_text="Canal por el cual se obtuvo la autorización (opcional, por ejemplo: 'WhatsApp', 'Correo electrónico', etc.)"
+    )
+    data_processing_consent = serializers.BooleanField(
+        required=False,
+        help_text="Consentimiento para procesamiento de datos personales (requerido si se proporciona evidencia de autorización)"
+    )
+    data_processing_consent_at = serializers.DateTimeField(
+        required=False,
+        help_text="Fecha y hora del consentimiento para procesamiento de datos personales (requerido si se proporciona evidencia de autorización)"
+    )
+    data_processing_consent_evidence = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=1000,
+        help_text="Evidencia de consentimiento para procesamiento de datos (opcional, puede ser texto o URL a documento)"
+    )
     
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        fund_id = self.context.get('fund_id')
+        
+        # 1. Validar que se recibió el fund_id en el contexto
+        if not fund_id:
+            raise serializers.ValidationError({'fund_id': 'No se recibió fund_id en la URL'})
+        
+        # 2. Validar que el fondo existe
+        try:
+            attrs['fund'] = Fund.objects.get(id=fund_id)
+        except Fund.DoesNotExist:
+            raise serializers.ValidationError({'fund_id': f'El fondo con id {fund_id} no existe'})
+        
+        # 3. Validar que el usuario está autenticado
+        if not request or not hasattr(request, 'user') or not request.user.is_authenticated:
+            raise serializers.ValidationError("El usuario debe estar autenticado para realizar una inversión.")
+
+        # 4. Validar permisos y asignar usuario objetivo para la inversión
+        is_staff = request.user.is_staff or request.user.is_superuser
+        requested_user_id = attrs.get('user', empty)
+
+        # 5. Staff/admin debe enviar user explícitamente
+        if is_staff and requested_user_id in (empty, None):
+            raise serializers.ValidationError({
+                "user": "El campo 'user' es requerido para usuarios staff/admin."
+            })
+
+        # 6. Si se proporciona user, validar que existe y que staff/admin no está intentando crear inversión para otro usuario sin permiso
+        User = get_user_model()
+        if requested_user_id in (empty, None):
+            target_user = request.user
+        else:
+            try:
+                target_user = User.objects.get(id=requested_user_id)
+            except User.DoesNotExist:
+                raise serializers.ValidationError({"user": "El usuario indicado no existe"})
+
+        # 7. Si el usuario objetivo es diferente al usuario autenticado, solo staff/admin puede hacerlo
+        if target_user.id != request.user.id and not is_staff:
+            raise serializers.ValidationError("No tienes permiso para crear una inversión para otro usuario.")
+
+        is_staff_assisted = is_staff and (target_user.id != request.user.id)
+
+        attrs['user'] = target_user
+        attrs['created_by'] = request.user
+        attrs['is_staff_assisted'] = is_staff_assisted
+
+        # Si NO es creación asistida, ignorar cualquier dato enviado por el cliente
+        if not is_staff:
+            attrs['assistance_notes'] = ''
+            attrs['authorization_channel'] = ''
+            attrs['authorization_evidence'] = ''
+            attrs['data_processing_consent'] = False
+            attrs['data_processing_consent_at'] = None
+            attrs['data_processing_consent_evidence'] = ''
+            return attrs
+
+        # Si SÍ es creación asistida, entonces sí se validan como requeridos
+        if not attrs.get('authorization_channel'):
+            raise serializers.ValidationError({"authorization_channel": "Campo requerido para creación asistida por staff/admin."})
+        if not attrs.get('authorization_evidence'):
+            raise serializers.ValidationError({"authorization_evidence": "Campo requerido para creación asistida por staff/admin."})
+        if attrs.get('data_processing_consent') is not True:
+            raise serializers.ValidationError({"data_processing_consent": "Debe ser true para creación asistida por staff/admin."})
+        if not attrs.get('data_processing_consent_at'):
+            raise serializers.ValidationError({"data_processing_consent_at": "Campo requerido para creación asistida por staff/admin."})
+        if not attrs.get('data_processing_consent_evidence'):
+            raise serializers.ValidationError({"data_processing_consent_evidence": "Campo requerido para creación asistida por staff/admin."})
+
+        return attrs
+
     def create(self, validated_data):
         request = self.context.get('request')
-        
-        # Capturar metadatos del request
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        
-        user_agent = request.META.get('HTTP_USER_AGENT', '')
         
         try:
             application = InvestmentService.submit_investment(
                 fund=validated_data['fund'],
-                user=request.user,
+                user=validated_data['user'],
+                assistance_notes=validated_data.get('assistance_notes', ''),
+                authorization_channel=validated_data.get('authorization_channel', ''),
+                authorization_evidence=validated_data.get('authorization_evidence', ''),
+                data_processing_consent=validated_data.get('data_processing_consent', False),
+                data_processing_consent_at=validated_data.get('data_processing_consent_at'),
+                data_processing_consent_evidence=validated_data.get('data_processing_consent_evidence', ''),
                 requested_amount=validated_data['requested_amount'],
                 accepts_terms_and_conditions=validated_data['accepts_terms_and_conditions'],
                 accepts_risk_disclosure=validated_data['accepts_risk_disclosure'],
+                created_by=request.user if request else None,
                 request=request
             )
             
-            application.ip_address = ip
-            application.user_agent = user_agent
             application.save()
             
             return application
@@ -102,6 +199,15 @@ class SubmitInvestmentSerializer(serializers.Serializer):
             'user_email': application.user.email,
             'requested_amount': str(application.requested_amount),
             'application_status': application.application_status,
+            'assistance_notes': application.assistance_notes,
+            'is_staff_assisted': application.is_staff_assisted,
+            'assistance_notes': application.assistance_notes,
+            'authorization_channel': application.authorization_channel,
+            'authorization_evidence': application.authorization_evidence,
+            'data_processing_consent': application.data_processing_consent,
+            'data_processing_consent_at': application.data_processing_consent_at.strftime("%Y-%m-%d %H:%M:%S") if application.data_processing_consent_at else None,
+            'data_processing_consent_evidence': application.data_processing_consent_evidence,
+            'created_by': application.created_by.email if application.created_by else None,
             'created_at': application.created_at.strftime('%Y-%m-%d %H:%M:%S') if application.created_at else None,
         }
         

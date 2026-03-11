@@ -1,8 +1,38 @@
-from apps.fund.models.membership import InvestmentApplication
+from apps.fund.models.membership import InvestmentApplication, FundInvestment
+from apps.fund.models.tokens import FundToken
 
 class BlockchainTransferService:
     @staticmethod
-    def _transfer_blockchain_tokens(application: InvestmentApplication, request=None):
+    def _assign_tokens_to_fund_investment(
+        application: InvestmentApplication,
+        fund_investment: FundInvestment,
+        quantity: int,
+        request=None
+    ):
+        user = getattr(request, "user", None) or application.user
+
+        token_ids = list(
+            FundToken.objects.select_for_update()
+            .filter(
+                fund=application.fund,
+                status=True,
+                owner_user=user,
+                fund_investment__isnull=True
+            )
+            .values_list("id", flat=True)[:quantity]
+        )
+
+        if len(token_ids) < quantity:
+            raise ValueError(
+                f"No hay suficientes FundToken para enlazar a la inversión. "
+                f"Requeridos={quantity}, encontrados={len(token_ids)}"
+            )
+
+        FundToken.objects.filter(id__in=token_ids).update(fund_investment=fund_investment)
+        return token_ids
+    
+    @staticmethod
+    def _transfer_blockchain_tokens(application: InvestmentApplication,request=None):
         """
         Transfiere tokens de blockchain al usuario usando PurchaseTokenBatchSerializer
         """

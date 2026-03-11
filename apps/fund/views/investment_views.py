@@ -113,10 +113,10 @@ class InvestmentDashboardViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def submit_investment_application(request):
+def submit_investment_application(request, fund_id):
     serializer = SubmitInvestmentSerializer(
         data=request.data,
-        context={'request': request}
+        context={'request': request, 'fund_id': fund_id}
     )
     
     if serializer.is_valid():

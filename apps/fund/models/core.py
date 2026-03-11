@@ -164,6 +164,12 @@ class Fund(models.Model):
         help_text="Cantidad de tokens del fondo",
         verbose_name="Cantidad de tokens"
     )
+    last_token_seq = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+        help_text="Última secuencia numérica utilizada para generar token IDs",
+        verbose_name="Última secuencia de token"
+    )
     nickname_tokens = models.CharField(
         max_length=255, 
         blank=True, 

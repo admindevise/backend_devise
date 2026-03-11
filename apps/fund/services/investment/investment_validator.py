@@ -1,9 +1,11 @@
 from decimal import Decimal
 from django.utils import timezone
+from decimal import Decimal, ROUND_UP
 
 from apps.financial_institution.services.actions_application_service import FIActionsService
 from apps.fund.models.membership import InvestmentApplication
 from apps.fund.models.core import Fund
+from apps.fund.models.tokens import FundToken
 
 class InvestmentValidator:
     def __init__(self, investment_data):
@@ -94,14 +96,29 @@ class InvestmentValidator:
         
     @staticmethod
     def _validate_sufficient_tokens(fund: Fund, amount: Decimal):
-        if fund.price_per_unit <= 0:
+        if not fund.price_per_unit or fund.price_per_unit <= 0:
             raise ValueError("El precio por unidad del fondo no está configurado correctamente.")
-        
-        # Convertir monto en COP a cantidad de tokens requeridos
-        tokens_required = amount / fund.price_per_unit
-        
-        if fund.amount_tokens < tokens_required:
+
+        # Tokens requeridos para el monto (redondeo hacia arriba)
+        tokens_required = (amount / fund.price_per_unit).quantize(Decimal("1"), rounding=ROUND_UP)
+
+        # Tokens activos con inversión asociada (ocupados/asignados)
+        assigned_tokens = FundToken.objects.filter(
+            fund=fund,
+            status=True,
+            fund_investment__isnull=False
+        ).count()
+
+        # Tokens activos sin inversión asociada (disponibles)
+        available_tokens = FundToken.objects.filter(
+            fund=fund,
+            status=True,
+            fund_investment__isnull=True
+        ).count()
+
+        if available_tokens < int(tokens_required):
             raise ValueError(
                 f"No hay suficientes tokens disponibles en el fideicomiso. "
-                f"Se requieren {tokens_required} tokens pero solo hay {fund.amount_tokens}."
+                f"Se requieren {int(tokens_required)} tokens, disponibles {available_tokens}, "
+                f"asignados {assigned_tokens}."
             )

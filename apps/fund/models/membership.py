@@ -35,9 +35,9 @@ class InvestorContract(models.Model):
         verbose_name="Fecha de creación"
     )
     
-    # ===========================================
+    # =======================================================
     # ESCENARIO DE CONTRATO FIRMADO
-    # ===========================================
+    # =======================================================
     contract_url = models.URLField(
         null=True,
         blank=True,
@@ -54,9 +54,9 @@ class InvestorContract(models.Model):
         verbose_name="Fecha de expiración para firma"
     )
     
-    # ===========================================
+    # =======================================================
     # ESCENARIO DE SUSPENSIÓN
-    # ===========================================
+    # =======================================================
     
     suspension_reason = models.TextField(
         null=True,
@@ -104,9 +104,9 @@ class InvestmentApplication(models.Model):
         FUND_CAPACITY = 'fund_capacity', 'Capacidad del Fideicomiso'
         OTHER = 'other', 'Otro'
     
-    # ========================================
+    # ====================================================
     # RELACIONES BÁSICAS
-    # ========================================
+    # ====================================================
     fund = models.ForeignKey(
         'fund.Fund',
         on_delete=models.CASCADE,
@@ -121,9 +121,9 @@ class InvestmentApplication(models.Model):
         verbose_name="Solicitante"
     )
     
-    # ========================================
+    # ====================================================
     # INFORMACIÓN DE LA SOLICITUD
-    # ========================================
+    # ====================================================
     requested_amount = models.DecimalField(
         max_digits=14,
         decimal_places=2,
@@ -138,9 +138,54 @@ class InvestmentApplication(models.Model):
         verbose_name="Estado de la solicitud"
     )
     
-    # ========================================
+    # ====================================================
+    # CREACIÓN ASISTIDA / AUTORIZACIÓN DEL USUARIO
+    # ====================================================
+    is_staff_assisted = models.BooleanField(
+        default=False,
+        verbose_name="¿Creación asistida por staff?"
+    )
+
+    assistance_notes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Notas de asistencia"
+    )
+
+    authorization_channel = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name="Canal de autorización"
+    )
+
+    authorization_evidence = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Evidencia de autorización del usuario",
+        help_text="Referencia, ID de llamada, ticket, URL, hash o detalle verificable"
+    )
+
+    data_processing_consent = models.BooleanField(
+        default=False,
+        verbose_name="Consentimiento para tratamiento de datos"
+    )
+
+    data_processing_consent_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Fecha/hora del consentimiento de datos"
+    )
+
+    data_processing_consent_evidence = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Evidencia del consentimiento de datos"
+    )
+    
+    # ====================================================
     # CAMPOS DE REVISIÓN
-    # ========================================
+    # ====================================================
     reviewed_by = models.ForeignKey(
         'user.User',
         on_delete=models.PROTECT,
@@ -162,9 +207,9 @@ class InvestmentApplication(models.Model):
         verbose_name="Notas de revisión"
     )
     
-    # ========================================
+    # ====================================================
     # CAMPOS DE CONTRATO
-    # ========================================
+    # ====================================================
     contract_url = models.URLField(
         null=True,
         blank=True,
@@ -198,9 +243,9 @@ class InvestmentApplication(models.Model):
         verbose_name="Fecha límite para firmar"
     )
     
-    # ========================================
+    # ====================================================
     # CAMPOS DE RECHAZO
-    # ========================================
+    # ====================================================
     rejection_reason = models.TextField(
         blank=True,
         null=True,
@@ -236,9 +281,9 @@ class InvestmentApplication(models.Model):
         verbose_name="Puede volver a aplicar después de"
     )
     
-    # ========================================
+    # ====================================================
     # CAMPOS DE RETIRO
-    # ========================================
+    # ====================================================
     withdrawn_by = models.ForeignKey(
         'user.User',
         on_delete=models.PROTECT,
@@ -260,9 +305,9 @@ class InvestmentApplication(models.Model):
         verbose_name="Motivo de retiro"
     )
     
-    # ========================================
+    # ====================================================
     # ACEPTACIONES Y CONFIRMACIONES DE INVERSIÓN
-    # ========================================
+    # ====================================================
     accepts_terms_and_conditions = models.BooleanField(
         default=False,
         verbose_name="Acepta términos y condiciones de la inversión",
@@ -275,9 +320,9 @@ class InvestmentApplication(models.Model):
         help_text="Confirmación específica de riesgos para esta inversión"
     )       
     
-    # ========================================
+    # ====================================================
     # METADATOS
-    # ========================================
+    # ====================================================
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Fecha de creación"
@@ -288,21 +333,16 @@ class InvestmentApplication(models.Model):
         verbose_name="Última actualización"
     )
     
-    ip_address = models.CharField(
-        null=True,
-        blank=True,
-        verbose_name="Dirección IP"
+    created_by = models.ForeignKey(
+        'user.User',
+        on_delete=models.PROTECT,
+        related_name="created_fund_applications",
+        verbose_name="Creado por"
     )
     
-    user_agent = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="User Agent del navegador"
-    )
-    
-    # ========================================
+    # ====================================================
     # MÉTODOS DE VALIDACIÓN
-    # ========================================
+    # ====================================================
     def can_be_withdrawn(self):
         """Verificar si la solicitud puede ser retirada"""
         withdrawable_statuses = [
@@ -368,9 +408,9 @@ class FundInvestment(models.Model):
         FAILED = 'failed', 'Fallido'
         REFUNDED = 'refunded', 'Reembolsado'
     
-    # ========================================
+    # ====================================================
     # RELACIÓN CON LA SOLICITUD APROBADA
-    # ========================================
+    # ====================================================
     application = models.OneToOneField(
         InvestmentApplication,
         on_delete=models.PROTECT,
@@ -380,9 +420,9 @@ class FundInvestment(models.Model):
         blank=True
     )
     
-    # ========================================
+    # ====================================================
     # ACCESO DIRECTO A RELACIONES (Para convenience)
-    # ========================================
+    # ====================================================
     @property
     def fund(self):
         """Acceso directo al fondo"""
@@ -404,9 +444,9 @@ class FundInvestment(models.Model):
             return self.application.fund.financial_institution.name
         return "N/A"
     
-    # ========================================
+    # ====================================================
     # INFORMACIÓN FINANCIERA DE LA INVERSIÓN
-    # ========================================
+    # ====================================================
     final_invested_amount = models.DecimalField(
         max_digits=14,
         decimal_places=2,
@@ -442,9 +482,9 @@ class FundInvestment(models.Model):
         verbose_name="Precio del token mas comisiones"
     )
     
-    # ========================================
+    # ====================================================
     # ESTADO Y FECHAS DE INVERSIÓN
-    # ========================================
+    # ====================================================
     investment_status = models.CharField(
         max_length=20,
         choices=InvestmentStatus.choices,
@@ -458,9 +498,9 @@ class FundInvestment(models.Model):
         verbose_name="Fecha de vencimiento"
     )
     
-    # ========================================
+    # ====================================================
     # INFORMACIÓN DE PAGO
-    # ========================================
+    # ====================================================
     payment_status = models.CharField(
         max_length=15,
         choices=PaymentStatus.choices,
@@ -494,9 +534,9 @@ class FundInvestment(models.Model):
         verbose_name="Fecha de pago confirmado"
     )
     
-    # ========================================
+    # ====================================================
     # CONFIGURACIONES DE INVERSIÓN
-    # ========================================
+    # ====================================================
     auto_reinvest_dividends = models.BooleanField(
         default=True,
         verbose_name="Reinversión automática de dividendos"
@@ -513,9 +553,9 @@ class FundInvestment(models.Model):
         verbose_name="Preferencia de pago de dividendos"
     )
     
-    # ========================================
+    # ====================================================
     # DOCUMENTACIÓN
-    # ========================================
+    # ====================================================
     payment_receipt = models.FileField(
         upload_to=fund_investment_payment_receipt_path,
         null=True,
@@ -523,9 +563,9 @@ class FundInvestment(models.Model):
         verbose_name="Comprobante de pago"
     ) 
     
-    # ========================================
+    # ====================================================
     # METADATOS
-    # ========================================
+    # ====================================================
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Fecha de creación de la inversión"
@@ -543,9 +583,9 @@ class FundInvestment(models.Model):
         verbose_name="Creado por"
     )
     
-    # ========================================
+    # ====================================================
     # MÉTODOS DE CÁLCULO
-    # ========================================
+    # ====================================================
     @property
     def current_total_value(self):
         """Valor total actual de la inversión"""
