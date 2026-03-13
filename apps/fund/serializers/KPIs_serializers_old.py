@@ -1637,7 +1637,7 @@ class DividendYieldHistoricalSerializer(serializers.Serializer):
         
         try:
             # Importar el calculador de Dividend Yield
-            from apps.fund.services.kpis.dividend_yield_percentage import DividendYieldCalculator
+            from apps.fund.services.kpis_old.dividend_yield_percentage import DividendYieldCalculator
             
             # Crear calculador
             calculator = DividendYieldCalculator(fund, target_user)
@@ -1760,7 +1760,7 @@ class DividendYieldCurrentSerializer(serializers.Serializer):
         
         try:
             # Importar el wrapper simplificado
-            from apps.fund.services.kpis.dividend_yield_percentage import calculate_dividend_yield_percentage
+            from apps.fund.services.kpis_old.dividend_yield_percentage import calculate_dividend_yield_percentage
             
             # Calcular dividend yield actual
             result = calculate_dividend_yield_percentage(fund, target_user)
@@ -1885,7 +1885,7 @@ class AccumulatedInvestmentSerializer(serializers.Serializer):
         
         try:
             # Importar el wrapper simplificado
-            from apps.fund.services.kpis.dividend_yield_percentage import calculate_accumulated_investment
+            from apps.fund.services.kpis_old.dividend_yield_percentage import calculate_accumulated_investment
             
             # Calcular inversión acumulada
             result = calculate_accumulated_investment(fund, target_user)

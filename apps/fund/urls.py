@@ -49,6 +49,7 @@ from apps.fund.views.investment_views import (
 from apps.fund.views.investor_contract_views import (
     create_investor_contract,
     sign_investor_contract,
+    InvestorContractViewSet
 )
 
 # ============================================================================
@@ -206,6 +207,7 @@ router.register(r'investment', InvestmentViewSet, basename='investment')
 router.register(r'investment-application', InvestmentApplicationViewSet, basename='investment-application')
 router.register(r'application-pending', PendingApplicationViewSet, basename='investment-application-pending')
 router.register(r'investment-dashboard', InvestmentDashboardViewSet, basename='investment-dashboard')
+router.register(r'(?P<fund_id>\d+)/investor-contract', InvestorContractViewSet, basename='investment-trust')
 
 # Distributions
 router.register(r'investment-distribution', InvestmentDistributionRecordViewSet, basename='investment-distribution')
