@@ -1,5 +1,6 @@
 from typing import Dict, Any, Optional
 from decimal import Decimal
+from datetime import datetime, date
 from django.utils import timezone
 from datetime import timedelta
 from django.db import models
@@ -12,6 +13,19 @@ from apps.user.models_permission import (
 
 class TradingPermissionService:
     """Servicio para gestión y verificación de permisos de trading"""
+    @staticmethod
+    def _make_json_safe(data):
+        if isinstance(data, Decimal):
+            return str(data)
+        if isinstance(data, (date, datetime)):
+            return str(data)
+        if hasattr(data, 'id'):
+            return data.id
+        if isinstance(data, dict):
+            return {key: TradingPermissionService._make_json_safe(value) for key, value in data.items()}
+        if isinstance(data, list):
+            return [TradingPermissionService._make_json_safe(value) for value in data]
+        return data    
     
     @staticmethod
     def grant_trading_permission(
@@ -55,6 +69,44 @@ class TradingPermissionService:
         
         print(f"✅ Permission created: ID {permission.id}, Type: {permission.permission_type}")
         return permission
+    
+    @staticmethod
+    def renew_if_exists(
+        user,
+        admin_user,
+        permission_type,
+        fund_id,
+        duration_hours,
+        max_order_amount=None,
+        max_daily_amount=None,
+        auto_approve_under=None,
+        require_confirmation=True,
+        reason=""
+    ):
+        # Busca el último permiso histórico (activo o no)
+        qs = UserAdminPermission.objects.filter(
+            user=user,
+            admin_user=admin_user,
+            permission_type=permission_type,
+            fund_id=fund_id
+        ).order_by('-granted_at')
+
+        permission = qs.first()
+        if not permission:
+            return None
+
+        now = timezone.now()
+        permission.status = 'ACTIVE'
+        permission.granted_at = now
+        permission.expires_at = now + timedelta(hours=duration_hours)
+        permission.max_order_amount = max_order_amount
+        permission.max_daily_amount = max_daily_amount
+        permission.auto_approve_under_amount = auto_approve_under
+        permission.require_confirmation = require_confirmation
+        permission.reason = reason
+        permission.save()
+
+        return permission    
     
     @staticmethod
     def check_permission(
@@ -217,18 +269,8 @@ class TradingPermissionService:
         permission.save(update_fields=['usage_count'])
         
         print(f"ACTION DATA: {action_data} y {action_data.get('total_amount')} itemsss {action_data.items()}")
-        serializable_data = {}
-        for key, value in action_data.items():
-            if key in ['fund', 'expiration_date', 'user', 'supplier_user', 'saller_user']:
-                continue  # Omitir campos no serializables
-            if isinstance(value, Decimal):
-                serializable_data[key] = str(value)
-            elif isinstance(value, (date, datetime)):
-                serializable_data[key] = str(value)
-            elif hasattr(value, 'id'):  # ✅ Convertir objetos Django a IDs
-                serializable_data[key] = value.id
-            else:
-                serializable_data[key] = value
+        
+        serializable_data = TradingPermissionService._make_json_safe(action_data)
         
         # Crear registro de ejecución
         PermissionExecution.objects.create(
@@ -255,12 +297,14 @@ class TradingPermissionService:
         
         expires_at = timezone.now() + timedelta(hours=2)  # 2 horas para responder
         
+        safe_action_data = TradingPermissionService._make_json_safe(action_data)
+        
         pending_action = PendingPermissionAction.objects.create(
             permission=permission,
             admin_user=permission.admin_user,
             action_type=action_type,
             action_description=description,
-            action_data=action_data,
+            action_data=safe_action_data,
             amount=amount,
             fund=permission.fund,
             expires_at=expires_at
@@ -277,6 +321,7 @@ class TradingPermissionService:
             admin_user=admin_user,
             status='ACTIVE',
             fund=fund,
+            expires_at__gt=timezone.now()
         )
         
         if permission_type:
