@@ -34,6 +34,7 @@ class PermissionAwareBaseSerializer(serializers.Serializer):
     
     def _validate_staff_user(self, requesting_user, target_user):
         # Metodo para no permitir que un staff cree una orden para otro staff o si mismo
+        print(f"el user es {requesting_user} y el target es {target_user}")
         if requesting_user.is_staff and target_user.id == requesting_user.id:
             raise serializers.ValidationError(
                 "Los administradores no pueden crear órdenes para sí mismos"
@@ -80,21 +81,18 @@ class PermissionAwarePurchaseOrderSerializer(PermissionAwareBaseSerializer, Purc
         if not requesting_user:
             raise serializers.ValidationError("Usuario no identificado")
 
-        # supplier_user = target_user
+        attrs = super().validate(attrs)
+
         target_user = self._get_target_user(attrs, 'supplier_user') or requesting_user
 
-        # Validar que un admin no cree orden para otro admin o para sí mismo
         self._validate_staff_user(requesting_user, target_user)
-        
+
+        # Validar que un admin no cree orden para otro admin o para sí mismo
         if target_user and target_user.id != requesting_user.id:
             if not requesting_user.is_staff:
                 raise serializers.ValidationError(
                     "Solo administradores pueden crear órdenes para otros usuarios"
                 )
-            try:
-                target_user = User.objects.get(id=target_user.id)
-            except User.DoesNotExist:
-                raise serializers.ValidationError("Usuario objetivo no encontrado")
 
             permission_check = self._validate_admin_permission(
                 requesting_user, target_user, 'CREATE_PURCHASE_ORDER', attrs
@@ -107,7 +105,7 @@ class PermissionAwarePurchaseOrderSerializer(PermissionAwareBaseSerializer, Purc
             )
 
         attrs['supplier_user'] = target_user
-        return super().validate(attrs)
+        return attrs
 
     @transaction.atomic
     def create(self, validated_data):
@@ -128,7 +126,7 @@ class PermissionAwarePurchaseOrderSerializer(PermissionAwareBaseSerializer, Purc
                     'pending_action_id': pending_action.id,
                     'message': 'La orden requiere aprobación del usuario objetivo',
                     'approval_expires_at': pending_action.expires_at.isoformat(),
-                    'amount': str(validated_data.get('total_amount'))  # ✅ Decimal -> str
+                    'amount': str(validated_data.get('total_amount'))
                 }
 
             # ✅ crear orden normal y registrar uso
@@ -142,6 +140,11 @@ class PermissionAwarePurchaseOrderSerializer(PermissionAwareBaseSerializer, Purc
             return order
 
         return super().create(validated_data)
+    
+    def to_representation(self, instance):
+        if isinstance(instance, dict):
+            return instance
+        return super().to_representation(instance)
 
 
 class PermissionAwareSalesOrderSerializer(PermissionAwareBaseSerializer, SalesOrderSerializer):
@@ -162,6 +165,9 @@ class PermissionAwareSalesOrderSerializer(PermissionAwareBaseSerializer, SalesOr
         requesting_user = request.user if request else None
         if not requesting_user:
             raise serializers.ValidationError("Usuario no identificado")
+        
+        # Resolver fund desde contexto o body
+        attrs = super().validate(attrs)
 
         # seller_user = target_user
         target_user = self._get_target_user(attrs, 'seller_user') or requesting_user
@@ -192,7 +198,7 @@ class PermissionAwareSalesOrderSerializer(PermissionAwareBaseSerializer, SalesOr
             )
 
         attrs['seller_user'] = target_user
-        return super().validate(attrs)
+        return attrs
 
     @transaction.atomic
     def create(self, validated_data):
@@ -243,13 +249,6 @@ class PermissionGrantSerializer(serializers.Serializer):
         ],
         required=True
     )
-    fund_id = serializers.IntegerField(
-        required=True,
-        error_messages={
-            'does_not_exist': "Fondo no encontrado.",
-            'incorrect_type': "ID de fondo inválido.",
-        }
-        )
     duration_hours = serializers.IntegerField(default=24, min_value=1, max_value=168)  # Máximo 1 semana
     max_order_amount = serializers.DecimalField(
         max_digits=15, decimal_places=2, 
@@ -283,19 +282,10 @@ class PermissionGrantSerializer(serializers.Serializer):
         except User.DoesNotExist:
             raise serializers.ValidationError("Administrador no encontrado o no tiene permisos de staff")
     
-    def validate_fund_id(self, value):
-        if value:
-            from apps.fund.models import Fund
-            try:
-                fund = Fund.objects.get(id=value)
-                return fund
-            except Fund.DoesNotExist:
-                raise serializers.ValidationError("Fondo no encontrado")
-        return None
-    
     def validate(self, attrs):
         target_user = attrs['target_user_id']
         admin_user = attrs['admin_user_id']
+        fund_id = self.context.get('fund_id')
         
         if target_user.id == admin_user.id:
             raise serializers.ValidationError("El administrador no puede otorgarse permisos a sí mismo")
@@ -305,7 +295,7 @@ class PermissionGrantSerializer(serializers.Serializer):
             user=target_user,
             admin_user=admin_user,
             permission_type=attrs['permission_type'],
-            fund=attrs['fund_id'].id
+            fund=fund_id
         )
         if existing_permissions.exists():
             raise serializers.ValidationError({
@@ -318,13 +308,13 @@ class PermissionGrantSerializer(serializers.Serializer):
         print("CREATING PERMISSION WITH DATA:", validated_data)
         target_user = validated_data['target_user_id']
         admin_user = validated_data['admin_user_id']
-        fund = validated_data.get('fund_id')
+        fund_id = self.context.get('fund_id')
         
-        permission = TradingPermissionService.grant_trading_permission(
+        renewed_permission = TradingPermissionService.renew_if_exists(
             user=target_user,
             admin_user=admin_user,
             permission_type=validated_data['permission_type'],
-            fund_id=fund.id if fund else None,
+            fund_id=fund_id,
             duration_hours=validated_data['duration_hours'],
             max_order_amount=validated_data.get('max_order_amount'),
             max_daily_amount=validated_data.get('max_daily_amount'),
@@ -332,8 +322,22 @@ class PermissionGrantSerializer(serializers.Serializer):
             require_confirmation=validated_data['require_confirmation'],
             reason=validated_data['reason']
         )
-        
-        return permission
+        if renewed_permission:
+            return renewed_permission
+
+        # Si no existe histórico, crear nuevo
+        return TradingPermissionService.grant_trading_permission(
+            user=target_user,
+            admin_user=admin_user,
+            permission_type=validated_data['permission_type'],
+            fund_id=fund_id,
+            duration_hours=validated_data['duration_hours'],
+            max_order_amount=validated_data.get('max_order_amount'),
+            max_daily_amount=validated_data.get('max_daily_amount'),
+            auto_approve_under=validated_data.get('auto_approve_under'),
+            require_confirmation=validated_data['require_confirmation'],
+            reason=validated_data['reason']
+        )
     
     def to_representation(self, instance):
         """Serializa el permiso creado (UserAdminPermission)"""
@@ -355,8 +359,8 @@ class PermissionGrantSerializer(serializers.Serializer):
                 'max_daily_amount': str(instance.max_daily_amount) if instance.max_daily_amount else None,
                 'auto_approve_under_amount': str(instance.auto_approve_under_amount) if instance.auto_approve_under_amount else None,
                 'require_confirmation': instance.require_confirmation,
-                'granted_at': instance.granted_at.isoformat() if instance.granted_at else None,
-                'expires_at': instance.expires_at.isoformat() if instance.expires_at else None,
+                'granted_at': instance.granted_at.strftime("%Y-%m-%d %H:%M:%S") if instance.granted_at else None,
+                'expires_at': instance.expires_at.strftime("%Y-%m-%d %H:%M:%S") if instance.expires_at else None,
                 'reason': instance.reason,
                 'message': 'Permiso otorgado exitosamente'
             }

@@ -1,12 +1,16 @@
-from rest_framework import status, viewsets, filters
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import api_view, permission_classes, action
-from rest_framework.views import APIView
-from django_filters.rest_framework import DjangoFilterBackend
-from django.utils import timezone
 from django.db.models import Q
+from django.utils import timezone
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status, viewsets, filters
+from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.decorators import api_view, permission_classes, action
+
+from apps.trading.views.utils_views import validate_entity_exists
+from apps.fund.models.core import Fund
+from apps.trading.models.core_models import PurchaseOrder, SalesOrder
 from apps.trading.models.selection_models import MatchSelection
 from apps.trading.serializers_flow.selection_management_serializers import (
     UnifiedMatchSelectionSerializer,
@@ -17,7 +21,7 @@ from apps.trading.serializers_flow.selection_management_serializers import (
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def create_match_selection(request):
+def create_match_selection(request, fund_id):
     """
     Endpoint unificado para crear selecciones de matches.
     
@@ -30,10 +34,14 @@ def create_match_selection(request):
     - selected_matches: Lista de matches (solo para method='manual')
     - force_partial: Boolean (solo para method='auto')
     """
+    validate_entity_exists(Fund, 'Fideicomiso', fund_id)
     
     serializer = UnifiedMatchSelectionSerializer(
         data=request.data,
-        context={'request': request}
+        context={
+            'request': request,
+            'fund_id': fund_id
+        }
     )
     
     if not serializer.is_valid():
@@ -60,16 +68,20 @@ def create_match_selection(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def validate_selection_capability(request):
+def validate_selection_capability(request, fund_id):
     """
     Valida si una orden puede crear selecciones y devuelve matches disponibles.
     
     Útil para que el frontend sepa si puede mostrar la interfaz de selección.
     """
+    validate_entity_exists(Fund, 'Fideicomiso', fund_id)
     
     serializer = SelectionValidationSerializer(
         data=request.data,
-        context={'request': request}
+        context={
+            'request': request,
+            'fund_id': fund_id,
+        }
     )
     
     if not serializer.is_valid():
@@ -95,14 +107,18 @@ def validate_selection_capability(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def cancel_selection(request):
+def cancel_selection(request, fund_id, selection_id):
     """
     Cancela una selección existente y restaura el estado de la orden.
     """
     
     serializer = SelectionCancellationSerializer(
         data=request.data,
-        context={'request': request}
+        context={
+            'request': request,
+            'fund_id': fund_id,
+            'selection_id': selection_id
+        }
     )
     
     if not serializer.is_valid():
@@ -137,7 +153,7 @@ class MatchSelectionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = SelectionStatusSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'metadata__order_type', 'metadata__selection_method']
+    #filterset_fields = ['status', 'metadata__order_type', 'metadata__selection_method']
     search_fields = ['purchase_order__order_number', 'sales_order__order_number']
     ordering_fields = ['selected_at', 'expires_at', 'total_amount']
     ordering = ['-selected_at']

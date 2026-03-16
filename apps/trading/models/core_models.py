@@ -25,7 +25,7 @@ class BaseOrder(base_model.BaseModel):
         max_digits=5, 
         decimal_places=2, 
         default=0
-    )    
+    )
     
     fund = models.ForeignKey('fund.Fund', on_delete=models.PROTECT)
     created_by = models.ForeignKey('user.User', on_delete=models.PROTECT)
@@ -35,6 +35,13 @@ class BaseOrder(base_model.BaseModel):
     partially_executed_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     matched_at = models.DateTimeField(null=True, blank=True)
+    
+    # Campos de creacion de ordenes asistidas
+    is_staff_assisted = models.BooleanField(default=False)
+    assistance_notes = models.TextField(blank=True, null=True)
+    authorization_channel = models.CharField(max_length=50, blank=True, null=True)
+    authorization_evidence = models.TextField(blank=True, null=True)
+    assisted_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         abstract = True

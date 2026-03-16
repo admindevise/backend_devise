@@ -36,47 +36,60 @@ from apps.trading.views.negotiation_dashboard_views import (
 )
 
 router = DefaultRouter()
-router.register(r'purchase-orders', PurchaseOrderViewSet, basename='purchaseorder')
-router.register(r'sales-orders', SalesOrderViewSet, basename='salesorder')
+router.register(
+    r'fund/(?P<fund_id>[^/.]+)/purchase-orders',
+    PurchaseOrderViewSet,
+    basename='purchase-order'
+)
+router.register(
+    r'fund/(?P<fund_id>[^/.]+)/sales-orders',
+    SalesOrderViewSet,
+    basename='sales-order'
+)
 router.register(r'transactions', TransactionViewSet, basename='transaction')
-router.register(r'contracts', OrderContractListView, basename='ordercontract')
+router.register(
+    r'fund/(?P<fund_id>[^/.]+)/contracts',
+    OrderContractListView,
+    basename='order-contract'
+)
 router.register(r'selections', MatchSelectionViewSet, basename='matchselection')
 
 
 urlpatterns = [
     # Router URLs
-    path('api/', include(router.urls)),
+    path('', include(router.urls)),
     
     # Matching URLs (existentes)
-    path('api/search-matches/', find_matches, name='find-matches'),
+    path('search-matches/', find_matches, name='find-matches'),
     
     # Utility URLs
-    path('api/active-orders/', ActiveOrdersAPIView.as_view(), name='active-orders'),
+    path('active-orders/', ActiveOrdersAPIView.as_view(), name='active-orders'),
     
-    path('api/cleanup-reservations/', cleanup_expired_reservations, name='cleanup-reservations'),
+    path('cleanup-reservations/', cleanup_expired_reservations, name='cleanup-reservations'),
     
     # Contract URLs
-    path('api/contracts-pending/', list_pending_contracts, name='list-pending-contracts'),
-    path('api/contracts-approve/<int:contract_id>/', approve_contract, name='approve-contract'),
+    path('fund/<int:fund_id>/contracts-pending/', list_pending_contracts, name='list-pending-contracts'),
+    path('fund/<int:fund_id>/contracts-approve/<int:contract_id>/', approve_contract, name='approve-contract'),
     
     # API unificada
-    path('api/create-selection/', create_match_selection, name='create_match_selection'),
-    path('api/validate-selection/', validate_selection_capability, name='validate_selection_capability'),
-    path('api/cancel-selection/', cancel_selection, name='cancel_selection'),
+    path('fund/<int:fund_id>/create-selection/', create_match_selection, name='create_match_selection'),
+    path('fund/<int:fund_id>/validate-selection/', validate_selection_capability, name='validate_selection_capability'),
+    path('fund/<int:fund_id>/cancel-selection/<int:selection_id>/', cancel_selection, name='cancel_selection'),
+    
     
     # Estadísticas
-    path('api/my-selection-stats/', UserSelectionStatsAPIView.as_view(), name='user_selection_stats'),
+    path('my-selection-stats/', UserSelectionStatsAPIView.as_view(), name='user_selection_stats'),
     
-    path('api/payments/execute/', execute_payment, name='execute-payment'),
+    path('fund/<int:fund_id>/payments/execute/<uuid:order_id>/', execute_payment, name='execute-payment'),
     
     # Permission Management
-    path('api/permissions/grant/', grant_trading_permission, name='permissions-grant'),
-    path('api/permissions/list/', list_user_permissions, name='list-user-permissions'),
+    path('fund/<int:fund_id>/permissions/grant/', grant_trading_permission, name='permissions-grant'),
+    path('permissions/list/', list_user_permissions, name='list-user-permissions'),
     
     # Negotiation Dashboard
-    path('api/negotiations/dashboard/', NegotiationOrdersListAPIView.as_view(), name='negotiation-dashboard'),
-    path('api/negotiations/metrics/', NegotiationStatusOptionsAPIView.as_view(), name='negotiation-metrics'),
+    path('negotiations/dashboard/', NegotiationOrdersListAPIView.as_view(), name='negotiation-dashboard'),
+    path('negotiations/metrics/', NegotiationStatusOptionsAPIView.as_view(), name='negotiation-metrics'),
     
     # Listado unificado de órdenes (compra + venta)
-    path('api/orders/', get_orders, name='get-orders'),
+    path('orders/', get_orders, name='get-orders'),
 ]

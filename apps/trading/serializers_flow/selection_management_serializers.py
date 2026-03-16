@@ -3,7 +3,10 @@ from typing import Dict, Any, List
 from django.utils import timezone
 
 from apps.trading.models.core_models import PurchaseOrder, SalesOrder
+from apps.fund.models.core import Fund
 from apps.trading.models.selection_models import MatchSelection, MatchSelectionItem
+
+from apps.trading.serializers_flow.utils_serializers import _validate_common_context
 from apps.trading.services_core.selection_service import MatchSelectionService
 from apps.trading.services_core.match_selection_core import SelectionServiceError, InsufficientUnitsWarning
 
@@ -46,7 +49,6 @@ class UnifiedMatchSelectionSerializer(serializers.Serializer):
     
     def validate(self, attrs):
         """Validación completa de la solicitud"""
-        
         order_type = attrs.get('order_type')
         selection_method = attrs.get('selection_method')
         selected_matches = attrs.get('selected_matches')
@@ -75,6 +77,7 @@ class UnifiedMatchSelectionSerializer(serializers.Serializer):
         
         request = self.context.get('request')
         user = request.user if request else None
+        fund_id = self.context.get('fund_id')
         
         if not user:
             raise serializers.ValidationError("Usuario no identificado")
@@ -88,7 +91,14 @@ class UnifiedMatchSelectionSerializer(serializers.Serializer):
                 user_field = 'seller_user'
                 
         except (PurchaseOrder.DoesNotExist, SalesOrder.DoesNotExist):
-            raise serializers.ValidationError(f"Orden de {order_type} no encontrada")
+            raise serializers.ValidationError({
+                'order_id': f"Orden de {order_type} con ID {order_id} no encontrada"
+            })
+        
+        if fund_id and str(order.fund.id) != str(fund_id):
+            raise serializers.ValidationError({
+                'fund': f"La orden no pertenece al fideicomiso con ID {fund_id}."
+            })
         
         # Verificar permisos
         order_user = getattr(order, user_field)
@@ -182,7 +192,9 @@ class SelectionStatusSerializer(serializers.ModelSerializer):
     """
     Serializer para consultar el estado de una selección existente
     """
-    
+    selected_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    expires_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    is_expired = serializers.SerializerMethodField()
     order_id = serializers.SerializerMethodField()
     order_type = serializers.SerializerMethodField()
     order_number = serializers.SerializerMethodField()
@@ -268,15 +280,10 @@ class SelectionValidationSerializer(serializers.Serializer):
     
     def validate(self, attrs):
         """Validar que la orden existe y se puede hacer selección"""
-        
         order_id = attrs['order_id']
         order_type = attrs['order_type']
         
-        request = self.context.get('request')
-        user = request.user if request else None
-        
-        if not user:
-            raise serializers.ValidationError("Usuario no identificado")
+        user, _, _ = _validate_common_context(self.context)
         
         try:
             if order_type == 'purchase':
@@ -377,8 +384,6 @@ class SelectionCancellationSerializer(serializers.Serializer):
     """
     Serializer para cancelar una selección existente
     """
-    
-    selection_id = serializers.UUIDField(required=True)
     cancellation_reason = serializers.CharField(
         max_length=500, 
         required=False, 
@@ -388,26 +393,31 @@ class SelectionCancellationSerializer(serializers.Serializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.selection_service = MatchSelectionService()
+        self._cached_selection = None
     
-    def validate_selection_id(self, value):
+    def validate(self, attrs):
         """Validar que la selección existe y el usuario puede cancelarla"""
-        
-        request = self.context.get('request')
-        user = request.user if request else None
-        
-        if not user:
-            raise serializers.ValidationError("Usuario no identificado")
+        user, fund_id, selection_id = _validate_common_context(self.context, True)
         
         try:
             selection = MatchSelection.objects.select_related(
                 'purchase_order__supplier_user',
-                'sales_order__seller_user'
-            ).get(id=value)
+                'sales_order__seller_user',
+                'purchase_order__fund',
+                'sales_order__fund'
+            ).get(id=selection_id)
         except MatchSelection.DoesNotExist:
             raise serializers.ValidationError("Selección no encontrada")
         
         # Verificar permisos
         main_order = selection.purchase_order or selection.sales_order
+        
+        if str(main_order.fund.id) != str(fund_id):
+            raise serializers.ValidationError({
+                'fund_id': "La selección no pertenece al fideicomiso especificado."
+            })
+        
+        # Verificar que el usuario tenga permisos para cancelar la selección
         if isinstance(main_order, PurchaseOrder):
             order_user = main_order.supplier_user
         else:
@@ -418,14 +428,15 @@ class SelectionCancellationSerializer(serializers.Serializer):
         
         # Verificar que se puede cancelar
         if selection.status != 'ACTIVE':
-            raise serializers.ValidationError(f"No se puede cancelar una selección con estado {selection.status}")
+            raise serializers.ValidationError({
+                'status': f"Solo se pueden cancelar selecciones activas. Estado actual: {selection.status}"
+            })
         
         self._cached_selection = selection
-        return value
+        return attrs
     
     def cancel_selection(self) -> Dict[str, Any]:
         """Cancela la selección y restaura el estado de la orden"""
-        
         selection = self._cached_selection
         main_order = selection.purchase_order or selection.sales_order
         cancellation_reason = self.validated_data.get('cancellation_reason')
@@ -456,6 +467,6 @@ class SelectionCancellationSerializer(serializers.Serializer):
             'order_id': str(main_order.id),
             'order_number': main_order.order_number,
             'new_order_status': main_order.status,
-            'cancelled_at': timezone.now().isoformat(),
+            'cancelled_at': timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
             'cancellation_reason': cancellation_reason
         }

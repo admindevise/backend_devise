@@ -15,6 +15,7 @@ from apps.trading.services.order_query_service import OrderQueryService
 from apps.trading.services.order_service import OrderManagementService
 from apps.user.decorators.permissions import TradingPermissionMixin
 from apps.utils.views.Mixins import DateFilterMixin
+from apps.trading.views.utils_views import base_get_queryset
 
 from apps.trading.serializers_flow.permission_aware_serializers import (
     PermissionAwarePurchaseOrderSerializer,
@@ -27,6 +28,7 @@ from apps.trading.serializers.core_serializer import (
     OrderBookSerializer,
     OrderCancellationSerializer
 )
+from apps.utils.core_permissions.api_permissions import RegistryPermission
 from apps.trading.serializers.utils_serializers import UnifiedOrderSerializer
 
 from apps.user.models import User
@@ -41,7 +43,7 @@ class PurchaseOrderViewSet(TradingPermissionMixin,
     """
     API endpoint para gestionar órdenes de compra de unidades de fondos.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     permission_action_type = 'CREATE_PURCHASE_ORDER'
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     filterset_fields = ['created_by', 'supplier_user']
@@ -55,8 +57,6 @@ class PurchaseOrderViewSet(TradingPermissionMixin,
 
     def get_target_user(self, request):
         """Extrae el usuario objetivo para validación de permisos"""
-        if hasattr(request, 'data') and 'supplier_user' in request.data:
-            return User.objects.get(id=request.data['supplier_user'])
         return request.user
     
     def get_amount(self, request):
@@ -64,6 +64,12 @@ class PurchaseOrderViewSet(TradingPermissionMixin,
         if hasattr(request, 'data') and 'total_amount' in request.data:
             return Decimal(str(request.data['total_amount']))
         return None
+
+    def get_serializer_context(self):
+        """Agregar fund_id del URL al contexto del serializer"""
+        context = super().get_serializer_context()
+        context['fund_id'] = self.kwargs.get('fund_id')
+        return context
 
     def get_serializer_class(self):
         """Usar serializer con validación de permisos"""
@@ -78,25 +84,22 @@ class PurchaseOrderViewSet(TradingPermissionMixin,
 
     def get_queryset(self):
         """Filtra órdenes del usuario o todas si es admin"""
-        user = self.request.user
-        queryset = PurchaseOrder.objects.exclude(status='CANCELLED')
-        
-        if not user.is_staff:
-            queryset = queryset.filter(
-                Q(supplier_user=user) | Q(created_by=user)
-            )
-            
-        queryset = self.apply_date_filters(queryset)
-        return queryset
+        return base_get_queryset(self, PurchaseOrder, "supplier_user")
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
-    def cancel(self, request, pk=None):
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None, **kwargs):
         """Cancela una orden de compra"""
         try:
             purchase_order = self.get_object()
             
             # Usar el serializer de cancelación
-            cancellation_serializer = OrderCancellationSerializer(data=request.data)
+            cancellation_serializer = OrderCancellationSerializer(
+                data=request.data,
+                context={
+                    'request': request,
+                    'fund_id': self.kwargs.get('fund_id')
+                }
+            )
             cancellation_serializer.is_valid(raise_exception=True)
             
             result = cancellation_serializer.cancel_order(
@@ -121,9 +124,15 @@ class PurchaseOrderViewSet(TradingPermissionMixin,
             purchase_order = self.get_object()
             
             # Usar cancelación en lugar de eliminación física
-            cancellation_serializer = OrderCancellationSerializer(data={
+            cancellation_serializer = OrderCancellationSerializer(
+                data={
                 'cancellation_reason': 'Deleted via API', 'cancellation_at': timezone.now()
-            })
+                },
+                context={
+                    'request': request,
+                    'fund_id': self.kwargs.get('fund_id')
+                }
+            )
             cancellation_serializer.is_valid(raise_exception=True)
             
             result = cancellation_serializer.cancel_order(
@@ -151,8 +160,8 @@ class SalesOrderViewSet(TradingPermissionMixin,
     """
     API endpoint para gestionar órdenes de venta de unidades de fondos.
     """
-    permission_classes = [IsAuthenticated]
-    permission_action_type = 'CREATE_SALES_ORDER'  # ✅ Agregar validación automática
+    permission_classes = [IsAuthenticated, RegistryPermission]
+    permission_action_type = 'CREATE_SALES_ORDER'
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     filterset_fields = ['created_by', 'seller_user']
     search_fields = ['order_number', 'fund__name']
@@ -175,6 +184,12 @@ class SalesOrderViewSet(TradingPermissionMixin,
             return Decimal(str(request.data['total_amount']))
         return None
     
+    def get_serializer_context(self):
+        """Agregar fund_id del URL al contexto del serializer"""
+        context = super().get_serializer_context()
+        context['fund_id'] = self.kwargs.get('fund_id')
+        return context    
+    
     def get_serializer_class(self):
         """Usar serializer con validación de permisos"""
         if self.action == 'create':
@@ -188,25 +203,22 @@ class SalesOrderViewSet(TradingPermissionMixin,
 
     def get_queryset(self):
         """Filtra órdenes del usuario o todas si es admin"""
-        user = self.request.user
-        queryset = SalesOrder.objects.exclude(status='CANCELLED')
-        
-        if not user.is_staff:
-            queryset = queryset.filter(
-                Q(seller_user=user) | Q(created_by=user)
-            )
-        
-        queryset = self.apply_date_filters(queryset)
-        return queryset
+        return base_get_queryset(self, SalesOrder, "seller_user")
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
-    def cancel(self, request, pk=None):
+    def cancel(self, request, pk=None, **kwargs):
         """Cancela una orden de venta y libera tokens reservados"""
         try:
             sales_order = self.get_object()
             
             # Usar el serializer de cancelación
-            cancellation_serializer = OrderCancellationSerializer(data=request.data)
+            cancellation_serializer = OrderCancellationSerializer(
+                data=request.data,
+                context={
+                    'request': request,
+                    'fund_id': self.kwargs.get('fund_id')
+                }
+            )
             cancellation_serializer.is_valid(raise_exception=True)
             
             result = cancellation_serializer.cancel_order(
@@ -226,8 +238,8 @@ class SalesOrderViewSet(TradingPermissionMixin,
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
-    def reserved_tokens(self, request, pk=None):
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated], url_path='reserved-tokens')
+    def reserved_tokens(self, request, pk=None, **kwargs):
         """Obtiene información de tokens reservados para esta orden"""
         try:
             sales_order = self.get_object()
@@ -248,12 +260,12 @@ class SalesOrderViewSet(TradingPermissionMixin,
             }
             
             # Obtener información de tokens reservados
-            if hasattr(sales_order, 'metadata') and sales_order.metadata:
-                reserved_tokens = sales_order.metadata.get('reserved_tokens', [])
+            if hasattr(sales_order, 'reserved_tokens_info') and sales_order.reserved_tokens_info:
+                reserved_tokens = sales_order.reserved_tokens_info.get('token_ids', [])
                 
                 if reserved_tokens:  # Solo si hay tokens reservados
                     # Obtener detalles de tokens
-                    from apps.fund.models import FundToken
+                    from apps.fund.models.tokens import FundToken
                     tokens = FundToken.objects.filter(
                         token_id__in=reserved_tokens,
                         fund=sales_order.fund
@@ -262,7 +274,6 @@ class SalesOrderViewSet(TradingPermissionMixin,
                     reserved_info = {
                         'count': len(reserved_tokens),
                         'token_ids': reserved_tokens,
-                        'expires_at': sales_order.metadata.get('reservation_expires_at'),
                         'tokens_details': list(tokens)
                     }
             
@@ -283,9 +294,15 @@ class SalesOrderViewSet(TradingPermissionMixin,
             sales_order = self.get_object()
             
             # Usar cancelación en lugar de eliminación física
-            cancellation_serializer = OrderCancellationSerializer(data={
+            cancellation_serializer = OrderCancellationSerializer(
+                data={
                 'cancellation_reason': 'Deleted via API'
-            })
+                },
+                context={
+                    'request': request,
+                    'fund_id': self.kwargs.get('fund_id')
+                }
+            )
             cancellation_serializer.is_valid(raise_exception=True)
             
             result = cancellation_serializer.cancel_order(
@@ -645,6 +662,7 @@ def apply_order_filters(purchase_qs, sales_qs, params):
     user_id = params.get('user_id')
     start_date = params.get('start_date')
     end_date = params.get('end_date')
+    is_staff_assisted = params.get('is_staff_assisted')
 
     if status_param:
         purchase_qs = purchase_qs.filter(status=status_param)
@@ -670,6 +688,14 @@ def apply_order_filters(purchase_qs, sales_qs, params):
         sales_qs = sales_qs.none()
     elif order_type == 'sales':
         purchase_qs = purchase_qs.none()
+        
+    if is_staff_assisted is not None:
+        if is_staff_assisted.lower() == 'true':
+            purchase_qs = purchase_qs.filter(is_staff_assisted=True)
+            sales_qs = sales_qs.filter(is_staff_assisted=True)
+        elif is_staff_assisted.lower() == 'false':
+            purchase_qs = purchase_qs.filter(is_staff_assisted=False)
+            sales_qs = sales_qs.filter(is_staff_assisted=False)
 
     return purchase_qs, sales_qs
 

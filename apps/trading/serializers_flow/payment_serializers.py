@@ -19,12 +19,6 @@ class PaymentExecutionSerializer(serializers.Serializer):
     5. Finaliza y audita la operación
     """
     
-    # Campos obligatorios
-    purchase_order_id = serializers.UUIDField(
-        required=True,
-        help_text="ID de la orden de compra que tiene selección activa"
-    )
-    
     # Campos opcionales para el pago
     payment_method = serializers.ChoiceField(
         choices=[
@@ -55,46 +49,52 @@ class PaymentExecutionSerializer(serializers.Serializer):
         self._cached_purchase_order = None
         self._cached_selection = None
     
-    def validate_purchase_order_id(self, value):
-        """Valida que la orden exista, tenga selección activa y contratos aprobados"""
-        
+    def validate(self, attrs):
         request = self.context.get('request')
         user = request.user if request else None
-        
+        order_id = self.context.get('order_id')
+
         if not user:
             raise serializers.ValidationError("Usuario no identificado")
-        
+
         # Obtener la orden con relaciones necesarias
         try:
             purchase_order = PurchaseOrder.objects.select_related(
                 'fund',
                 'supplier_user'
-            ).get(id=value)
+            ).get(id=order_id)
         except PurchaseOrder.DoesNotExist:
-            raise serializers.ValidationError("Orden de compra no encontrada")
-        
+            raise serializers.ValidationError({
+                'order_id': "Orden de compra no encontrada."
+            })
+
         # Verificar permisos
         if not user.is_staff and purchase_order.supplier_user != user:
             raise serializers.ValidationError("No tienes permisos para pagar esta orden")
-        
+
         # Verificar estado de la orden
         if purchase_order.status not in ['MATCHES_SELECTED', 'PENDING', 'PARTIALLY_EXECUTED']:
             raise serializers.ValidationError(
-                f"La orden debe estar en estado MATCHES_SELECTED, PENDING o PARTIALLY_EXECUTED. Estado actual: {purchase_order.status}"
+                f"La orden debe estar en estado MATCHES_SELECTED, PENDING o PARTIALLY_EXECUTED. "
+                f"Estado actual: {purchase_order.status}"
             )
-        
-        # Buscar selección activa que tenga esta PO como main order
+
+        # Buscar selección activa como main order
+        selection = None
         try:
-            selection = purchase_order.match_selection  # Relación directa OneToOne
+            selection = purchase_order.match_selection
             if selection.status != 'ACTIVE':
-                raise MatchSelection.DoesNotExist()
-            if selection.is_expired:
+                selection = None
+            elif selection.is_expired:
                 raise serializers.ValidationError(
                     "La selección de matches ha expirado. "
                     "Debes crear una nueva selección antes de proceder al pago."
                 )
         except MatchSelection.DoesNotExist:
-            # ALTERNATIVA: Buscar selecciones donde esta PO esté como item
+            selection = None
+
+        # Buscar selección activa como item
+        if not selection:
             selection = MatchSelection.objects.filter(
                 items__purchase_order=purchase_order,
                 status='ACTIVE'
@@ -102,58 +102,43 @@ class PaymentExecutionSerializer(serializers.Serializer):
                 'items__sales_order',
                 'items__purchase_order'
             ).first()
-            
+
             if not selection:
                 raise serializers.ValidationError(
                     "No hay una selección de matches activa para esta orden de compra. "
                     "Debes crear una selección antes de proceder al pago."
                 )
-            
+
             if selection.is_expired:
                 raise serializers.ValidationError(
                     "La selección de matches ha expirado. "
                     "Debes crear una nueva selección antes de proceder al pago."
                 )
-        
+
         # Verificar que tenga items
         if not selection.items.exists():
             raise serializers.ValidationError(
-                "La selección no tiene items válidos para procesar el pago"
+                "La selección no tiene items válidos para procesar el pago."
             )
-        
-        # Cachear para uso posterior
-        self._cached_purchase_order = purchase_order
-        self._cached_selection = selection
-        
-        return value
-    
-    def validate(self, attrs):
-        """Validaciones cruzadas y preparación final"""
-        
-        # Validar que tengamos los objetos cacheados
-        if not self._cached_purchase_order or not self._cached_selection:
-            raise serializers.ValidationError("Error en validación de orden o selección")
-        
+
         # Verificar disponibilidad del servicio de pago
         try:
-            validation_info = self.payment_service.get_payment_validation_info(
-                self._cached_purchase_order
-            )
-            
+            validation_info = self.payment_service.get_payment_validation_info(purchase_order)
             if not validation_info.get('can_pay', False):
                 reason = validation_info.get('reason', 'unknown')
                 message = validation_info.get('message', 'No se puede proceder al pago')
-                
                 if reason == 'pending':
                     raise serializers.ValidationError(
                         f"Contratos pendientes de aprobación: {message}"
                     )
-                else:
-                    raise serializers.ValidationError(message)
-                    
+                raise serializers.ValidationError(message)
         except PaymentCoreError as e:
             raise serializers.ValidationError(f"Error de validación de pago: {str(e)}")
-        
+
+        # Cachear para uso posterior
+        self._cached_purchase_order = purchase_order
+        self._cached_selection = selection
+
         return attrs
     
     def execute_payment(self) -> Dict[str, Any]:

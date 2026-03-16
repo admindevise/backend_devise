@@ -2,8 +2,8 @@ from rest_framework import serializers
 from django.utils import timezone
 from django.db import transaction
 
-from apps.trading.services.order_service import OrderCreationService, OrderManagementService
 from apps.user.models import User
+from apps.fund.models.core import Fund
 from apps.trading.models.core_models import (
     PurchaseOrder,
     SalesOrder,
@@ -11,12 +11,15 @@ from apps.trading.models.core_models import (
     OrderBook
 )
 
+from apps.utils.serializers.base_serializer import BaseSerializer
+from apps.trading.services.order_service import OrderCreationService, OrderManagementService
+
 # ================================================
 # SERIALIZER BASE DE ÓRDENES DE COMPRA Y VENTA
 # ================================================
-class BaseOrderSerializer(serializers.ModelSerializer):
+class BaseOrderSerializer(BaseSerializer, serializers.ModelSerializer):
     fund_name = serializers.CharField(source='fund.name', read_only=True)
-    created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    assisted_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
     processing_payment_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     partially_executed_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     fully_executed_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
@@ -31,10 +34,10 @@ class BaseOrderSerializer(serializers.ModelSerializer):
         'id', 'order_number', 'units', 'available_units', 'margin',
         'status', 'fund', 'fund_name',
         'min_acceptable_price', 'max_acceptable_price', 'price_per_unit', 'total_amount', 'expiration_date', 'days_until_expiration', 'metadata',
-        'partially_executed_at', 'fully_executed_at', 'cancelled_at', 'matched_at' ,'created_at', 'created_by'
+        'partially_executed_at', 'fully_executed_at', 'cancelled_at', 'matched_at' ,'created_at', 'created_by', 'is_staff_assisted', 'assistance_notes', 'authorization_channel', 'authorization_evidence', 'assisted_at',
     ]
     
-    common_read_only = ['order_number', 'total_amount', 'available_units', 'fully_executed_at', 'partially_executed_at', 'cancelled_at', 'matched_at', 'created_at']
+    common_read_only = ['order_number', 'total_amount', 'available_units', 'fully_executed_at', 'partially_executed_at', 'cancelled_at', 'matched_at', 'created_at', 'fund']
     
     order_prefix = 'OR'
     
@@ -47,47 +50,99 @@ class BaseOrderSerializer(serializers.ModelSerializer):
     def validate_units(self, value):
         """Validate that units is a positive integer."""
         if value <= 0:
-            raise serializers.ValidationError("Units must be a positive integer.")
+            raise serializers.ValidationError({
+                'units': "La cantidad de unidades debe ser un número entero positivo."
+            })
         return value
     
     def validate_expiration_date(self, value):
         """Validate that expiration_date is in the future."""
         if value <= timezone.now().date():
-            raise serializers.ValidationError("Expiration date must be in the future.")
+            format_time = value.strftime('%Y-%m-%d %H:%M:%S')
+            raise serializers.ValidationError({
+                'expiration_date': f"La fecha de expiración debe ser una fecha futura. Valor proporcionado: {format_time}"
+            })
         return value
     
     def validate_margin(self, value):
         """Validate that margin is a positive number."""
         if value < 0:
-            raise serializers.ValidationError("Margin must be a positive number.")
+            raise serializers.ValidationError({
+                'margin': "El margen debe ser un numero positivo."
+            })
         return value
     
     def validate_status(self, value):
         """Validate that status is a valid option."""
         valid_statuses = ['PENDING', 'APPROVED', 'COMPLETED', 'CANCELLED']
         if value not in valid_statuses:
-            raise serializers.ValidationError(f"Estado inválido. Opciones válidas: {valid_statuses}")
+            raise serializers.ValidationError({
+                'status': f"El estado debe ser uno de los siguientes: {', '.join(valid_statuses)}."
+            })
         return value
     
-    def validate(self, data):
+    def validate_assisted_at(self, value):
+        """Validate that assisted_at is a valid datetime if provided."""
+        if value and value > timezone.now():
+            format_time = value.strftime('%Y-%m-%d %H:%M:%S')
+            raise serializers.ValidationError({
+                'assisted_at': f"La fecha de asistencia no puede ser en el futuro. Valor proporcionado: {format_time}"
+            })
+        return value
+    
+    def validate(self, attrs):
         """
         Validate that price_per_unit is not less than fund's price_per_unit
         and calculate total_amount based on units and price_per_unit.
         """
-        if 'price_per_unit' in data and 'fund' in data:
-            if data['price_per_unit'] < data['fund'].price_per_unit:
+        # Tomar fund desde contexto (ULR) si no viene en body
+        fund_id = self.context.get('fund_id')
+        request = self.context.get('request')
+        
+        if not fund_id:
+            raise serializers.ValidationError({'fund': "El campo 'fund' es obligatorio en la URL."})
+    
+        try:
+            attrs['fund'] = Fund.objects.get(id=fund_id)
+        except Fund.DoesNotExist:
+            raise serializers.ValidationError({'fund': f"El fideicomiso con ID {fund_id} no existe."})
+        
+        # Validar price_per_unit contra el precio del fondo
+        if 'price_per_unit' in attrs:
+            if attrs['price_per_unit'] < attrs['fund'].price_per_unit:
                 raise serializers.ValidationError(
-                    f"Price per unit must be greater than or equal to fund's price per unit ({data['fund'].price_per_unit})"
+                    {'price_per_unit': f"El precio por unidad no puede ser menor que el precio del fondo ({attrs['fund'].price_per_unit})."}
                 )
-        
-        if 'units' in data and 'price_per_unit' in data:
-            data['total_amount'] = data['units'] * data['price_per_unit']
-        
-        if 'units' in data:
-            data['available_units'] = data['units']
+
+        if 'units' in attrs and 'price_per_unit' in attrs:
+            attrs['total_amount'] = attrs['units'] * attrs['price_per_unit']
+
+        if 'units' in attrs:
+            attrs['available_units'] = attrs['units']
             
-        
-        return data
+            
+        is_staff = request.user.is_staff or request.user.is_superuser
+        # Si NO es creación asistida, ignorar cualquier dato enviado por el cliente
+        if is_staff:
+            attrs['is_staff_assisted'] = True
+        if not is_staff:
+            attrs['assistance_notes'] = ''
+            attrs['authorization_channel'] = ''
+            attrs['authorization_evidence'] = ''
+            attrs['assisted_at'] = None
+            return attrs
+
+        # Si SÍ es creación asistida, entonces sí se validan como requeridos
+        if not attrs.get('authorization_channel'):
+            raise serializers.ValidationError({"authorization_channel": "Campo requerido para creación asistida por staff/admin."})
+        if not attrs.get('authorization_evidence'):
+            raise serializers.ValidationError({"authorization_evidence": "Campo requerido para creación asistida por staff/admin."})
+        if not attrs.get('assistance_notes'):
+            raise serializers.ValidationError({"assistance_notes": "Campo requerido para creación asistida por staff/admin."})
+        if not attrs.get('assisted_at'):
+            raise serializers.ValidationError({"assisted_at": "Campo requerido para creación asistida por staff/admin."})
+
+        return attrs
     
     def create(self, validated_data):
         if 'created_by' not in validated_data:
@@ -161,7 +216,11 @@ class PurchaseOrderSerializer(BaseOrderSerializer):
             return value  # Permitido ser null
         
         if not value.is_active:
-            raise serializers.ValidationError("El usuario no está activo.")
+            raise serializers.ValidationError({
+                'supplier_user': f"El usuario '{value.username}' no está activo."
+            })
+        
+        return value
     
     def validate(self, data):
         """SIMPLIFICADO: Solo validaciones de negocio, NO permisos"""
@@ -171,7 +230,7 @@ class PurchaseOrderSerializer(BaseOrderSerializer):
         if request and hasattr(request, 'user') and request.user.is_authenticated:
             # SIMPLE: Solo asignar supplier_user si no se especificó
             if 'supplier_user' not in data or data['supplier_user'] is None:
-                data['supplier_user'] = request.user
+                data['supplier_user'] = request.user    
         
         return data
     
@@ -202,6 +261,11 @@ class PurchaseOrderSerializer(BaseOrderSerializer):
             raise serializers.ValidationError(str(e))
         except Exception as e:
             raise serializers.ValidationError(f"Error inesperado: {str(e)}")
+        
+    def to_representation(self, instance):
+        if isinstance(instance, dict):
+            return instance
+        return super().to_representation(instance)
         
     def _generate_order_number(self, validated_data):
         """Genera el numero de orden unico"""
@@ -327,6 +391,25 @@ class OrderCancellationSerializer(serializers.Serializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.order_management_service = OrderManagementService()
+        
+    def validate(self, attrs):
+        """Validación básica antes de delegar en el servicio"""
+        request = self.context.get('request')
+        fund_id = self.context.get('fund_id')
+        if not request or not request.user.is_authenticated:
+            raise serializers.ValidationError("Usuario no autenticado")
+        
+        if not fund_id:
+            raise serializers.ValidationError({
+                'fund': "El campo 'fund_id' es obligatorio en la URL para cancelar una orden."
+            })
+        
+        if not Fund.objects.filter(id=fund_id).exists():
+            raise serializers.ValidationError({
+                'fund': f"El fideicomiso con ID {fund_id} no existe."
+            })
+        
+        return attrs
     
     def cancel_order(self, order, user, request=None):
         """Cancela una orden usando el servicio apropiado"""

@@ -5,6 +5,7 @@ class UnifiedOrderSerializer(BaseSerializer):
     order_number = serializers.CharField()
     order_type = serializers.CharField()
     origin = serializers.CharField()
+    is_staff_assisted = serializers.BooleanField()
     user = serializers.IntegerField()
     created_by = serializers.IntegerField()
     fund = serializers.IntegerField()
@@ -31,6 +32,7 @@ class UnifiedOrderSerializer(BaseSerializer):
             'order_number': order.order_number,
             'order_type': 'purchase',
             'origin': order.origin,
+            'is_staff_assisted': order.is_staff_assisted,
             'user': order.supplier_user_id,
             'created_by': order.created_by_id,
             'fund': order.fund_id,
@@ -46,6 +48,7 @@ class UnifiedOrderSerializer(BaseSerializer):
             'order_number': order.order_number,
             'order_type': 'sales',
             'origin': order.origin,
+            'is_staff_assisted': order.is_staff_assisted,
             'user': order.seller_user_id,
             'created_by': order.created_by_id,
             'fund': order.fund_id,
