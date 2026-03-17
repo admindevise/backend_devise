@@ -198,7 +198,7 @@ class FIActionsService:
             
             # 3. Validar estado actual
             if application.status != FinancialInstitutionApplication.ApplicationStatus.PENDING_USER_SIGNATURE:
-                raise ValueError("Solo se pueden marcar como firmados los contratos de solicitudes que están pendientes de firma del usuario")
+                raise ValueError("Solo se pueden marcar como firmados los contratos de solicitudes que están pendientes de firma por el usuario")
             
             # 4. Validar estado de la aprobación
             if approval.status != FinancialInstitutionApproval.ApprovalStatus.CONTRACT_SENT:

@@ -6,36 +6,43 @@ from apps.financial_institution.models.permissions import (
 )
 from apps.financial_institution.models import FinancialInstitution
 from apps.user.models import User
+from apps.utils.serializers.base_serializer import BaseSerializer
 
 
-# ========================================
+# ===================================================
 # SERIALIZERS DE PERMISOS
-# ========================================
+# ===================================================
 
-class FIPermissionSerializer(serializers.ModelSerializer):
+class FIPermissionSerializer(BaseSerializer, serializers.ModelSerializer):
     """Serializer para permisos disponibles"""
-    created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    module = serializers.CharField(
+        error_messages={
+            'blank': 'El módulo es obligatorio',
+            'null': 'El módulo no puede ser nulo',
+            'max_length': 'El módulo no puede exceder 50 caracteres'
+        }
+    )
     
     class Meta:
         model = FIPermission
         fields = [
-            'id', 'codename', 'name', 'description', 
+            'id', 'codename', 'name', 'description', 'module', 'is_active',
             'category', 'created_at'
         ]
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'is_active']
 
 
-class FIPermissionListSerializer(serializers.ModelSerializer):
+class FIPermissionListSerializer(BaseSerializer, serializers.ModelSerializer):
     """Serializer simplificado para listar permisos"""
     
     class Meta:
         model = FIPermission
-        fields = ['id', 'codename', 'name', 'category']
+        fields = ['id', 'codename', 'name', 'category', 'module', 'is_active', 'created_at']
 
 
-# ========================================
+# ===================================================
 # SERIALIZERS DE GRUPOS PERSONALIZADOS
-# ========================================
+# ===================================================
 
 class FICustomGroupSerializer(serializers.ModelSerializer):
     """Serializer completo para grupos personalizados"""
@@ -140,9 +147,9 @@ class FICustomGroupUpdateSerializer(serializers.ModelSerializer):
         return instance
 
 
-# ========================================
+# ===================================================
 # SERIALIZERS DE MEMBRESÍAS
-# ========================================
+# ===================================================
 
 class UserBasicSerializer(serializers.ModelSerializer):
     """Serializer básico de usuario"""
@@ -242,14 +249,47 @@ class AssignUserToGroupSerializer(serializers.Serializer):
         return membership
 
 
+# ...existing code...
+
 class RemoveUserFromGroupSerializer(serializers.Serializer):
-    """Serializer para remover usuario de grupo"""
+    """Serializer para remover usuario de grupo usando user_id + group_id"""
     
-    membership_id = serializers.IntegerField()
-    
-    def validate_membership_id(self, value):
+    user_id = serializers.IntegerField()
+    group_id = serializers.IntegerField()
+
+    def validate_user_id(self, value):
         try:
-            membership = FIUserGroupMembership.objects.get(id=value)
-            return membership
-        except FIUserGroupMembership.DoesNotExist:
-            raise serializers.ValidationError("Membresía no encontrada")
+            return User.objects.get(id=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Usuario no encontrado")
+
+    def validate_group_id(self, value):
+        try:
+            return FICustomGroup.objects.get(id=value)
+        except FICustomGroup.DoesNotExist:
+            raise serializers.ValidationError("Grupo no encontrado")
+
+    def validate(self, attrs):
+        user = attrs["user_id"]
+        group = attrs["group_id"]
+        fi_id = self.context.get("fi_id")
+
+        # Validar consistencia con la FI de la URL (si viene)
+        if fi_id and str(group.financial_institution_id) != str(fi_id):
+            raise serializers.ValidationError(
+                "El grupo no pertenece a la institución financiera indicada"
+            )
+
+        membership = FIUserGroupMembership.objects.filter(
+            user=user,
+            group=group,
+            is_active=True
+        ).first()
+
+        if not membership:
+            raise serializers.ValidationError(
+                f"El usuario no tiene membresía activa en el grupo '{group.name}'"
+            )
+
+        attrs["membership"] = membership
+        return attrs

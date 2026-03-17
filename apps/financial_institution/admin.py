@@ -32,7 +32,7 @@ class FinancialInstitutionApprovalAdmin(admin.ModelAdmin):
 
 @admin.register(FIPermission)
 class FIPermissionAdmin(admin.ModelAdmin):
-    list_display = ['codename', 'name', 'category', 'created_at']
+    list_display = ['id', 'codename', 'name', 'category', 'created_at']
     list_filter = ['category']
     search_fields = ['name', 'codename']
     ordering = ['category', 'name']

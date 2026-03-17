@@ -1,14 +1,17 @@
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status, filters, mixins
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from apps.utils.core_permissions.api_permissions import RegistryPermission
 from django_filters.rest_framework import DjangoFilterBackend
+from apps.utils.views.global_utils_views import validate_entity_exists
 
 from apps.financial_institution.models.permissions import (
     FIPermission,
     FICustomGroup,
     FIUserGroupMembership
 )
+from apps.financial_institution.models.core import FinancialInstitution
 from apps.financial_institution.serializers.permission_serializers import (
     FIPermissionSerializer,
     FIPermissionListSerializer,
@@ -19,40 +22,67 @@ from apps.financial_institution.serializers.permission_serializers import (
     AssignUserToGroupSerializer,
     RemoveUserFromGroupSerializer
 )
-from apps.financial_institution.services.permission_service import FIPermissionService
 
 
-# ========================================
+# ===================================================
 # VIEWSETS PARA PERMISOS
-# ========================================
-
-class FIPermissionViewSet(viewsets.ReadOnlyModelViewSet):
+# ===================================================
+class FIPermissionViewSet(mixins.CreateModelMixin,
+                          mixins.RetrieveModelMixin,
+                          mixins.ListModelMixin,
+                          mixins.DestroyModelMixin,
+                          viewsets.GenericViewSet):
     """
     ViewSet de solo lectura para permisos disponibles
     
     Endpoints:
-    - GET /api/permissions/ - Listar todos los permisos
-    - GET /api/permissions/{id}/ - Detalle de un permiso
-    - GET /api/permissions/by-category/ - Permisos agrupados por categoría
-    - GET /api/permissions/by-module/ - Permisos agrupados por módulo
-    - GET /api/permissions/available_for_group/ - Permisos disponibles para asignar a un grupo
+    - GET /permissions/ - Listar todos los permisos
+    - GET /permissions/{id}/ - Detalle de un permiso
+    - GET /permissions/by-category/ - Permisos agrupados por categoría
+    - GET /permissions/by-module/ - Permisos agrupados por módulo
+    - GET /permissions/available_for_group/ - Permisos disponibles para asignar a un grupo
     """
     queryset = FIPermission.objects.filter(is_active=True)
-    serializer_class = FIPermissionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'module', 'is_active']
     search_fields = ['name', 'description', 'codename']
     ordering_fields = ['module', 'category', 'name']
     ordering = ['module', 'category', 'name']
     
+    def initial(self, request, *args, **kwargs):
+        fi_id = self.kwargs.get('fi_id')
+        pk = self.kwargs.get('pk')
+
+        if fi_id:
+            validate_entity_exists(FinancialInstitution, 'Institución financiera', fi_id)
+
+        # Solo validar permiso cuando la URL trae pk (acciones detail=True)
+        if pk is not None:
+            validate_entity_exists(FIPermission, 'Permiso', pk)
+
+        super().initial(request, *args, **kwargs)
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({
+            'request': self.request,
+            'fi_id': self.kwargs.get('fi_id')
+        })
+        return context
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return FIPermissionSerializer
+        return FIPermissionListSerializer
+    
     @action(detail=False, methods=['get'], url_path='by-category')
-    def by_category(self, request):
+    def by_category(self, request, **kwargs):
         """
         Agrupar permisos por categoría
         
-        GET /api/permissions/by_category/
-        GET /api/permissions/by_category/?module=fi
+        GET /permissions/by_category/
+        GET /permissions/by_category/?module=fi
         
         Response:
         {
@@ -87,11 +117,11 @@ class FIPermissionViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(grouped)
     
     @action(detail=False, methods=['get'], url_path='by-module')
-    def by_module(self, request):
+    def by_module(self, request, **kwargs):
         """
         Agrupar permisos por módulo
         
-        GET /api/permissions/by_module/
+        GET /permissions/by_module/
         
         Response:
         {
@@ -122,12 +152,12 @@ class FIPermissionViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(grouped)
     
     @action(detail=False, methods=['get'], url_path='available-for-group')
-    def available_for_group(self, request):
+    def available_for_group(self, request, **kwargs):
         """
         Obtener permisos disponibles para asignar a un grupo
         Útil para formularios de creación/edición de grupos
         
-        GET /api/permissions/available-for-group/?group_id=5
+        GET /permissions/available-for-group/?group_id=5
         
         Response:
         {
@@ -178,28 +208,32 @@ class FIPermissionViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
-# ========================================
+# ===================================================
 # VIEWSETS PARA GRUPOS PERSONALIZADOS
-# ========================================
-
+# ===================================================
 class FICustomGroupViewSet(viewsets.ModelViewSet):
     """
     ViewSet para gestionar grupos personalizados de FI
     
     Endpoints:
-    - GET /api/fi/groups/ - Listar grupos
-    - POST /api/fi/groups/ - Crear grupo
-    - GET /api/fi/groups/{id}/ - Detalle de grupo
-    - PUT /api/fi/groups/{id}/ - Actualizar grupo
-    - DELETE /api/fi/groups/{id}/ - Eliminar grupo
-    - POST /api/fi/groups/{id}/assing-permissions/ - Asignar permisos
-    - GET /api/fi/groups/{id}/members/ - Ver miembros del grupo
+    - GET /fi/groups/ - Listar grupos
+    - POST /fi/groups/ - Crear grupo
+    - GET /fi/groups/{id}/ - Detalle de grupo
+    - PUT /fi/groups/{id}/ - Actualizar grupo
+    - DELETE /fi/groups/{id}/ - Eliminar grupo
+    - POST /fi/groups/{id}/assing-permissions/ - Asignar permisos
+    - GET /fi/groups/{id}/members/ - Ver miembros del grupo
     """
     queryset = FICustomGroup.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['financial_institution', 'is_active']
     search_fields = ['name', 'description']
+    
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(FinancialInstitution, 'Institución financiera', self.kwargs.get('fi_id'))
+        validate_entity_exists(FICustomGroup, 'Grupo personalizado', self.kwargs.get('pk'))
+        super().initial(request, *args, **kwargs)
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -229,8 +263,8 @@ class FICustomGroupViewSet(viewsets.ModelViewSet):
             financial_institution__in=user_fi_ids
         )
     
-    @action(detail=True, methods=['post'], url_path='assing-permissions')
-    def assign_permissions(self, request, pk=None):
+    @action(detail=True, methods=['post'], url_path='assign-permissions')
+    def assign_permissions(self, request, **kwargs):
         """Asignar permisos a un grupo"""
         group = self.get_object()
         permission_ids = request.data.get('permission_ids', [])
@@ -256,7 +290,7 @@ class FICustomGroupViewSet(viewsets.ModelViewSet):
         })
     
     @action(detail=True, methods=['get'])
-    def members(self, request, pk=None):
+    def members(self, request, **kwargs):
         """Listar miembros del grupo"""
         group = self.get_object()
         memberships = FIUserGroupMembership.objects.filter(
@@ -273,165 +307,147 @@ class FICustomGroupViewSet(viewsets.ModelViewSet):
         })
 
 
-# ========================================
+# ===================================================
 # VIEWSETS PARA MEMBRESÍAS
-# ========================================
-
+# ===================================================
 class FIUserGroupMembershipViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet para ver membresías de usuarios en grupos
     
     Endpoints:
-    - GET /api/fi/memberships/ - Listar membresías
-    - GET /api/fi/memberships/{id}/ - Detalle de membresía
+    - GET /fi/memberships/ - Listar membresías
+    - GET /fi/memberships/{id}/ - Detalle de membresía
     """
     queryset = FIUserGroupMembership.objects.all()
     serializer_class = FIUserGroupMembershipSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['user', 'group', 'is_active']
     search_fields = ['user__email', 'group__name']
     
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(FinancialInstitution, 'Institución financiera', self.kwargs.get('fi_id'))
+        super().initial(request, *args, **kwargs)
+    
     def get_queryset(self):
         user = self.request.user
+        fi_id = self.kwargs.get('fi_id')
         
         if user.is_superuser or user.is_staff:
-            return FIUserGroupMembership.objects.all()
+            return FIUserGroupMembership.objects.select_related('group__financial_institution').filter(
+                group__financial_institution_id=fi_id,
+                is_active=True
+            )
         
         # Usuarios normales solo ven sus propias membresías
         return FIUserGroupMembership.objects.filter(user=user)
 
 
-# ========================================
+# ===================================================
 # VISTAS PARA ASIGNAR/REMOVER USUARIOS
-# ========================================
+# ===================================================
+class FIGroupMembershipActionsViewSet(viewsets.GenericViewSet):
+    """
+    Acciones de membresía FI en formato class-based para compatibilidad con RegistryPermission
+    """
+    permission_classes = [IsAuthenticated, RegistryPermission]
+    
+    def initial(self, request, *args, **kwargs):
+        fi_id = kwargs.get('fi_id')
+        if fi_id:
+            validate_entity_exists(FinancialInstitution, 'Institución financiera', fi_id)
+        super().initial(request, *args, **kwargs)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def assign_user_to_group(request):
-    """
-    Asignar un usuario a un grupo de FI
-    
-    POST /api/fi/assign-user-to-group/
-    {
-        "user_id": 123,
-        "group_id": 5,
-        "notes": "Asignado como manager"
-    }
-    """
-    serializer = AssignUserToGroupSerializer(
-        data=request.data,
-        context={'request': request}
-    )
-    
-    if not serializer.is_valid():
-        return Response({
-            'success': False,
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    try:
+    @action(detail=False, methods=['post'], url_path='assign-user-to-group')
+    def assign_user_to_group(self, request, fi_id=None):  
+        serializer = AssignUserToGroupSerializer(
+            data=request.data,
+            context={
+                'request': request,
+                'fi_id': fi_id
+            }
+        )
+
+        if not serializer.is_valid():
+            return Response({
+                'success': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         membership = serializer.save()
-        
         return Response({
             'success': True,
-            'message': f'Usuario asignado exitosamente al grupo',
+            'message': 'Usuario asignado exitosamente al grupo',
             'membership': FIUserGroupMembershipSerializer(membership).data
         }, status=status.HTTP_201_CREATED)
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=False, methods=['post'], url_path='remove-user-from-group')
+    def remove_user_from_group(self, request, fi_id=None):
+        serializer = RemoveUserFromGroupSerializer(
+            data=request.data,
+            context={
+                'request': request,
+                'fi_id': fi_id
+            }
+        )
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def remove_user_from_group(request):
-    """
-    Remover un usuario de un grupo
-    
-    POST /api/fi/remove-user-from-group/
-    {
-        "membership_id": 45
-    }
-    """
-    serializer = RemoveUserFromGroupSerializer(data=request.data)
-    
-    if not serializer.is_valid():
-        return Response({
-            'success': False,
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    try:
-        membership = serializer.validated_data['membership_id']
-        
-        # Verificar permisos
+        if not serializer.is_valid():
+            return Response({
+                'success': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        membership = serializer.validated_data['membership']
+
         if not request.user.is_staff and membership.user != request.user:
             return Response({
                 'success': False,
                 'error': 'No tienes permisos para remover esta membresía'
             }, status=status.HTTP_403_FORBIDDEN)
-        
+
         membership.is_active = False
-        membership.save()
-        
+        membership.save(update_fields=['is_active'])
+
         return Response({
             'success': True,
             'message': 'Usuario removido del grupo exitosamente'
         })
-        
-    except Exception as e:
+
+    @action(detail=False, methods=['get'], url_path='my-permissions')
+    def my_fi_permissions(self, request, fi_id=None):
+        user = request.user
+            
+        memberships = FIUserGroupMembership.objects.filter(
+            user=user,
+            is_active=True,
+            group__financial_institution_id=fi_id
+        ).select_related('group__financial_institution').prefetch_related('group__permissions')
+
+        permissions_by_fi = {}
+
+        for membership in memberships:
+            fi_name = membership.group.financial_institution.short_name
+
+            if fi_name not in permissions_by_fi:
+                permissions_by_fi[fi_name] = {
+                    'fi_id': membership.group.financial_institution.id,
+                    'groups': [],
+                    'all_permissions': set()
+                }
+
+            group_perms = list(membership.group.permissions.values_list('codename', flat=True))
+            permissions_by_fi[fi_name]['groups'].append({
+                'group_name': membership.group.name,
+                'permissions': group_perms
+            })
+            permissions_by_fi[fi_name]['all_permissions'].update(group_perms)
+
+        for fi_data in permissions_by_fi.values():
+            fi_data['all_permissions'] = list(fi_data['all_permissions'])
+
         return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def my_fi_permissions(request):
-    """
-    Ver permisos del usuario autenticado en todas las FI
-    
-    GET /api/fi/my-permissions/
-    """
-    user = request.user
-    
-    memberships = FIUserGroupMembership.objects.filter(
-        user=user,
-        is_active=True
-    ).select_related('group__financial_institution').prefetch_related('group__permissions')
-    
-    permissions_by_fi = {}
-    
-    for membership in memberships:
-        fi_name = membership.group.financial_institution.short_name
-        
-        if fi_name not in permissions_by_fi:
-            permissions_by_fi[fi_name] = {
-                'fi_id': membership.group.financial_institution.id,
-                'groups': [],
-                'all_permissions': set()
-            }
-        
-        group_perms = list(membership.group.permissions.values_list('codename', flat=True))
-        
-        permissions_by_fi[fi_name]['groups'].append({
-            'group_name': membership.group.name,
-            'permissions': group_perms
+            'user': request.user.email,
+            'fi_id': fi_id,
+            'permissions_by_fi': permissions_by_fi
         })
-        
-        permissions_by_fi[fi_name]['all_permissions'].update(group_perms)
-    
-    # Convertir sets a listas
-    for fi_data in permissions_by_fi.values():
-        fi_data['all_permissions'] = list(fi_data['all_permissions'])
-    
-    return Response({
-        'user': request.user.email,
-        'permissions_by_fi': permissions_by_fi
-    })
-    
+
