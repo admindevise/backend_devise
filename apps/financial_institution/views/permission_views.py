@@ -232,7 +232,8 @@ class FICustomGroupViewSet(viewsets.ModelViewSet):
     
     def initial(self, request, *args, **kwargs):
         validate_entity_exists(FinancialInstitution, 'Institución financiera', self.kwargs.get('fi_id'))
-        validate_entity_exists(FICustomGroup, 'Grupo personalizado', self.kwargs.get('pk'))
+        if self.kwargs.get('pk'):
+            validate_entity_exists(FICustomGroup, 'Grupo personalizado', self.kwargs.get('pk'))
         super().initial(request, *args, **kwargs)
     
     def get_serializer_class(self):
