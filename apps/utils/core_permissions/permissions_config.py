@@ -11,60 +11,329 @@ VIEWSET_PERMISSION_MAP = {
     # ============================================
     # FINANCIAL INSTITUTION
     # ============================================
+    'financial_institution.FinancialInstitutionViewSet': {
+        'list': ('fi', 'list_view_financial_institutions'),
+        'retrieve': ('fi', 'view_financial_institutions'),
+        'create': ('fi', 'create_financial_institution')
+    },
+    
     'financial_institution.FinancialInstitutionApplicationViewSet': {
-        'list': ('fi', 'view_applications'),
-        'retrieve': ('fi', 'view_applications'),
-        'create': ('fi', 'create_applications'),
+        'list': ('fi', 'list_view_applications'),
+        'retrieve': ('fi', 'view_applications')
     },
     
     'financial_institution.MembersFinancialInstitutionViewSet': {
-        'list': ('fi', 'view_members'),
+        'list': ('fi', 'list_view_members'),
         'retrieve': ('fi', 'view_members'),
     },
     
     'financial_institution.PendingFinancialInstitutionApplicationViewSet': {
-        'list': ('fi', 'approve_applications'),
-        'retrieve': ('fi', 'approve_applications'),
-        'approve': ('fi', 'approve_applications'),
-        'reject': ('fi', 'reject_applications'),
+        'list': ('fi', 'list_pending_applications'),
+        'retrieve': ('fi', 'pending_applications'),
+    },
+    
+    'financial_institution.FIPermissionViewSet': {
+        'list': ('fi', 'list_view_permissions'),
+        'retrieve': ('fi', 'view_permissions'),
+        'create': ('fi', 'create_permissions'),
+        'destroy': ('fi', 'delete_permissions'),
+    },
+    
+    'financial_institution.FICustomGroupViewSet': {
+        'list': ('fi', 'list_view_group_permissions'),
+        'retrieve': ('fi', 'view_group_permissions'),
+        'create': ('fi', 'create_group_permissions'),
+        'destroy': ('fi', 'delete_group_permissions'),
+    },
+    
+    'financial_institution.FIUserGroupMembershipViewSet': {
+        'list': ('fi', 'list_view_memberships'),
+        'retrieve': ('fi', 'view_memberships'),
+    },
+    
+    # Flujo de solicitudes de ingreso a institución financiera
+    'financial_institution.FIApplicationActionsViewSet': {
+        'create_application': ('fi', 'create_applications'),
+        'pre_approve_fi_application': ('fi', 'pre_approve_applications'),
+        'send_contract_fi_application': ('fi', 'send_contract_applications'),
+        'sign_contract_fi_application': ('fi', 'sign_contract_applications'),
+        'approve_application': ('fi', 'approve_applications'),
+        'reject_application': ('fi', 'reject_applications'),
+    },
+    
+    # Permisos Tenant específicos
+    'financial_institution.FIGroupMembershipActionsViewSet': {
+        'assign_user_to_group': ('fi', 'assign_user_to_group'),
+        'remove_user_from_group': ('fi', 'remove_user_from_group'),
+        'my_fi_permissions': ('fi', 'view_my_permissions'),
+    },
+    
+    # Dashboard stats
+    'financial_institution.get_dashboard_stats': {
+        'list': ('fi', 'view_dashboard_stats'),
     },
     
     # ============================================
     # FUND (Fondos de Inversión)
     # ============================================
     'fund.FundViewSet': {
-        'list': ('fund', 'view_funds'),
-        'retrieve': ('fund', 'view_funds'),
-        'create': ('fund', 'create_funds'),
-        'update': ('fund', 'manage_funds'),
-        'destroy': ('fund', 'manage_funds'),
+        'list': ('fund', 'list_funds'),
+        'retrieve': ('fund', 'retrieve_fund'),
+        'create': ('fund', 'create_fund'),
+        'update': ('fund', 'update_fund'),
+        'partial_update': ('fund', 'partial_update_fund'),
+        'destroy': ('fund', 'delete_fund'),
     },
-    
-    'fund.InvestmentApplicationViewSet': {
-        'list': ('fund', 'view_investments'),
-        'retrieve': ('fund', 'view_investments'),
+
+    'fund.FundCategoryViewSet': {
+        'list': ('fund', 'list_fund_categories'),
+        'retrieve': ('fund', 'retrieve_fund_category'),
+        'create': ('fund', 'create_fund_category'),
+        'update': ('fund', 'update_fund_category'),
+        'partial_update': ('fund', 'partial_update_fund_category'),
+        'destroy': ('fund', 'delete_fund_category'),
+    },
+
+    'fund.FundMembersViewSet': {
+        'list': ('fund', 'list_fund_members'),
+        'retrieve': ('fund', 'retrieve_fund_member'),
+    },
+
+    'fund.FundTypeSemestralDocumentViewSet': {
+        'list': ('fund', 'list_fund_type_semestral_documents'),
+        'retrieve': ('fund', 'retrieve_fund_type_semestral_document'),
+        'create': ('fund', 'create_fund_type_semestral_document'),
+        'update': ('fund', 'update_fund_type_semestral_document'),
+        'partial_update': ('fund', 'partial_update_fund_type_semestral_document'),
+        'destroy': ('fund', 'delete_fund_type_semestral_document'),
+    },
+
+    'fund.FundSemestralDocumentViewSet': {
+        'list': ('fund', 'list_fund_semestral_documents'),
+        'retrieve': ('fund', 'retrieve_fund_semestral_document'),
+        'create': ('fund', 'create_fund_semestral_document'),
+        'update': ('fund', 'update_fund_semestral_document'),
+        'partial_update': ('fund', 'partial_update_fund_semestral_document'),
+        'destroy': ('fund', 'delete_fund_semestral_document'),
+    },
+
+    'fund.OthersIViewSet': {
+        'list': ('fund', 'list_other_income_records'),
+        'retrieve': ('fund', 'retrieve_other_income_record'),
+        'create': ('fund', 'create_other_income_record'),
+        'update': ('fund', 'update_other_income_record'),
+        'partial_update': ('fund', 'partial_update_other_income_record'),
+        'destroy': ('fund', 'delete_other_income_record'),
+    },
+
+    'fund.TrustAgreementViewSet': {
+        'list': ('fund', 'list_trust_agreements'),
+        'retrieve': ('fund', 'retrieve_trust_agreement'),
+        'create': ('fund', 'create_trust_agreement'),
+        'update': ('fund', 'update_trust_agreement'),
+        'partial_update': ('fund', 'partial_update_trust_agreement'),
+        'destroy': ('fund', 'delete_trust_agreement'),
+    },
+
+    'fund.FundTokenViewSet': {
+        'list': ('fund', 'list_fund_tokens'),
+        'retrieve': ('fund', 'retrieve_fund_token'),
+    },
+
+    'fund.TokenTransactionViewSet': {
+        'list': ('fund', 'list_token_transactions'),
+        'retrieve': ('fund', 'retrieve_token_transaction'),
+    },
+
+    'fund.TransferReceiptViewSet': {
+        'list': ('fund', 'list_transfer_receipts'),
+        'retrieve': ('fund', 'retrieve_transfer_receipt'),
+    },
+
+    'fund.InvestmentViewSet': {
+        'list': ('fund', 'list_investments'),
+        'retrieve': ('fund', 'retrieve_investment'),
         'create': ('fund', 'create_investment'),
-        'under_review': ('fund', 'approve_investment'),
-        'send_contract': ('fund', 'send_investor_contract'),
-        'sign_contract': ('fund', 'sign_investor_contract'),
+        'update': ('fund', 'update_investment'),
+        'partial_update': ('fund', 'partial_update_investment'),
+        'destroy': ('fund', 'delete_investment'),
     },
-    
+
+    'fund.InvestmentApplicationViewSet': {
+        'list': ('fund', 'list_investment_applications'),
+        'retrieve': ('fund', 'retrieve_investment_application'),
+        'create': ('fund', 'create_investment_application'),
+        'under_review': ('fund', 'under_review_investment_application'),
+        'send_contract': ('fund', 'send_contract_investment_application'),
+        'sign_contract': ('fund', 'sign_contract_investment_application'),
+    },
+
+    'fund.PendingApplicationViewSet': {
+        'list': ('fund', 'list_pending_investment_applications'),
+        'retrieve': ('fund', 'retrieve_pending_investment_application'),
+    },
+
+    'fund.InvestmentDashboardViewSet': {
+        'list': ('fund', 'list_investment_dashboard'),
+    },
+
     'fund.InvestorContractViewSet': {
-        'list': ('fund', 'view_fund_members'),
-        'retrieve': ('fund', 'view_fund_members'),
-        'create': ('fund', 'send_investor_contract'),
+        'list': ('fund', 'list_investor_contracts'),
+        'retrieve': ('fund', 'retrieve_investor_contract'),
+        'create': ('fund', 'create_investor_contract'),
         'sign': ('fund', 'sign_investor_contract'),
+    },
+
+    'fund.InvestmentDistributionRecordViewSet': {
+        'list': ('fund', 'list_investment_distribution_records'),
+        'retrieve': ('fund', 'retrieve_investment_distribution_record'),
+        'create': ('fund', 'create_investment_distribution_record'),
+        'update': ('fund', 'update_investment_distribution_record'),
+        'partial_update': ('fund', 'partial_update_investment_distribution_record'),
+        'destroy': ('fund', 'delete_investment_distribution_record'),
+    },
+
+    'fund.CommissionsViewSet': {
+        'list': ('fund', 'list_commissions'),
+        'retrieve': ('fund', 'retrieve_commission'),
+        'create': ('fund', 'create_commission'),
+        'update': ('fund', 'update_commission'),
+        'partial_update': ('fund', 'partial_update_commission'),
+        'destroy': ('fund', 'delete_commission'),
+    },
+
+    'fund.TransfersViewSet': {
+        'list': ('fund', 'list_transfers'),
+        'retrieve': ('fund', 'retrieve_transfer'),
+        'create_transfer': ('fund', 'create_transfer'),
+        'fund_transfer_summary': ('fund', 'view_transfer_summary'),
+        'delete_transfer': ('fund', 'delete_transfer'),
+    },
+
+    'fund.AccountCategoryViewSet': {
+        'list': ('fund', 'list_account_categories'),
+        'retrieve': ('fund', 'retrieve_account_category'),
+        'create': ('fund', 'create_account_category'),
+        'update': ('fund', 'update_account_category'),
+        'partial_update': ('fund', 'partial_update_account_category'),
+        'destroy': ('fund', 'delete_account_category'),
+    },
+
+    'fund.AccountingPeriodViewSet': {
+        'list': ('fund', 'list_accounting_periods'),
+        'retrieve': ('fund', 'retrieve_accounting_period'),
+        'create': ('fund', 'create_accounting_period'),
+        'update': ('fund', 'update_accounting_period'),
+        'partial_update': ('fund', 'partial_update_accounting_period'),
+        'destroy': ('fund', 'delete_accounting_period'),
+    },
+
+    'fund.AccountingEntryViewSet': {
+        'list': ('fund', 'list_accounting_entries'),
+        'retrieve': ('fund', 'retrieve_accounting_entry'),
+        'create': ('fund', 'create_accounting_entry'),
+        'update': ('fund', 'update_accounting_entry'),
+        'partial_update': ('fund', 'partial_update_accounting_entry'),
+        'destroy': ('fund', 'delete_accounting_entry'),
+    },
+
+    'fund.AccountabilityViewSet': {
+        'list': ('fund', 'list_accountability_records'),
+        'retrieve': ('fund', 'retrieve_accountability_record'),
+        'create': ('fund', 'create_accountability_record'),
+        'update': ('fund', 'update_accountability_record'),
+        'partial_update': ('fund', 'partial_update_accountability_record'),
+        'destroy': ('fund', 'delete_accountability_record'),
+    },
+
+    'fund.FundOperatingIncomeViewSet': {
+        'list': ('fund', 'list_operating_incomes'),
+        'retrieve': ('fund', 'retrieve_operating_income'),
+        'create': ('fund', 'create_operating_income'),
+        'update': ('fund', 'update_operating_income'),
+        'partial_update': ('fund', 'partial_update_operating_income'),
+        'destroy': ('fund', 'delete_operating_income'),
+    },
+
+    'fund.FundOperatingExpenseViewSet': {
+        'list': ('fund', 'list_operating_expenses'),
+        'retrieve': ('fund', 'retrieve_operating_expense'),
+        'create': ('fund', 'create_operating_expense'),
+        'update': ('fund', 'update_operating_expense'),
+        'partial_update': ('fund', 'partial_update_operating_expense'),
+        'destroy': ('fund', 'delete_operating_expense'),
     },
     
     # ============================================
     # TRADING
     # ============================================
-    'trading.OrderViewSet': {
-        'list': ('trading', 'view_orders'),
-        'retrieve': ('trading', 'view_orders'),
-        'create': ('trading', 'create_order'),
-        'cancel': ('trading', 'cancel_order'),
-        'execute': ('trading', 'execute_order'),
+    'trading.PurchaseOrderViewSet': {
+        'list': ('trading', 'list_view_purchase_orders'),
+        'retrieve': ('trading', 'view_purchase_orders'),
+        'create': ('trading', 'create_purchase_order'),
+        'cancel': ('trading', 'cancel_purchase_order'),
+        'destroy': ('trading', 'cancel_purchase_order'),
+    },
+    
+    'trading.SalesOrderViewSet': {
+        'list': ('trading', 'list_view_sales_orders'),
+        'retrieve': ('trading', 'view_sales_orders'),
+        'create': ('trading', 'create_sales_order'),
+        'cancel': ('trading', 'cancel_sales_order'),
+        'destroy': ('trading', 'cancel_sales_order'),
+        'reserved_tokens': ('trading', 'reserve_tokens_sales_order'),
+    },
+
+    'trading.TransactionViewSet': {
+        'list': ('trading', 'list_view_transactions'),
+        'retrieve': ('trading', 'view_transactions'),
+    },
+
+    'trading.OrderContractViewSet': {
+        'list': ('trading', 'list_view_contracts'),
+        'retrieve': ('trading', 'view_contracts'),
+        'pending': ('trading', 'list_pending_contracts'),
+        'approve': ('trading', 'approve_or_reject_contract'),
+    },
+    
+    'trading.MatchSelectionViewSet': {
+        'list': ('trading', 'list_view_match_selections'),
+        'retrieve': ('trading', 'view_match_selections'),
+        'create_match_selection': ('trading', 'create_match_selection'),
+        'validate_selection_capability': ('trading', 'validate_selection_capability'),
+        'cancel_selection': ('trading', 'cancel_match_selection'),
+        'my_active_selections': ('trading', 'view_active_match_selections'),
+        'cleanup_expired': ('trading', 'cleanup_expired_match_selections'),
+    },   
+    
+    'trading.TradingPermissionViewSet': {
+        'grant_trading_permission': ('trading', 'grant_trading_permission'),
+        'list_user_permissions': ('trading', 'list_user_permissions'),
+    },
+    
+    'trading.NegotiationDashboardViewSet': {
+    'orders': ('trading', 'view_negotiation_dashboard'),
+    'status_options': ('trading', 'view_negotiation_status_options'),
+    },
+
+    # Trading APIViews
+    'trading.FindMatchesAPIView': {
+        'post': ('trading', 'find_order_matches'),
+    },    
+    'trading.ActiveOrdersAPIView': {
+        'get': ('trading', 'view_active_orders'),
+    },
+    'trading.CleanupExpiredReservationsAPIView': {
+        'post': ('trading', 'cleanup_expired_reservations'),
+    },
+    'trading.UserSelectionStatsAPIView': {
+        'get': ('trading', 'view_selection_stats'),
+    },
+    'trading.ExecutePaymentAPIView': {
+        'post': ('trading', 'execute_payment'),
+    },
+    'trading.OrdersListAPIView': {
+        'get': ('trading', 'list_unified_orders'),
     },
 }
 
@@ -78,6 +347,7 @@ PERMISSION_RULES = {
         'context_field': 'financial_institution',  # Campo para obtener contexto
         'staff_groups': ['ADMINISTRADOR', 'STAFF'],  # Grupos globales con acceso
         'client_groups': ['INVERSIONISTA',],  # Clientes
+        'allow_unauthenticated_clients': True,  # No permitir acceso a clientes no autenticados para acciones de FI
         'client_allowed_actions': ['create_applications', 'view_applications'],  # Acciones permitidas para clientes
     },
     
@@ -86,6 +356,7 @@ PERMISSION_RULES = {
         'context_field': 'fund',  # Campo para obtener contexto del fondo
         'staff_groups': ['ADMINISTRADOR', 'STAFF'],
         'client_groups': ['INVERSIONISTA',],
+        'allow_unauthenticated_clients': True,  # Permitir acceso a clientes no autenticados para ciertas acciones de fondos
         'client_allowed_actions': [
             'view_funds', 
             'create_investment', 
@@ -96,9 +367,31 @@ PERMISSION_RULES = {
     
     # Reglas para Trading
     'trading': {
-        'context_field': None,  # No requiere contexto específico
+        'context_field': 'fund',  # En trading, el contexto sigue siendo el fondo
         'staff_groups': ['ADMINISTRADOR', 'STAFF'],
         'client_groups': ['INVERSIONISTA'],
-        'client_allowed_actions': ['create_order', 'view_orders', 'cancel_order'],
+        'allow_unauthenticated_clients': True,  # Permitir acceso a clientes no autenticados para ciertas acciones de trading
+        'client_allowed_actions': [
+            'list_view_purchase_orders',
+            'view_purchase_orders',
+            'create_purchase_order',
+            'cancel_purchase_order',
+            'list_view_sales_orders',
+            'view_sales_orders',
+            'create_sales_order',
+            'cancel_sales_order',
+            'reserve_tokens_sales_order',
+            'view_active_orders',
+            'find_order_matches',
+            'create_match_selection',
+            'validate_selection_capability',
+            'cancel_match_selection',
+            'list_unified_orders',
+            'list_view_transactions',
+            'view_transactions',
+            'list_view_contracts',
+            'view_contracts',
+            'list_pending_contracts',
+        ],
     },
 }
