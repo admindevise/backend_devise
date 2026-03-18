@@ -17,7 +17,12 @@ python manage.py migrate
 #python manage.py import_druo_data --all
 
 # Importing Origin Funds
-python manage.py load_origin_funds
+#python manage.py load_origin_funds
+
+# Importing permissions
+python manage.py sync_fi_permissions
+python manage.py sync_fi_default_groups
+python manage.py assign_fi_default_group_permissions
 
 # First Superuser Creation
 #DJANGO_SUPERUSER_USERNAME=admin \

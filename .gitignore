@@ -12,6 +12,8 @@ env
 .env
 staticfiles
 staticfiles/*
+test
+test/*
 # Python # 
 *.py[cod] 
 *$py.class 
