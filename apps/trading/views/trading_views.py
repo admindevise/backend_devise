@@ -1,14 +1,17 @@
-from rest_framework import viewsets, status, filters, mixins
+from decimal import Decimal
+
+from django.db.models import Q
+from django.http import Http404
+from django.utils import timezone
+from collections import OrderedDict
+
+from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import viewsets, status, filters, mixins
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
-from collections import OrderedDict
-from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.views import APIView
+from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend
-from django.utils import timezone
-from django.db.models import Q
-from decimal import Decimal
 
 from apps.trading.models.core_models import PurchaseOrder, SalesOrder, Transaction
 from apps.trading.services.order_query_service import OrderQueryService
@@ -17,6 +20,7 @@ from apps.user.decorators.permissions import TradingPermissionMixin
 from apps.utils.views.Mixins import DateFilterMixin
 from apps.trading.views.utils_views import base_get_queryset
 
+from apps.utils.views.global_utils_views import validate_entity_exists
 from apps.trading.serializers_flow.permission_aware_serializers import (
     PermissionAwarePurchaseOrderSerializer,
     PermissionAwareSalesOrderSerializer
@@ -32,7 +36,12 @@ from apps.utils.core_permissions.api_permissions import RegistryPermission
 from apps.trading.serializers.utils_serializers import UnifiedOrderSerializer
 
 from apps.user.models import User
+from apps.fund.models.core import Fund
 
+
+# ===================================================
+# VIEWS DE ÓRDENES DE COMPRA
+# ===================================================
 class PurchaseOrderViewSet(TradingPermissionMixin,
                             DateFilterMixin,
                             mixins.CreateModelMixin,
@@ -111,7 +120,11 @@ class PurchaseOrderViewSet(TradingPermissionMixin,
                 'message': 'Orden de compra cancelada exitosamente',
                 'order_status': result['order_status']
             })
-            
+        except Http404:
+            return Response({
+                'success': False,
+                'error': 'Orden de compra no encontrada'
+            }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({
                 'success': False,
@@ -150,6 +163,10 @@ class PurchaseOrderViewSet(TradingPermissionMixin,
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
+
+# ===================================================
+# VIEWS DE ÓRDENES DE VENTA
+# ===================================================
 class SalesOrderViewSet(TradingPermissionMixin,
                         DateFilterMixin,
                         mixins.CreateModelMixin,
@@ -205,13 +222,12 @@ class SalesOrderViewSet(TradingPermissionMixin,
         """Filtra órdenes del usuario o todas si es admin"""
         return base_get_queryset(self, SalesOrder, "seller_user")
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None, **kwargs):
         """Cancela una orden de venta y libera tokens reservados"""
         try:
             sales_order = self.get_object()
-            
-            # Usar el serializer de cancelación
+
             cancellation_serializer = OrderCancellationSerializer(
                 data=request.data,
                 context={
@@ -220,25 +236,30 @@ class SalesOrderViewSet(TradingPermissionMixin,
                 }
             )
             cancellation_serializer.is_valid(raise_exception=True)
-            
+
             result = cancellation_serializer.cancel_order(
                 sales_order, request.user, request
             )
-            
+
             return Response({
                 'success': True,
                 'message': 'Orden de venta cancelada exitosamente',
                 'order_status': result['order_status'],
                 'released_tokens': result['released_tokens']
             })
-            
+
+        except Http404:
+            return Response({
+                'success': False,
+                'error': 'Orden de venta no encontrada'
+            }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({
                 'success': False,
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated], url_path='reserved-tokens')
+    @action(detail=True, methods=['get'], url_path='reserved-tokens')
     def reserved_tokens(self, request, pk=None, **kwargs):
         """Obtiene información de tokens reservados para esta orden"""
         try:
@@ -281,7 +302,12 @@ class SalesOrderViewSet(TradingPermissionMixin,
                 'success': True,
                 'reserved_tokens': reserved_info
             })
-            
+        
+        except Http404:
+            return Response({
+                'success': False,
+                'error': 'Orden de venta no encontrada'
+            }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({
                 'success': False,
@@ -321,6 +347,10 @@ class SalesOrderViewSet(TradingPermissionMixin,
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
+
+# ===================================================
+# VIEWS DE TRANSACCIONES
+# ===================================================
 class TransactionViewSet(DateFilterMixin,
                         mixins.RetrieveModelMixin,
                         mixins.ListModelMixin,
@@ -329,13 +359,17 @@ class TransactionViewSet(DateFilterMixin,
     API endpoint para gestionar transacciones entre órdenes de compra y venta.
     """
     serializer_class = TransactionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     filterset_fields = ['buyer', 'seller', 'fund']
     search_fields = ['purchase_order__order_number', 'sales_order__order_number']
     ordering_fields = ['created_at', 'total_amount', 'units']
     ordering = ['-created_at']
 
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        return super().initial(request, *args, **kwargs)
+    
     def get_queryset(self):
         """Filtra transacciones del usuario o todas si es admin"""
         user = self.request.user
@@ -353,6 +387,7 @@ class TransactionViewSet(DateFilterMixin,
         """Override para agregar contexto de usuario"""
         # El serializer ya maneja la ejecución segura con servicios
         serializer.save()
+
 
 # =================================
 # ActiveOrdersAPIView
@@ -383,16 +418,23 @@ class ActiveOrdersPagination(PageNumberPagination):
             ('results', data)
         ]))
 
+# ===================================================
+# VIEWS DE UTILIDADES
+# ===================================================
 class ActiveOrdersAPIView(DateFilterMixin, APIView):
     """
     API endpoint para obtener órdenes activas del usuario autenticado con paginación
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     pagination_class = ActiveOrdersPagination
     
     def __init__(self):
         super().__init__()
         self.query_service = OrderQueryService()
+    
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        super().initial(request, *args, **kwargs)
     
     @property
     def paginator(self):
@@ -403,7 +445,7 @@ class ActiveOrdersAPIView(DateFilterMixin, APIView):
             self._paginator = self.pagination_class()
         return self._paginator
     
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         """
         GET /api/orders/active/
         
@@ -615,34 +657,38 @@ class ActiveOrdersAPIView(DateFilterMixin, APIView):
         return filters
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def cleanup_expired_reservations(request):
-    """
-    Endpoint para limpiar reservas de tokens expiradas (solo admin)
-    """
-    if not request.user.is_staff:
-        return Response({
-            'error': 'Solo administradores pueden ejecutar esta acción'
-        }, status=status.HTTP_403_FORBIDDEN)
+class CleanupExpiredReservationsAPIView(APIView):
+    permission_classes = [IsAuthenticated, RegistryPermission]
     
-    try:
-        from apps.trading.security.token_validators import TokenReservationManager
-        
-        manager = TokenReservationManager()
-        result = manager.cleanup_expired_reservations()
-        
-        return Response({
-            'success': result['success'],
-            'cleaned_count': result.get('cleaned_count', 0),
-            'message': f"Se limpiaron {result.get('cleaned_count', 0)} reservas expiradas"
-        })
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        super().initial(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        """
+        Endpoint para limpiar reservas de tokens expiradas (solo admin)
+        """
+        if not request.user.is_staff:
+            return Response({
+                'error': 'Solo administradores pueden ejecutar esta acción'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            from apps.trading.security.token_validators import TokenReservationManager
+
+            manager = TokenReservationManager()
+            result = manager.cleanup_expired_reservations()
+
+            return Response({
+                'success': result['success'],
+                'cleaned_count': result.get('cleaned_count', 0),
+                'message': f"Se limpiaron {result.get('cleaned_count', 0)} reservas expiradas"
+            })
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # =================================
 # ListOrders
@@ -699,28 +745,36 @@ def apply_order_filters(purchase_qs, sales_qs, params):
 
     return purchase_qs, sales_qs
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_orders(request):
-    purchase_orders = PurchaseOrder.objects.all().order_by('-created_at')
-    sales_orders = SalesOrder.objects.all().order_by('-created_at')
-    
-    # Aplicar filtros de consulta
-    purchase_orders, sales_orders = apply_order_filters(purchase_orders, sales_orders, request.query_params)
+class OrdersListAPIView(APIView):
+    permission_classes = [IsAuthenticated, RegistryPermission]
+    pagination_class = OrdersPagination
 
-    # Combinar y ordenar por fecha de creación (más recientes primero)
-    unified = [
-        *[UnifiedOrderSerializer.from_purchase(o) for o in purchase_orders],
-        *[UnifiedOrderSerializer.from_sales(o) for o in sales_orders],
-    ]
+    def initial(self, request, *args, **kwargs):
+        fund_id = self.kwargs.get('fund_id')
+        if fund_id:
+            validate_entity_exists(Fund, 'Fideicomiso', fund_id)
+        super().initial(request, *args, **kwargs)
 
-    # Ordenar por fecha de creación (más recientes primero)
-    unified.sort(key=lambda x: x['created_at'], reverse=True)
+    @property
+    def paginator(self):
+        if not hasattr(self, '_paginator'):
+            self._paginator = self.pagination_class()
+        return self._paginator
 
-    # Aplicar paginación
-    paginator = OrdersPagination()
-    paginated_unified = paginator.paginate_queryset(unified, request)
-    
-    # Serializar datos paginados
-    serializer = UnifiedOrderSerializer(paginated_unified, many=True)
-    return paginator.get_paginated_response(serializer.data)
+    def get(self, request, *args, **kwargs):
+        purchase_orders = PurchaseOrder.objects.all().order_by('-created_at')
+        sales_orders = SalesOrder.objects.all().order_by('-created_at')
+
+        purchase_orders, sales_orders = apply_order_filters(
+            purchase_orders, sales_orders, request.query_params
+        )
+
+        unified = [
+            *[UnifiedOrderSerializer.from_purchase(o) for o in purchase_orders],
+            *[UnifiedOrderSerializer.from_sales(o) for o in sales_orders],
+        ]
+        unified.sort(key=lambda x: x['created_at'], reverse=True)
+
+        paginated_unified = self.paginator.paginate_queryset(unified, request, view=self)
+        serializer = UnifiedOrderSerializer(paginated_unified, many=True)
+        return self.paginator.get_paginated_response(serializer.data)

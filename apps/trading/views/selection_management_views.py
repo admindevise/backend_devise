@@ -6,11 +6,12 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets, filters
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.decorators import action
 
-from apps.trading.views.utils_views import validate_entity_exists
+from apps.utils.core_permissions.api_permissions import RegistryPermission
+from apps.utils.views.global_utils_views import validate_entity_exists
+
 from apps.fund.models.core import Fund
-from apps.trading.models.core_models import PurchaseOrder, SalesOrder
 from apps.trading.models.selection_models import MatchSelection
 from apps.trading.serializers_flow.selection_management_serializers import (
     UnifiedMatchSelectionSerializer,
@@ -19,144 +20,31 @@ from apps.trading.serializers_flow.selection_management_serializers import (
     SelectionCancellationSerializer
 )
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_match_selection(request, fund_id):
-    """
-    Endpoint unificado para crear selecciones de matches.
-    
-    Maneja tanto órdenes de compra como de venta, y tanto selección manual como automática.
-    
-    Parámetros:
-    - order_id: UUID de la orden (compra o venta)
-    - order_type: 'purchase' o 'sales'
-    - selection_method: 'manual' o 'auto'
-    - selected_matches: Lista de matches (solo para method='manual')
-    - force_partial: Boolean (solo para method='auto')
-    """
-    validate_entity_exists(Fund, 'Fideicomiso', fund_id)
-    
-    serializer = UnifiedMatchSelectionSerializer(
-        data=request.data,
-        context={
-            'request': request,
-            'fund_id': fund_id
-        }
-    )
-    
-    if not serializer.is_valid():
-        return Response({
-            'success': False,
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    try:
-        result = serializer.process_selection()
-        
-        # Verificar si es advertencia de unidades/compradores insuficientes
-        if result.get('warning_type') in ['INSUFFICIENT_UNITS', 'INSUFFICIENT_BUYERS']:
-            return Response(result, status=status.HTTP_206_PARTIAL_CONTENT)
-        
-        return Response(result, status=status.HTTP_201_CREATED)
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def validate_selection_capability(request, fund_id):
-    """
-    Valida si una orden puede crear selecciones y devuelve matches disponibles.
-    
-    Útil para que el frontend sepa si puede mostrar la interfaz de selección.
-    """
-    validate_entity_exists(Fund, 'Fideicomiso', fund_id)
-    
-    serializer = SelectionValidationSerializer(
-        data=request.data,
-        context={
-            'request': request,
-            'fund_id': fund_id,
-        }
-    )
-    
-    if not serializer.is_valid():
-        return Response({
-            'valid': False,
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    try:
-        validation_info = serializer.get_validation_info()
-        
-        return Response({
-            'valid': validation_info.get('can_create_selection', False),
-            'validation_info': validation_info
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'valid': False,
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def cancel_selection(request, fund_id, selection_id):
-    """
-    Cancela una selección existente y restaura el estado de la orden.
-    """
-    
-    serializer = SelectionCancellationSerializer(
-        data=request.data,
-        context={
-            'request': request,
-            'fund_id': fund_id,
-            'selection_id': selection_id
-        }
-    )
-    
-    if not serializer.is_valid():
-        return Response({
-            'success': False,
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    try:
-        result = serializer.cancel_selection()
-        
-        return Response(result, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
-
 
 class MatchSelectionViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    ViewSet para consultar selecciones existentes.
+    ViewSet para gestionar selecciones de matches.
     
     Proporciona:
     - list: Lista selecciones del usuario
     - retrieve: Detalle de una selección específica
-    - my_active_selections: Acción personalizada para selecciones activas
-    - cleanup_expired: Acción para limpiar selecciones expiradas (solo admin)
+    - create_match_selection: Crear nueva selección (POST detail=False)
+    - validate_selection_capability: Validar si se puede crear selección
+    - cancel_selection: Cancelar selección existente (POST detail=True)
+    - my_active_selections: Selecciones activas del usuario
+    - cleanup_expired: Limpiar selecciones expiradas (solo admin)
     """
     
     serializer_class = SelectionStatusSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    #filterset_fields = ['status', 'metadata__order_type', 'metadata__selection_method']
     search_fields = ['purchase_order__order_number', 'sales_order__order_number']
     ordering_fields = ['selected_at', 'expires_at', 'total_amount']
     ordering = ['-selected_at']
+    
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        super().initial(request, *args, **kwargs)
     
     def get_queryset(self):
         """Filtrar selecciones del usuario autenticado"""
@@ -171,7 +59,6 @@ class MatchSelectionViewSet(viewsets.ReadOnlyModelViewSet):
         ).prefetch_related('items__sales_order', 'items__purchase_order')
         
         if not user.is_staff:
-            # Filtrar por usuario: puede ver selecciones donde es el comprador o vendedor
             queryset = queryset.filter(
                 Q(purchase_order__supplier_user=user) |
                 Q(sales_order__seller_user=user) |
@@ -179,9 +66,118 @@ class MatchSelectionViewSet(viewsets.ReadOnlyModelViewSet):
             )
         
         return queryset
+
+    @action(detail=False, methods=['post'], url_path='create-match-selection')
+    def create_match_selection(self, request, **kwargs):
+        """
+        Endpoint unificado para crear selecciones de matches.
+        
+        Maneja tanto órdenes de compra como de venta, y tanto selección manual como automática.
+        
+        Parámetros:
+        - order_id: UUID de la orden (compra o venta)
+        - order_type: 'purchase' o 'sales'
+        - selection_method: 'manual' o 'auto'
+        - selected_matches: Lista de matches (solo para method='manual')
+        - force_partial: Boolean (solo para method='auto')
+        """
+        
+        serializer = UnifiedMatchSelectionSerializer(
+            data=request.data,
+            context={
+                'request': request,
+                'fund_id': self.kwargs.get('fund_id'),
+            }
+        )
+        
+        if not serializer.is_valid():
+            return Response({
+                'success': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            result = serializer.process_selection()
+            
+            if result.get('warning_type') in ['INSUFFICIENT_UNITS', 'INSUFFICIENT_BUYERS']:
+                return Response(result, status=status.HTTP_206_PARTIAL_CONTENT)
+            
+            return Response(result, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], url_path='validate-capability')
+    def validate_selection_capability(self, request, **kwargs):
+        """
+        Valida si una orden puede crear selecciones y devuelve matches disponibles.
+        
+        Útil para que el frontend sepa si puede mostrar la interfaz de selección.
+        """
+        serializer = SelectionValidationSerializer(
+            data=request.data,
+            context={
+                'request': request,
+                'fund_id': self.kwargs.get('fund_id'),
+            }
+        )
+        
+        if not serializer.is_valid():
+            return Response({
+                'valid': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            validation_info = serializer.get_validation_info()
+            
+            return Response({
+                'valid': validation_info.get('can_create_selection', False),
+                'validation_info': validation_info
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'valid': False,
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], url_path='cancel')
+    def cancel_selection(self, request, pk=None, **kwargs):
+        """
+        Cancela una selección existente y restaura el estado de la orden.
+        """
+        serializer = SelectionCancellationSerializer(
+            data=request.data,
+            context={
+                'request': request,
+                'fund_id': self.kwargs.get('fund_id'),
+                'selection_id': pk
+            }
+        )
+        
+        if not serializer.is_valid():
+            return Response({
+                'success': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            result = serializer.cancel_selection()
+            
+            return Response(result, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
     
-    @action(detail=False, methods=['get'])
-    def my_active_selections(self, request):
+    @action(detail=False, methods=['get'], url_path='my-active-selections')
+    def my_active_selections(self, request, **kwargs):
         """
         Devuelve todas las selecciones activas del usuario.
         
@@ -203,8 +199,8 @@ class MatchSelectionViewSet(viewsets.ReadOnlyModelViewSet):
             'retrieved_at': timezone.now().isoformat()
         })
     
-    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
-    def cleanup_expired(self, request):
+    @action(detail=False, methods=['post'], url_path='cleanup-expired')
+    def cleanup_expired(self, request, **kwargs):
         """
         Limpia selecciones expiradas del sistema.
         
@@ -234,18 +230,29 @@ class UserSelectionStatsAPIView(APIView):
     Útil para dashboards y métricas.
     """
     
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     
-    def get(self, request):
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        super().initial(request, *args, **kwargs)
+    
+    def get(self, request, *args, **kwargs):
         """Obtiene estadísticas de selecciones del usuario"""
         
         user = request.user
         
         # Obtener selecciones del usuario
-        user_selections = MatchSelection.objects.filter(
+        user_selections = MatchSelection.objects.select_related(
+            'purchase_order__fund',
+            'purchase_order__supplier_user',
+            'sales_order__fund',
+            'sales_order__seller_user'
+        ).filter(
             Q(purchase_order__supplier_user=user) |
             Q(sales_order__seller_user=user) |
-            Q(created_by=user)
+            Q(created_by=user),
+            Q(purchase_order__fund_id=self.kwargs.get('fund_id')) |
+            Q(sales_order__fund_id=self.kwargs.get('fund_id'))
         )
         
         # Calcular estadísticas
