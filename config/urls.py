@@ -28,6 +28,13 @@ from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
+handler400 = 'apps.utils.views.custom_400_view'
+handler401 = 'apps.utils.views.custom_401_view'
+handler403 = 'apps.utils.views.custom_403_view'
+handler404 = 'apps.utils.views.custom_404_view'
+handler405 = 'apps.utils.views.custom_405_view'
+handler500 = 'apps.utils.views.custom_500_view'
+
 schema_view = get_schema_view(
     openapi.Info(
         title="Devise API",
