@@ -8,6 +8,9 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, permission_classes
 from django_filters.rest_framework import DjangoFilterBackend
 
+from apps.utils.core_permissions.api_permissions import RegistryPermission
+from apps.utils.views.global_utils_views import validate_entity_exists
+from apps.fund.models.core import Fund
 from apps.fund.utils import _generate_customer_support_prompt
 from apps.fund.serializers.utils_serializers import (
     AISerializer,
@@ -22,26 +25,6 @@ from apps.fund.models.membership import (
 )
 
 from apps.utils.views.Mixins import DateFilterMixin
-
-class TrustMembersViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
-    queryset = InvestorContract.objects.all()
-    serializer_class = TrustMembersSerializer
-    permission_classes = ['IsAuthenticated']
-    
-    #filter_backends = [DjangoFilterBackend, filters.#SearchFilter, filters.OrderingFilter]
-    #search_fields = ['user',]
-    
-    def get_queryset(self):
-        user = self.request.user
-        queryset = InvestorContract.objects.select_related(
-            'user',
-            'fund',
-        )
-
-        if not user.is_staff:
-            queryset = queryset.filter(user=user)
-        
-        return self.apply_date_filters(queryset)
 
 
 # =======================================

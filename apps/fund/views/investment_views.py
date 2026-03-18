@@ -1,14 +1,16 @@
 from rest_framework import viewsets, filters, status
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.decorators import action
 
 from django_filters.rest_framework import DjangoFilterBackend
+from apps.utils.core_permissions.api_permissions import RegistryPermission
+from apps.utils.views.global_utils_views import validate_entity_exists
 from django_filters import rest_framework as django_filters
 from apps.utils.views.Mixins import DateFilterMixin
 
 from apps.fund.models.membership import FundInvestment, InvestmentApplication
+from apps.fund.models.core import Fund
 
 from apps.fund.serializers.investment_serializers import (
     InvestmentSerializer,
@@ -20,6 +22,9 @@ from apps.fund.serializers.investment_serializers import (
     IAContractSignSerializer
 )
 
+# =================================================
+# VIEWS DE INVERSIONES
+# =================================================
 class InvestmentApplicationFilterSet(django_filters.FilterSet):
     application_status = django_filters.ChoiceFilter(
         choices=InvestmentApplication.ApplicationStatus.choices
@@ -29,46 +34,28 @@ class InvestmentApplicationFilterSet(django_filters.FilterSet):
         model = InvestmentApplication
         fields = ['user', 'fund', 'application_status']
 
-class InvestmentApplicationViewSet(DateFilterMixin, viewsets.ModelViewSet):
-    serializer_class = InvestmentApplicationSerializer
-    permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'post']
-    
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_class = InvestmentApplicationFilterSet
-    search_fields = ['user__email', 'fund__name']
-    ordering_fields = ['created_at', 'application_status']
-    ordering = ['-created_at']
-    
-    def get_queryset(self):
-        user = self.request.user
-        queryset = InvestmentApplication.objects.select_related('user', 'fund').all()
-        
-        if not user.is_staff:
-            queryset = queryset.filter(user=user)
-        
-        return self.apply_date_filters(queryset)
-
 
 class PendingApplicationViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
-    # A este vista luego solo podran acceder los staff/admin, por esa razon no se agrego get_queryset()
-    queryset = InvestmentApplication.objects.filter(
-        application_status=InvestmentApplication.ApplicationStatus.PENDING
-    )
     serializer_class = InvestmentApplicationSerializer
-    permission_classes = [IsAuthenticated]
-    
+    permission_classes = [IsAuthenticated, RegistryPermission]
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = InvestmentApplicationFilterSet
     search_fields = ['user__email', 'fund__name']
     ordering_fields = ['created_at', 'application_status']
     ordering = ['-created_at']
+    
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        super().initial(request, *args, **kwargs)
+        
+    def get_queryset(self):
+        fund_id = self.kwargs.get('fund_id')
+        return InvestmentApplication.objects.select_related('user', 'fund').filter(fund_id=fund_id, application_status=InvestmentApplication.ApplicationStatus.PENDING)
 
 class InvestmentViewSet(DateFilterMixin, viewsets.ModelViewSet):
     serializer_class = InvestmentSerializer
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     http_methods_names = ['get', 'post']
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -77,9 +64,15 @@ class InvestmentViewSet(DateFilterMixin, viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'status']
     ordering = ['-created_at']
     
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        super().initial(request, *args, **kwargs)
+    
     def get_queryset(self):
         user = self.request.user
-        queryset = FundInvestment.objects.select_related('application__fund', 'application__user').all()
+        fund_id = self.kwargs.get('fund_id')
+        
+        queryset = FundInvestment.objects.select_related('application__fund', 'application__user').filter(application__fund_id=fund_id)
         
         if not user.is_staff:
             queryset = queryset.filter(application__user=user)
@@ -88,8 +81,7 @@ class InvestmentViewSet(DateFilterMixin, viewsets.ModelViewSet):
 
 class InvestmentDashboardViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = InvestmentDashboardSerializer
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     http_methods_names = ['get']
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -98,9 +90,15 @@ class InvestmentDashboardViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet)
     ordering_fields = ['created_at', 'total_amount', 'units_owned']
     ordering = ['-created_at']
     
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        super().initial(request, *args, **kwargs)
+    
     def get_queryset(self):
         user = self.request.user
-        queryset = FundInvestment.objects.select_related('application__fund', 'application__user').all()
+        fund_id = self.kwargs.get('fund_id')
+        
+        queryset = FundInvestment.objects.select_related('application__fund', 'application__user').filter(application__fund_id=fund_id)
         
         if not user.is_staff:
             queryset = queryset.filter(application__user=user)
@@ -110,60 +108,104 @@ class InvestmentDashboardViewSet(DateFilterMixin, viewsets.ReadOnlyModelViewSet)
 # =================================================
 # ACCIONES PARA CAMBIAR EL ESTADO DE LA SOLICITUD
 # =================================================
+class InvestmentApplicationViewSet(DateFilterMixin, viewsets.ModelViewSet):
+    serializer_class = InvestmentApplicationSerializer
+    permission_classes = [IsAuthenticated, RegistryPermission]
+    http_method_names = ['get', 'post']
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def submit_investment_application(request, fund_id):
-    serializer = SubmitInvestmentSerializer(
-        data=request.data,
-        context={'request': request, 'fund_id': fund_id}
-    )
-    
-    if serializer.is_valid():
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = InvestmentApplicationFilterSet
+    search_fields = ['user__email', 'fund__name']
+    ordering_fields = ['created_at', 'application_status']
+    ordering = ['-created_at']
+
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        super().initial(request, *args, **kwargs)
+
+    def get_queryset(self):
+        user = self.request.user
+        fund_id = self.kwargs.get('fund_id')
+
+        queryset = InvestmentApplication.objects.select_related('user', 'fund').filter(fund_id=fund_id)
+
+        if not user.is_staff:
+            queryset = queryset.filter(user=user)
+
+        return self.apply_date_filters(queryset)
+
+    @action(detail=False, methods=['post'], url_path='submit')
+    def submit(self, request, **kwargs):
+        """
+        POST /fund/<fund_id>/investment-application/submit/
+        """
+        serializer = SubmitInvestmentSerializer(
+            data=request.data,
+            context={
+                'request': request,
+                'fund_id': self.kwargs.get('fund_id')
+            }
+        )
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def under_review_investment_application(request, application_id):
-    serializer = IAReviewSerializer(
-        data=request.data,
-        context={'request': request, 'application_id': application_id}
-    )
-    
-    if serializer.is_valid():
+    @action(detail=True, methods=['post'], url_path='under-review')
+    def under_review(self, request, pk=None, **kwargs):
+        """
+        POST /fund/<fund_id>/investment-application/<pk>/under-review/
+        """
+        serializer = IAReviewSerializer(
+            data=request.data,
+            context={
+                'request': request,
+                'application_id': pk
+            }
+        )
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def send_contrat_investment_application(request, application_id):
-    serializer = IASendContractSerializer(
-        data=request.data,
-        context={'request': request, 'application_id': application_id}
-    )
-    
-    if serializer.is_valid():
+    @action(detail=True, methods=['post'], url_path='send-contract')
+    def send_contract(self, request, pk=None, **kwargs):
+        """
+        POST /fund/<fund_id>/investment-application/<pk>/send-contract/
+        """
+        serializer = IASendContractSerializer(
+            data=request.data,
+            context={
+                'request': request,
+                'application_id': pk
+            }
+        )
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def sign_contract_investment_application(request, application_id):
-    serializer = IAContractSignSerializer(
-        data=request.data,
-        context={'request': request, 'application_id': application_id}
-    )
-    
-    if serializer.is_valid():
+    @action(detail=True, methods=['post'], url_path='sign-contract')
+    def sign_contract(self, request, pk=None, **kwargs):
+        """
+        POST /fund/<fund_id>/investment-application/<pk>/sign-contract/
+        """
+        serializer = IAContractSignSerializer(
+            data=request.data,
+            context={
+                'request': request,
+                'application_id': pk
+            }
+        )
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

@@ -27,7 +27,6 @@ from apps.fund.views.core_views import (
     TokenTransactionViewSet,
     FundTypeSemestralDocumentViewSet,
     FundSemestralDocumentViewSet,
-    get_cycle_options,
     OthersIViewSet,
     TrustAgreementViewSet,
 ) 
@@ -39,18 +38,10 @@ from apps.fund.views.investment_views import (
     InvestmentViewSet,
     InvestmentApplicationViewSet,
     InvestmentDashboardViewSet,
-    PendingApplicationViewSet,
-    submit_investment_application,
-    under_review_investment_application,
-    send_contrat_investment_application,
-    sign_contract_investment_application,
+    PendingApplicationViewSet
 )
 
-from apps.fund.views.investor_contract_views import (
-    create_investor_contract,
-    sign_investor_contract,
-    InvestorContractViewSet
-)
+from apps.fund.views.investor_contract_views import InvestorContractViewSet
 
 # ============================================================================
 # 3. DISTRIBUTIONS VIEWS
@@ -64,13 +55,7 @@ from apps.fund.views.distributions_views import (
 # ============================================================================
 # 3.1 TRANSFERS VIEWS (Cesiones)
 # ============================================================================
-from apps.fund.views.transfers_views import (
-    TransfersViewSet,
-    create_transfer,
-    fund_transfer_summary,
-    delete_transfer,
-)
-
+from apps.fund.views.transfers_views import TransfersViewSet
 # ============================================================================
 # 3.2 COMMISSIONS VIEWS
 # ============================================================================
@@ -179,7 +164,6 @@ from apps.fund.views.utils_views import (
     get_token_count,
     investment_trend,
     ai_generate_content,
-    TrustMembersViewSet,
     testing,
 )
 
@@ -190,45 +174,134 @@ from apps.fund.views.utils_views import (
 router = DefaultRouter()
 
 # Core Fund
-router.register(r'main', FundViewSet, basename='fund')
-router.register(r'category', FundCategoryViewSet, basename='fund-category')
-router.register(r'members', FundMembersViewSet, basename='fund-members')
-router.register(r'(?P<fund_id>\d+)/semestral-document', FundSemestralDocumentViewSet, basename='semestral-document')
-router.register(r'othersi', OthersIViewSet, basename='otrosi')
-router.register(r'token', FundTokenViewSet, basename='fund-token')
-router.register(r'transaction', TokenTransactionViewSet, basename='token-transaction')
-router.register(r'transfer_receipt', TransferReceiptViewSet, basename='transfer-receipt')
-router.register(r'trust-agreement', TrustAgreementViewSet, basename='trust-agreement')
-router.register(r'members', TrustMembersViewSet, basename='members')
-router.register(r'type-semestral-document', FundTypeSemestralDocumentViewSet, basename='type-semestral-document')
+router.register(
+    r'main', 
+    FundViewSet, 
+    basename='fund'
+)
+router.register(
+    r'(?P<fund_id>\d+)/categories', 
+    FundCategoryViewSet, 
+    basename='fund-category'
+)
+router.register(
+    r'(?P<fund_id>\d+)/members', 
+    FundMembersViewSet, 
+    basename='fund-members'
+)
+router.register(
+    r'(?P<fund_id>\d+)/semestral-document', 
+    FundSemestralDocumentViewSet, 
+    basename='semestral-document'
+)
+router.register(
+    r'(?P<fund_id>\d+)/othersi',
+    OthersIViewSet,
+    basename='others-i'
+)
+router.register(
+    r'(?P<fund_id>\d+)/tokens',
+    FundTokenViewSet,
+    basename='tokens'
+)
+router.register(
+    r'(?P<fund_id>\d+)/transactions',
+    TokenTransactionViewSet,
+    basename='token-transactions'
+)
+router.register(
+    r'(?P<fund_id>\d+)/transfer-receipts',
+    TransferReceiptViewSet,
+    basename='transfer-receipts'
+)
+router.register(
+    r'(?P<fund_id>\d+)/trust-agreement',
+    TrustAgreementViewSet,
+    basename='trust-agreement'
+)
+router.register(
+    r'(?P<fund_id>\d+)/type-semestral-document',
+    FundTypeSemestralDocumentViewSet,
+    basename='type-semestral-document'
+)
 
 # Investments
-router.register(r'investment', InvestmentViewSet, basename='investment')
-router.register(r'investment-application', InvestmentApplicationViewSet, basename='investment-application')
-router.register(r'application-pending', PendingApplicationViewSet, basename='investment-application-pending')
-router.register(r'investment-dashboard', InvestmentDashboardViewSet, basename='investment-dashboard')
+router.register(
+    r'(?P<fund_id>\d+)/investment',
+    InvestmentViewSet,
+    basename='investment'
+)
+router.register(
+    r'(?P<fund_id>\d+)/investment-application',
+    InvestmentApplicationViewSet,
+    basename='investment-application'
+)
+router.register(
+    r'(?P<fund_id>\d+)/pending-applications',
+    PendingApplicationViewSet,
+    basename='pending-applications'
+)
+router.register(
+    r'(?P<fund_id>\d+)/investment-dashboard',
+    InvestmentDashboardViewSet,
+    basename='investment-dashboard'
+)
 router.register(r'(?P<fund_id>\d+)/investor-contract', InvestorContractViewSet, basename='investment-trust')
 
 # Distributions
-router.register(r'investment-distribution', InvestmentDistributionRecordViewSet, basename='investment-distribution')
+router.register(
+    r'(?P<fund_id>\d+)/investment-distributions',
+    InvestmentDistributionRecordViewSet,
+    basename='investment-distributions'
+)
 
 # Accounting
-router.register(r'accounting-category', AccountCategoryViewSet, basename='accounting-category')
-router.register(r'accounting', AccountingEntryViewSet, basename='accounting')
-router.register(r'accounting-period', AccountingPeriodViewSet, basename='accounting-period')
+router.register(
+    r'(?P<fund_id>\d+)/account-categories',
+    AccountCategoryViewSet,
+    basename='account-categories'
+)
+router.register(
+    r'(?P<fund_id>\d+)/accounting',
+    AccountingEntryViewSet,
+    basename='accounting'
+)
+router.register(
+    r'(?P<fund_id>\d+)/accounting-periods',
+    AccountingPeriodViewSet,
+    basename='accounting-periods'
+)
 
 # Operating
-router.register(r'operating-income', FundOperatingIncomeViewSet, basename='operating-income')
-router.register(r'operating-expense', FundOperatingExpenseViewSet, basename='operating-expense')
+router.register(
+    r'(?P<fund_id>\d+)/operating-income',
+    FundOperatingIncomeViewSet,
+    basename='operating-income'
+)
+router.register(
+    r'(?P<fund_id>\d+)/operating-expenses',
+    FundOperatingExpenseViewSet,
+    basename='operating-expenses'
+)
 
 # Transfers (Cesiones)
-router.register(r'transfers-obtain', TransfersViewSet, basename='transfers')
-
+router.register(
+    r'(?P<fund_id>\d+)/transfers',
+    TransfersViewSet,
+    basename='transfers'
+)
 # Commissions
-router.register(r'commissions-obtain', CommissionsViewSet, basename='commissions')
-
+router.register(
+    r'(?P<fund_id>\d+)/commissions',
+    CommissionsViewSet,
+    basename='commissions'
+)
 # Accountability
-router.register(r'accountability', AccountabilityViewSet, basename='accountability')
+router.register(
+    r'(?P<fund_id>\d+)/accountability',
+    AccountabilityViewSet,
+    basename='accountability'
+)
 
 
 # ============================================================================
@@ -241,7 +314,7 @@ urlpatterns = [
     # ========================================================================
     # KALEIDO - Token Operations
     # ========================================================================
-    path('mint/', TokenMintView.as_view(), name='mint-token'),
+    path('fund/<int:fund_id>/mint/', TokenMintView.as_view(), name='mint-token'),
     path('mint-batch/', TokenMintBatchView.as_view(), name='mint-token-batch'),
     path('burn/', TokenBurnView.as_view(), name='burn-token'),
     path('burn-batch/', TokenBurnBatchView.as_view(), name='burn-token-batch'),
@@ -251,29 +324,11 @@ urlpatterns = [
     path('<int:fund_id>/batch-progress/', batch_creation_progress_view, name='batch-creation-progress'),
     
     # ========================================================================
-    # INVESTMENTS - Applications & Contracts
-    # ========================================================================
-    path('<int:fund_id>/investment-trust/submit/', submit_investment_application, name='submit-investment'),
-    path('investment-trust/application/<int:application_id>/under-review/', under_review_investment_application, name='under-review-investment-application'),
-    path('investment-trust/application/<int:application_id>/send-contract/', send_contrat_investment_application, name='send-contract-investment-application'),
-    path('investment-trust/application/<int:application_id>/sign-contract/', sign_contract_investment_application, name='sign-contract-investment-application'),
-    
-    # Investor Contracts
-    path('investment-trust/contract/create/', create_investor_contract, name='create-investor-contract'),
-    path('investment-trust/contract/<int:contract_id>/sign/', sign_investor_contract, name='sign-investor-contract'),
-    
-    # ========================================================================
     # DISTRIBUTIONS
     # ========================================================================
     path('distributions/create-period/', create_distribution_period, name='create-distribution-period'),
     path('distributions/records/', distributions_records, name='distributions-records'),
     
-    # ========================================================================
-    # TRANSFERS (Cesiones)
-    # ========================================================================
-    path('transfers/create/', create_transfer, name='create-transfer'),
-    path('transfers/<int:transfer_id>/delete/', delete_transfer, name='delete-transfer'),
-    path('<int:fund_id>/transfers/summary/', fund_transfer_summary, name='fund-transfer-summary'),
     
     path('accounting-validate/', validate_accounting_file, name='validate-accounting'),
     path('import-account-file/', import_accounting_file, name='import-account-file'),
@@ -338,7 +393,6 @@ urlpatterns = [
     # ========================================================================
     path('utils/token-count/', get_token_count, name='get-token-count'),
     path('ai/generate-content/', ai_generate_content, name='ai-generate-content'),
-    path('cycle-options/', get_cycle_options, name='cycle-options'),   
     path('investment-trend/', investment_trend, name='investment-trend'), 
     
     # Testing (Solo desarrollo)

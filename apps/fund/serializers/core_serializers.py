@@ -149,19 +149,7 @@ class FundSemestralDocumentSerializer(serializers.ModelSerializer):
     
     def validate(self, attrs):
         """Validar que no exista ya un documento para la misma combinación"""
-        
-        # El fondo ya viene en el request (read_only=False sería necesario si lo editas)
-        # O si es nested route, viene desde el ViewSet
-        fund = self.instance.fund if self.instance else attrs.get('fund')
-        
-        if not fund:
-            # Si aún no está disponible, obtenerlo desde el contexto del ViewSet
-            fund = self.context.get('fund')
-        
-        if not fund:
-            raise ValidationError({
-                "fund": "No se pudo determinar el fideicomiso."
-            })
+        fund = self.context.get('fund')
         
         # Obtener valores: del request o de la instancia existente (para PATCH)
         document_type = attrs.get('document_type') or (self.instance.document_type if self.instance else None)

@@ -9,7 +9,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from apps.utils.core_permissions.api_permissions import RegistryPermission
+from apps.utils.views.global_utils_views import validate_entity_exists
 
+from apps.fund.models.core import Fund
 from apps.fund.models.commissions import Commissions
 from apps.fund.serializers.commissions_serializers import (
     CommissionResponseSerializer,
@@ -30,9 +33,7 @@ class CommissionsViewSet(ReadOnlyModelViewSet):
     GET /api/fund/commissions/          -> list
     GET /api/fund/commissions/{id}/     -> retrieve
     """
-    
-    queryset = Commissions.objects.select_related('fund').all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     
     # Filtros automáticos
@@ -48,6 +49,14 @@ class CommissionsViewSet(ReadOnlyModelViewSet):
     # Ordenamiento
     ordering_fields = ['created_at', 'name', 'contract_num']
     ordering = ['-created_at']
+    
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        super().initial(request, *args, **kwargs)
+        
+    def get_queryset(self):
+        fund_id = self.kwargs.get('fund_id')
+        return Commissions.objects.filter(fund_id=fund_id).order_by('-created_at')
     
     def get_serializer_class(self):
         """Retorna el serializer según la acción."""

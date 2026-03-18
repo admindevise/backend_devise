@@ -2,10 +2,9 @@ from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework import generics
-from django.db.models import Q
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
+
+from apps.utils.core_permissions.api_permissions import RegistryPermission
+from apps.utils.views.global_utils_views import validate_entity_exists
 
 from apps.fund.models.core import Fund
 from apps.fund.models.distributions import DistributionPeriod, InvestmentDistributionRecord
@@ -149,9 +148,26 @@ def distribution_detail(request, distribution_id):
 # DISTRIBUTION RECORDS BY INVESTMENT
 # ================================================
 class InvestmentDistributionRecordViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = InvestmentDistributionRecord.objects.all()
     serializer_class = InvestmentDistributionRecordSerializer
-    permission_classes = []
+    permission_classes = [IsAuthenticated, RegistryPermission]
+    
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        super().initial(request, *args, **kwargs)
+        
+    def get_queryset(self):
+        user = self.request.user
+        fund_id = self.kwargs.get('fund_id')
+        
+        queryset = InvestmentDistributionRecord.objects.select_related(
+            'distribution_period__fund',
+            'investment__application__user'
+        ).filter(distribution_period__fund_id=fund_id)
+        
+        if not user.is_staff:
+            queryset = queryset.filter(investment__application__user=user)
+            
+        return queryset.order_by('-distribution_period__created_at', '-created_at')
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
