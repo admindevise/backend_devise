@@ -11,9 +11,10 @@ from apps.info_residential import urls as user_info_residential_urls
 from apps.info_workplace import urls as user_workplace_urls
 from apps.info_financial import urls as user_info_financial_urls
 from apps.druo import urls as druo_urls
+from apps.cities import urls as cities_urls
 from apps.info_socioeconomic import urls as user_socioeconomic_urls
 from apps.security import urls as security_urls
-from apps.academia import urls as academia_urls
+from apps.academy import urls as academy_urls
 from apps.asset import urls as asset_urls
 
 from apps.kaleido import urls as kaleido_urls
@@ -65,10 +66,11 @@ urlpatterns = [
     path('api/v1/trading/', include(trading_urls)),
     path('api/v1/kaleido/', include(kaleido_urls)),
     path('api/v1/security/', include(security_urls)),
-    path('api/v1/academia/', include(academia_urls)),
+    path('api/v1/academy/', include(academy_urls)),
     path('api/v1/asset/', include(asset_urls)),
     path('api/v1/financial-institution/', include(financial_institution_urls)),
     path('api/v1/druo/', include(druo_urls)),
+    path('api/v1/cities/', include(cities_urls)),
 
     #Generic auth Views
     path('auth/login/',  auth_views.LoginView.as_view( template_name='adminlte/base/login.html' ), name='login'),
