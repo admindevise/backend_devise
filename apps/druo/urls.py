@@ -4,8 +4,8 @@ from django.urls.conf import path
 
 
 urlpatterns = [
-    path('banks/', BanksListView.as_view()),
-    path('account/types/', AccountTypeListView.as_view()),
-    path('account/subtypes/', AccountSubtypeListView.as_view()),
+    path('fi/<int:fi_id>/banks/', BanksListView.as_view()),
+    path('fi/<int:fi_id>/account/types/', AccountTypeListView.as_view()),
+    path('fi/<int:fi_id>/account/subtypes/', AccountSubtypeListView.as_view()),
 
 ]
