@@ -1,16 +1,11 @@
 #from apps.asset.models import ActivoInversion
 from apps.user.models import Role
-from apps.utils.core_permissions.django_permissions import CustomDjangoModelPermission
 
 from django.contrib.auth.models import Group, Permission
 from django.contrib.auth.decorators import login_required, permission_required
-from django.contrib.messages.views import SuccessMessageMixin
 from django.db import models 
 
-from django.contrib.contenttypes.models import ContentType
-
 from django.db.models import Q
-from django.urls import reverse_lazy
 
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
@@ -38,7 +33,7 @@ class SubroleViewSet(viewsets.ModelViewSet):
     """
     queryset = Group.objects.all()
     serializer_class = SubroleSerializer
-    permission_classes = [IsAuthenticated, CustomDjangoModelPermission]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['name']

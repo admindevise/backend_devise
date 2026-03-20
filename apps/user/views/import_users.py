@@ -9,21 +9,26 @@ from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 
+from apps.utils.views.global_utils_views import validate_entity_exists
+from apps.utils.core_permissions.api_permissions import RegistryPermission
 from apps.user.models import User, IdType, Role
 from apps.info_residential.models import Residentialplace
 from apps.info_workplace.models import Workplace
 from apps.info_financial.models import Financial
-from apps.info_socioeconomic.models import Socioeconomic, OriginFund
-from cities_light.models import Country, Region, SubRegion
 
 class ImportUsersAPIView(APIView):
     """
     API for importing users from a ZIP file.
     Only administrators can access this endpoint.
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated, RegistryPermission]
+    
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(User, 'Usuario', self.kwargs.get('pk'))
+        return super().initial(request, *args, **kwargs)
+    
     def post(self, request):
         """
         Process a ZIP file containing user data and import users into the system.

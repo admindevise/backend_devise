@@ -5,10 +5,11 @@ from apps.info_residential.models import Residentialplace
 from apps.info_workplace.models import Workplace
 from apps.info_financial.models import Financial
 from apps.info_socioeconomic.models import Socioeconomic
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from rest_framework import serializers
 from .role_serializer import RoleSerializerDetail
-from django.contrib.auth.password_validation import validate_password
 from apps.security.security_settings import PASSWORD_EXPIRY_DAYS
 import datetime as dt
 
@@ -180,12 +181,85 @@ class UserAdminInfoSerializer(serializers.ModelSerializer):
         
     
 class PasswordResetSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    email = serializers.EmailField(required=True)
+        
+    def validate(self, attrs):
+        from apps.user.models import PasswordReset
+        
+        user = self.context['request'].user
+        pk = self.context['pk']
+        email = attrs.get('email')
+        
+        user_url = validate_it_self_user(pk, user)
+        
+        if user_url.email != email:
+            raise serializers.ValidationError({"email": f"El correo electrónico no coincide con el usuario seleccionado. Usuario: {user_url.email}"})
+        
+        if not User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({"email": "No se encontró un usuario con este correo electrónico"})
 
+        password_reset, _ = PasswordReset.objects.get_or_create(user=user_url)
+        password_reset_slug = password_reset.slug
 
-class PasswordResetFormSerializer(serializers.Serializer):
-    password_confirmation = serializers.CharField()
-    password = serializers.CharField()
+        user_url.password_reset_mail(
+            password_reset_slug=password_reset_slug,
+        )        
+        print('slug enviado', password_reset_slug)
+        return attrs
+
+class PasswordResetDoneSerializer(serializers.Serializer):
+    password = serializers.CharField(required=True, write_only=True)
+    password_confirmation = serializers.CharField(required=True, write_only=True)
+
+    def validate(self, attrs):
+        from apps.user.models import PasswordReset
+        
+        password = attrs.get("password")
+        password_confirmation = attrs.get("password_confirmation")
+        user = self.context['request'].user
+        slug = self.context.get("slug")
+        pk = self.context.get("pk")
+        
+        _ = validate_it_self_user(pk, user)
+
+        print('objetos de password reset', PasswordReset.objects.all())
+        if password != password_confirmation:
+            raise serializers.ValidationError({"password_confirmation": "Las contraseñas no coinciden"})
+
+        password_reset = PasswordReset.objects.select_related("user").filter(
+            slug=slug,
+            user_id=pk
+        ).first()
+
+        if not password_reset:
+            raise serializers.ValidationError({"token": "Este enlace no existe"})
+
+        # Mantiene tu lógica actual: True = enlace vencido
+        if password_reset.get_is_valid_time():
+            password_reset.delete()
+            raise serializers.ValidationError(
+                {"token": "Se ha vencido el enlace de recuperación, debe solicitar uno nuevo"}
+            )
+
+        try:
+            validate_password(password, password_reset.user)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({"password": list(e.messages)})
+
+        attrs["password_reset"] = password_reset
+        return attrs
+
+    def save(self, **kwargs):
+        password = self.validated_data["password"]
+        password_reset = self.validated_data["password_reset"]
+        user = password_reset.user
+
+        user.set_password(password)
+        user.last_password_change = timezone.now()
+        user.save(update_fields=["password", "last_password_change"])
+
+        password_reset.delete()
+        return user
 
 class CreateUserFormSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(required=True)
@@ -209,6 +283,39 @@ class CreateUserFormSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        # Validar contraseña
+        password = attrs.get('password')
+        if not password:
+            raise serializers.ValidationError({"password": "La contraseña es obligatoria"})
+        try:
+            validate_password(password)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({"password": list(e.messages)})
+        except Exception as e:
+            raise serializers.ValidationError({"password": str(e)})
+
+        # Validar teléfono (formato indicativo*número + unicidad)
+        phone_number = attrs.get('phone')
+        if not phone_number:
+            raise serializers.ValidationError({"phone": "El número de teléfono es obligatorio"})
+
+        try:
+            indicative, phone = phone_number.split('*')
+        except ValueError:
+            raise serializers.ValidationError({
+                "phone": "Formato de teléfono inválido. Use 'indicativo*número'"
+            })
+
+        if User.objects.filter(phone=phone, indicative=indicative).exists():
+            raise serializers.ValidationError({
+                "phone": "El número de teléfono ya se encuentra registrado"
+            })
+
+        return attrs
+    
     def create(self, validated_data):
         password = validated_data.pop('password')
         phone = validated_data.pop('phone', None)
@@ -273,3 +380,18 @@ class IdtypesListSerializer(serializers.ModelSerializer):
     class Meta:
         model = IdType
         fields = [ 'id', 'value', 'name', 'description']
+
+
+# ===========================================================
+# Metodos auxiliares
+# ===========================================================
+
+def validate_it_self_user(pk, user):
+    user_url = User.objects.filter(pk=pk).first()
+    can_manage_passwords = user.is_superuser or user.is_staff
+    is_self = user.pk == pk
+    
+    if not (can_manage_passwords or is_self):
+        raise serializers.ValidationError({"detail": "No puedes restablecer la contraseña de otro usuario"})
+    
+    return user_url

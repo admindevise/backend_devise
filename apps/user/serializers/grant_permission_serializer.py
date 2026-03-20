@@ -16,24 +16,31 @@ class GrantAdminPermissionSerializer(serializers.Serializer):
     )
     permission_type = serializers.ChoiceField(
         choices=[
-            # ✅ NUEVOS: Permisos específicos de trading
+            # Gestion de perfil de usuario
+            ('VIEW_PROFILE', 'Ver perfil completo'),
+            ('EDIT_PROFILE', 'Editar información básica'),
+            ('TRADING_VIEW', 'Ver órdenes de trading'),
+            ('TRADING_MANAGE', 'Gestionar órdenes de trading'),
+            ('FULL_ACCESS', 'Acceso total temporal'),
+        
+            # Gestión de órdenes
             ('CREATE_PURCHASE_ORDER', 'Crear órdenes de compra'),
             ('CREATE_SALES_ORDER', 'Crear órdenes de venta'),
             ('CANCEL_ORDERS', 'Cancelar mis órdenes'),
             ('VIEW_ORDERS', 'Ver mis órdenes'),
+            
+            # Proceso de matching
             ('SELECT_MATCHES', 'Seleccionar matches para mis órdenes'),
             ('AUTO_SELECT_MATCHES', 'Permitir selección automática'),
             ('CANCEL_SELECTIONS', 'Cancelar selecciones de matches'),
+            
+            # Proceso de pago
             ('EXECUTE_PAYMENTS', 'Ejecutar pagos de mis órdenes'),
             ('VIEW_PAYMENT_STATUS', 'Ver estado de pagos'),
+            
+            # Permisos amplios
             ('TRADING_FULL_ACCESS', 'Acceso completo a trading'),
             ('FUND_SPECIFIC_ACCESS', 'Acceso específico a un fondo'),
-            
-            # Permisos generales (mantener compatibilidad)
-            ('EDIT_PROFILE', 'Editar perfil'),
-            ('VIEW_FINANCIAL_INFO', 'Ver información financiera'),
-            ('MANAGE_INVESTMENTS', 'Gestionar inversiones'),
-            ('FULL_ACCESS', 'Acceso completo'),
         ],
         help_text="Tipo de permiso a otorgar"
     )
@@ -48,11 +55,7 @@ class GrantAdminPermissionSerializer(serializers.Serializer):
         help_text="Duración del permiso en horas (1-168)"
     )
     
-    # ✅ NUEVOS: Campos específicos para trading
-    fund_id = serializers.IntegerField(
-        required=False,
-        help_text="ID del fondo específico (opcional, null = todos los fondos)"
-    )
+    # Campos específicos para trading
     max_order_amount = serializers.DecimalField(
         max_digits=15, decimal_places=2,
         required=False,
@@ -113,12 +116,18 @@ class GrantAdminPermissionSerializer(serializers.Serializer):
         user = self.context['request'].user
         admin_user_id = attrs['admin_user_id']
         permission_type = attrs['permission_type']
+        target_id = self.context['pk']
         
-        # No permitir otorgar permisos a sí mismo
-        if user.id == admin_user_id:
-            raise serializers.ValidationError(
-                "No puedes otorgarte permisos a ti mismo"
-            )
+        can_manage = user.is_superuser or user.is_staff
+        it_self = user.pk == target_id
+        user_target = User.objects.get(id=target_id)
+        
+        if not (can_manage or it_self):
+             raise serializers.ValidationError({"detail": "No puedes otorgar permisos a otro usuario."})
+        
+        if not (can_manage and user != user_target):
+            raise serializers.ValidationError({"detail": f"No tienes permisos para otorgar permisos a este usuario."})
+        
         
         # ✅ VALIDACIÓN: Permisos de trading requieren límites
         trading_permissions = [
@@ -172,6 +181,7 @@ class GrantAdminPermissionSerializer(serializers.Serializer):
         """Crea el permiso temporal con todos los campos nuevos"""
         user = self.context['request'].user
         request = self.context['request']
+        fund_id = self.context.get('fund_id')
         
         admin_user = User.objects.get(id=validated_data['admin_user_id'])
         expires_at = timezone.now() + timedelta(hours=validated_data['duration_hours'])
@@ -185,7 +195,7 @@ class GrantAdminPermissionSerializer(serializers.Serializer):
             expires_at=expires_at,
             
             # ✅ NUEVOS: Campos de trading
-            fund_id=validated_data.get('fund_id'),
+            fund_id=fund_id,
             max_order_amount=validated_data.get('max_order_amount'),
             max_daily_amount=validated_data.get('max_daily_amount'),
             max_units_per_order=validated_data.get('max_units_per_order'),
@@ -271,7 +281,6 @@ class UserAdminPermissionSerializer(serializers.ModelSerializer):
 
 class RevokeAdminPermissionSerializer(serializers.Serializer):
     """Serializer para revocar permisos - SIN CAMBIOS"""
-    
     permission_id = serializers.IntegerField()
     
     def validate_permission_id(self, value):

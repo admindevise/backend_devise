@@ -3,9 +3,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.decorators import permission_classes
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet, DateFromToRangeFilter
-from django_filters import rest_framework as custom_filters
 import django_filters
 
+from apps.utils.views.global_utils_views import validate_entity_exists
+from apps.utils.core_permissions.api_permissions import RegistryPermission
+from apps.user.models import User
 from apps.user.serializers.user_detail import UserDetailedSerializer
 from apps.user.models import User
 
@@ -42,10 +44,10 @@ class UserFilter(FilterSet):
         }
 
 
-@permission_classes([IsAuthenticated, IsAdminUser])
 class ListUsersAPIView(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = UserDetailedSerializer
+    permission_classes = [IsAuthenticated, RegistryPermission]
     
     # Configuración de filtros
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -53,6 +55,10 @@ class ListUsersAPIView(generics.ListAPIView):
     search_fields = ['first_name', 'last_name', 'email', 'document_number', 'phone']
     ordering_fields = ['id', 'email', 'first_name', 'last_name', 'date_joined', 'last_login']
     ordering = ['-date_joined']  # Orden predeterminado
+    
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(User, 'Usuario', self.kwargs.get('pk'))
+        return super().initial(request, *args, **kwargs)
     
     def get_queryset(self):
         """Obtiene el queryset basado en los permisos del usuario"""

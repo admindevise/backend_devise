@@ -1,9 +1,13 @@
 from rest_framework import generics, status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 
+from apps.utils.views.global_utils_views import validate_entity_exists
+from apps.utils.core_permissions.api_permissions import RegistryPermission
+from apps.user.models import User
+from apps.fund.models import Fund
 from ..models_permission import UserAdminPermission
 from ..serializers.grant_permission_serializer import (
     GrantAdminPermissionSerializer,
@@ -11,14 +15,25 @@ from ..serializers.grant_permission_serializer import (
     RevokeAdminPermissionSerializer
 )
 
-@permission_classes([IsAuthenticated])
 class GrantAdminPermissionView(generics.CreateAPIView):
     """Vista para que un usuario otorgue permisos a un admin"""
-    
     serializer_class = GrantAdminPermissionSerializer
+    permission_classes = [IsAuthenticated, RegistryPermission]
+    
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(User, 'Usuario', self.kwargs.get('pk'))
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        return super().initial(request, *args, **kwargs)
     
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(
+            data=request.data,
+            context = {
+                'request': request,
+                'fund_id': self.kwargs.get('fund_id'),
+                'pk': self.kwargs.get('pk'),
+            }   
+        )
         serializer.is_valid(raise_exception=True)
         
         permission = serializer.save()
@@ -29,11 +44,17 @@ class GrantAdminPermissionView(generics.CreateAPIView):
             'permission': UserAdminPermissionSerializer(permission).data
         }, status=status.HTTP_201_CREATED)
 
-@permission_classes([IsAuthenticated])
+
 class ListUserPermissionsView(generics.ListAPIView):
     """Vista para listar permisos otorgados por el usuario"""
-    
     serializer_class = UserAdminPermissionSerializer
+    permission_classes = [IsAuthenticated, RegistryPermission]
+    
+    def initial(self, request, *args, **kwargs):
+        validate_entity_exists(User, 'Usuario', self.kwargs.get('pk'))
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+        return super().initial(request, *args, **kwargs)
+    
     def get_queryset(self):
         user = self.request.user
         
@@ -48,62 +69,65 @@ class ListUserPermissionsView(generics.ListAPIView):
             user=user
         ).select_related('admin_user', 'fund').order_by('-granted_at')
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def revoke_admin_permission(request):
-    """Vista para revocar un permiso específico"""
-    
-    serializer = RevokeAdminPermissionSerializer(
-        data=request.data, 
-        context={'request': request}
-    )
-    
-    if serializer.is_valid():
+class RevokeAdminPermissionView(APIView):
+    permission_classes = [IsAuthenticated, RegistryPermission]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        validate_entity_exists(User, 'Usuario', self.kwargs.get('pk'))
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+
+    def post(self, request, *args, **kwargs):
+        serializer = RevokeAdminPermissionSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+
         permission_id = serializer.validated_data['permission_id']
-        
+
         try:
             permission = UserAdminPermission.objects.get(
                 id=permission_id,
                 user=request.user,
                 status='ACTIVE'
             )
-            
+
             permission.revoke()
-            
+
             return Response({
                 'success': True,
                 'message': f'Permiso revocado exitosamente para {permission.admin_user.email}'
-            })
-            
+            }, status=status.HTTP_200_OK)
+
         except UserAdminPermission.DoesNotExist:
             return Response({
                 'success': False,
                 'error': 'Permiso no encontrado'
             }, status=status.HTTP_404_NOT_FOUND)
-    
-    return Response({
-        'success': False,
-        'errors': serializer.errors
-    }, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def revoke_all_permissions(request):
-    """Vista para revocar todos los permisos activos"""
-    
-    active_permissions = UserAdminPermission.objects.filter(
-        user=request.user,
-        status='ACTIVE',
-        expires_at__gt=timezone.now()
-    )
-    
-    count = active_permissions.count()
-    
-    # Revocar todos
-    for permission in active_permissions:
-        permission.revoke()
-    
-    return Response({
-        'success': True,
-        'message': f'Se revocaron {count} permisos activos'
-    })
+
+class RevokeAllPermissionsView(APIView):
+    permission_classes = [IsAuthenticated, RegistryPermission]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        validate_entity_exists(User, 'Usuario', self.kwargs.get('pk'))
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('fund_id'))
+
+    def post(self, request, *args, **kwargs):
+        active_permissions = UserAdminPermission.objects.filter(
+            user=request.user,
+            status='ACTIVE',
+            expires_at__gt=timezone.now()
+        )
+
+        count = active_permissions.count()
+
+        for permission in active_permissions:
+            permission.revoke()
+
+        return Response({
+            'success': True,
+            'message': f'Se revocaron {count} permisos activos'
+        }, status=status.HTTP_200_OK)
