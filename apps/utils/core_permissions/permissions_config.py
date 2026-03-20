@@ -308,7 +308,7 @@ VIEWSET_PERMISSION_MAP = {
     
     'trading.TradingPermissionViewSet': {
         'grant_trading_permission': ('trading', 'grant_trading_permission'),
-        'list_user_permissions': ('trading', 'list_user_permissions'),
+        'list_user_permissions_trading': ('trading', 'list_user_permissions_trading'),
     },
     
     'trading.NegotiationDashboardViewSet': {
@@ -335,6 +335,154 @@ VIEWSET_PERMISSION_MAP = {
     'trading.OrdersListAPIView': {
         'get': ('trading', 'list_unified_orders'),
     },
+    
+    # ============================================
+    # USER
+    # ============================================
+    'user.UserViewSet': {
+        'list': ('user', 'list_users'),
+        'retrieve': ('user', 'retrieve_user'),
+        'create': ('user', 'create_user'),
+        'update': ('user', 'update_user'),
+        'partial_update': ('user', 'partial_update_user'),
+        'destroy': ('user', 'delete_user'),
+    },
+
+    'user.VerifyReferredCode': {
+        'get': ('user', 'verify_referred_code'),
+    },
+
+    'user.UpdateReadUserBasicInfo': {
+        'retrieve': ('user', 'retrieve_user_basicdata'),
+        'update': ('user', 'update_user_basicdata'),
+        'partial_update': ('user', 'partial_update_user_basicdata'),
+    },
+
+    'user.AdminUpdateUserBasicInfo': {
+        'retrieve': ('user', 'admin_retrieve_user_basicdata'),
+        'update': ('user', 'admin_update_user_basicdata'),
+        'partial_update': ('user', 'admin_partial_update_user_basicdata'),
+    },
+
+    'user.MeApiView': {
+        'get': ('user', 'retrieve_me_profile'),
+    },
+
+    'user.ActiveEmailView': {
+        'get': ('user', 'activate_user_email'),
+    },
+
+    'user.UserUpdateApiView': {
+        'retrieve': ('user', 'retrieve_user_profile'),
+        'update': ('user', 'update_user_profile'),
+        'partial_update': ('user', 'partial_update_user_profile'),
+    },
+
+    'user.PasswordResetView': {
+        'post': ('user', 'request_password_reset'),
+    },
+
+    'user.PasswordResetDoneView': {
+        'post': ('user', 'confirm_password_reset'),
+    },
+
+    'user.CheckSlugView': {
+        'get': ('user', 'verify_password_reset_token'),
+    },
+
+    'user.IdtypesListView': {
+        'list': ('user', 'list_id_types'),
+    },
+
+    'user.ImportUsersAPIView': {
+        'post': ('user', 'import_users'),
+    },
+
+    'user.ListUsersAPIView': {
+        'list': ('user', 'list_all_users'),
+    },
+
+    'user.GrantAdminPermissionView': {
+        'post': ('user', 'grant_admin_permission'),
+    },
+
+    'user.ListUserPermissionsView': {
+        'get': ('user', 'list_user_permissions'),
+    },
+
+    'user.RevokeAdminPermissionView': {
+        'post': ('user', 'revoke_admin_permission'),
+    },
+
+    'user.RevokeAllPermissionsView': {
+        'post': ('user', 'revoke_all_permissions'),
+    },    
+    
+    # ==============================================
+    # Audit
+    # ==============================================
+    'audit.AuditLogViewSet': {
+        'list': ('audit', 'list_audit_logs'),
+        'retrieve': ('audit', 'view_audit_log'),
+    },
+    
+    'audit.AuditActionViewSet': {
+        'list': ('audit', 'list_audit_actions'),
+        'retrieve': ('audit', 'view_audit_action'),
+    },
+    
+    'audit.AuditCategoryViewSet': {
+        'list': ('audit', 'list_audit_categories'),
+        'retrieve': ('audit', 'view_audit_category'),
+    },
+    
+    # ==============================================
+    # DRUO
+    # ==============================================
+    'druo.BanksListView': {
+        'list': ('druo', 'view_banks'),
+    },
+    'druo.AccountTypeListView': {
+        'list': ('druo', 'view_account_types'),
+    },
+    'druo.AccountSubtypeListView': {
+        'list': ('druo', 'view_account_subtypes'),
+    },
+    
+    # ==============================================
+    # ACADEMY
+    # ==============================================
+    'academy.CategoryViewSet': {
+        'list': ('academy', 'list_categories'),
+        'retrieve': ('academy', 'view_category'),
+        'create': ('academy', 'create_category'),
+        'update': ('academy', 'update_category'),
+        'partial_update': ('academy', 'partial_update_category'),
+        'destroy': ('academy', 'delete_category'),
+    },
+    'academy.ArticlesViewSet': {
+        'list': ('academy', 'list_articles'),
+        'retrieve': ('academy', 'view_article'),
+        'create': ('academy', 'create_article'),
+        'update': ('academy', 'update_article'),
+        'partial_update': ('academy', 'partial_update_article'),
+        'destroy': ('academy', 'delete_article'),
+    },
+    
+    # ==============================================
+    # CITIES
+    # ==============================================
+    'cities.CountriesView': {
+        'list': ('cities', 'view_countries'),
+    },
+    'cities.RegionsView': {
+        'list': ('cities', 'view_regions'),
+    },
+    'cities.SubRegionsView': {
+        'list': ('cities', 'view_subregions'),
+    },
+    
+    
 }
 
 # ========================================
@@ -364,6 +512,25 @@ PERMISSION_RULES = {
             'sign_investor_contract'
         ],
     },
+    
+    'user': {
+        'context_field': 'user',
+        'staff_groups': ['ADMINISTRADOR', 'STAFF'],
+        'client_groups': ['INVERSIONISTA'],
+        'allow_unauthenticated_clients': False,  # Los usuarios deben autenticarse
+        'client_allowed_actions': [
+            'retrieve_me_profile',
+            'retrieve_user_profile',
+            'update_user_profile',
+            'partial_update_user_profile',
+            'update_user_basicdata',
+            'partial_update_user_basicdata',
+            'verify_referred_code',
+            'request_password_reset',
+            'confirm_password_reset',
+            'verify_password_reset_token',
+        ],
+    },    
     
     # Reglas para Trading
     'trading': {

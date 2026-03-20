@@ -143,6 +143,17 @@ def fund_investment_payment_receipt_path(instance, filename):
     return generate_upload_path('fund_investment', 'payment_receipt')(instance, filename)
 
 # ============================================================================
+# Helpers Fund Academy
+# ============================================================================
+def academy_category_image_path(instance, filename):
+    """Para Category.image"""
+    return generate_upload_path('academy', 'image')(instance, filename)
+
+def academy_article_image_path(instance, filename):
+    """Para Articles.image"""
+    return generate_upload_path('academy', 'image')(instance, filename)
+
+# ============================================================================
 # Helpers User
 # ============================================================================
 def user_juridic_xlsx_path(instance, filename):

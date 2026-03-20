@@ -82,7 +82,7 @@ PERMISSION_METADATA = {
     "cancel_match_selection": {"name": "Cancelar selección de match", "category": "trading"},
 
     "grant_trading_permission": {"name": "Otorgar permisos de trading", "category": "trading"},
-    "list_user_permissions": {"name": "Listar permisos de usuario", "category": "trading"},
+    "list_user_permissions_trading": {"name": "Listar permisos de usuario", "category": "trading"},
 
     "find_order_matches": {"name": "Buscar coincidencias de órdenes", "category": "trading"},
     "execute_payment": {"name": "Ejecutar pago", "category": "trading"},
