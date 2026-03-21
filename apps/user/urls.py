@@ -37,8 +37,7 @@ router.register('', UserViewSet, basename='urls_user')
 router.register('role/', RoleViewSet, basename='urls_role')
 router.register('subrole/', SubroleViewSet, basename='urls_subrole')
 
-urlpatterns = [
-    path('', include(router.urls)),    
+urlpatterns = [   
     # ==========================================================
     # API Views User
     # ==========================================================
@@ -84,6 +83,8 @@ urlpatterns = [
     path('<int:pk>/fund/<int:fund_id>/permissions/list/', ListUserPermissionsView.as_view(), name='list-user-permissions'),
     path('<int:pk>/fund/<int:fund_id>/permissions/revoke/', RevokeAdminPermissionView.as_view(), name='revoke-admin-permission'),
     path('<int:pk>/fund/<int:fund_id>/permissions/revoke/all/', RevokeAllPermissionsView.as_view(), name='revoke-all-permissions'),
+    
+    path('', include(router.urls)), 
 ]
 
 urlpatterns += router.urls
