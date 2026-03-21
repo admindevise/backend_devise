@@ -17,10 +17,10 @@ from apps.trading.models.core_models import PurchaseOrder, SalesOrder, Transacti
 from apps.trading.services.order_query_service import OrderQueryService
 from apps.trading.services.order_service import OrderManagementService
 from apps.user.decorators.permissions import TradingPermissionMixin
+from apps.utils.views.global_utils_views import validate_entity_exists
 from apps.utils.views.Mixins import DateFilterMixin
 from apps.trading.views.utils_views import base_get_queryset
 
-from apps.utils.views.global_utils_views import validate_entity_exists
 from apps.trading.serializers_flow.permission_aware_serializers import (
     PermissionAwarePurchaseOrderSerializer,
     PermissionAwareSalesOrderSerializer
@@ -37,6 +37,7 @@ from apps.trading.serializers.utils_serializers import UnifiedOrderSerializer
 
 from apps.user.models import User
 from apps.fund.models.core import Fund
+from apps.financial_institution.models.core import FinancialInstitution
 
 
 # ===================================================
@@ -750,9 +751,9 @@ class OrdersListAPIView(APIView):
     pagination_class = OrdersPagination
 
     def initial(self, request, *args, **kwargs):
-        fund_id = self.kwargs.get('fund_id')
-        if fund_id:
-            validate_entity_exists(Fund, 'Fideicomiso', fund_id)
+        fi_id = self.kwargs.get('fi_id')
+        if fi_id:
+            validate_entity_exists(FinancialInstitution, 'Institución fianciera', fi_id)
         super().initial(request, *args, **kwargs)
 
     @property

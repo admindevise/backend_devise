@@ -80,5 +80,5 @@ urlpatterns = [
     path('fund/<int:fund_id>/payments/execute/<uuid:order_id>/', ExecutePaymentAPIView.as_view(), name='execute-payment'),
     
     # Listado unificado de órdenes (compra + venta)
-    path('fund/<int:fund_id>/orders/', OrdersListAPIView.as_view(), name='get-orders'),
+    path('fi/<int:fi_id>/orders/', OrdersListAPIView.as_view(), name='get-orders'),
 ]
