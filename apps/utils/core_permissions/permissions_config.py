@@ -496,7 +496,7 @@ PERMISSION_RULES = {
         'staff_groups': ['ADMINISTRADOR', 'STAFF'],  # Grupos globales con acceso
         'client_groups': ['INVERSIONISTA',],  # Clientes
         'allow_unauthenticated_clients': True,  # No permitir acceso a clientes no autenticados para acciones de FI
-        'client_allowed_actions': ['create_applications', 'view_applications'],  # Acciones permitidas para clientes
+        'client_allowed_actions': ['list_view_financial_institutions', 'view_financial_institutions'],  # Acciones permitidas para clientes
     },
     
     # Reglas para Fund
@@ -506,10 +506,8 @@ PERMISSION_RULES = {
         'client_groups': ['INVERSIONISTA',],
         'allow_unauthenticated_clients': True,  # Permitir acceso a clientes no autenticados para ciertas acciones de fondos
         'client_allowed_actions': [
-            'view_funds', 
-            'create_investment', 
-            'view_investments',
-            'sign_investor_contract'
+            'retrieve_fund',
+            'list_funds',
         ],
     },
     
@@ -518,18 +516,7 @@ PERMISSION_RULES = {
         'staff_groups': ['ADMINISTRADOR', 'STAFF'],
         'client_groups': ['INVERSIONISTA'],
         'allow_unauthenticated_clients': False,  # Los usuarios deben autenticarse
-        'client_allowed_actions': [
-            'retrieve_me_profile',
-            'retrieve_user_profile',
-            'update_user_profile',
-            'partial_update_user_profile',
-            'update_user_basicdata',
-            'partial_update_user_basicdata',
-            'verify_referred_code',
-            'request_password_reset',
-            'confirm_password_reset',
-            'verify_password_reset_token',
-        ],
+        'client_allowed_actions': [],
     },    
     
     # Reglas para Trading
@@ -537,28 +524,7 @@ PERMISSION_RULES = {
         'context_field': 'fund',  # En trading, el contexto sigue siendo el fondo
         'staff_groups': ['ADMINISTRADOR', 'STAFF'],
         'client_groups': ['INVERSIONISTA'],
-        'allow_unauthenticated_clients': True,  # Permitir acceso a clientes no autenticados para ciertas acciones de trading
-        'client_allowed_actions': [
-            'list_view_purchase_orders',
-            'view_purchase_orders',
-            'create_purchase_order',
-            'cancel_purchase_order',
-            'list_view_sales_orders',
-            'view_sales_orders',
-            'create_sales_order',
-            'cancel_sales_order',
-            'reserve_tokens_sales_order',
-            'view_active_orders',
-            'find_order_matches',
-            'create_match_selection',
-            'validate_selection_capability',
-            'cancel_match_selection',
-            'list_unified_orders',
-            'list_view_transactions',
-            'view_transactions',
-            'list_view_contracts',
-            'view_contracts',
-            'list_pending_contracts',
-        ],
+        'allow_unauthenticated_clients': False,  # Permitir acceso a clientes no autenticados para ciertas acciones de trading
+        'client_allowed_actions': [],
     },
 }

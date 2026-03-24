@@ -11,6 +11,7 @@ from apps.utils.views.Mixins import DateFilterMixin
 from apps.utils.core_permissions.api_permissions import RegistryPermission
 from apps.utils.views.global_utils_views import validate_entity_exists
 
+from apps.financial_institution.models import FinancialInstitution
 from apps.fund.models.membership import InvestorContract
 from apps.fund.models.core import (
     Fund,
@@ -65,9 +66,8 @@ class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
     
     Cada operación genera registros de auditoría para seguimiento completo.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     serializer_class = FundSerializer
-    authentication_classes = [JWTAuthentication]
     http_method_names = ['get', 'post']
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -75,6 +75,11 @@ class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
     search_fields = ['name', 'description']
     ordering_fields = ['created_at', 'name']
     ordering = ['-created_at']
+    
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        validate_entity_exists(FinancialInstitution, 'Institución Financiera', self.kwargs.get('fi_id'))
+        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('pk'))
 
     def get_queryset(self):
         user = self.request.user

@@ -162,7 +162,6 @@ from apps.fund.views.operating_views import (
 # ============================================================================
 from apps.fund.views.utils_views import (
     get_token_count,
-    investment_trend,
     ai_generate_content,
     testing,
 )
@@ -174,11 +173,6 @@ from apps.fund.views.utils_views import (
 router = DefaultRouter()
 
 # Core Fund
-router.register(
-    r'main', 
-    FundViewSet, 
-    basename='fund'
-)
 router.register(
     r'(?P<fund_id>\d+)/categories', 
     FundCategoryViewSet, 
@@ -308,9 +302,6 @@ router.register(
 # URL PATTERNS
 # ============================================================================
 urlpatterns = [
-    # Router URLs
-    path('', include(router.urls)),
-    
     # ========================================================================
     # KALEIDO - Token Operations
     # ========================================================================
@@ -393,8 +384,10 @@ urlpatterns = [
     # ========================================================================
     path('utils/token-count/', get_token_count, name='get-token-count'),
     path('ai/generate-content/', ai_generate_content, name='ai-generate-content'),
-    path('investment-trend/', investment_trend, name='investment-trend'), 
     
     # Testing (Solo desarrollo)
     path('testing/', testing, name='testing'),
+    
+    # Router URLs
+    path('', include(router.urls)),
 ]

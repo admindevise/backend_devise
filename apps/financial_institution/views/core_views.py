@@ -28,11 +28,7 @@ class FinancialInstitutionViewSet(viewsets.ModelViewSet):
     queryset = FinancialInstitution.objects.all()
     serializer_class = FISerializer
     http_method_names = ['get', 'post']
-
-    def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
-            return [IsAuthenticated()]
-        return [IsAuthenticated(), RegistryPermission()]
+    permission_classes = [IsAuthenticated, RegistryPermission]
     
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -59,9 +55,9 @@ class FinancialInstitutionViewSet(viewsets.ModelViewSet):
             ).values_list('group__financial_institution_id', flat=True).distinct()
 
             return FinancialInstitution.objects.filter(id__in=fi_ids)
+        
+        return FinancialInstitution.objects.all()
 
-        # Resto: bloqueado
-        raise PermissionDenied("No tienes permisos para ver instituciones financieras.")
     
 
 # ===================================================

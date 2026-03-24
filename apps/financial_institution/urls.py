@@ -1,6 +1,7 @@
 from rest_framework.routers import DefaultRouter
 from django.urls import path, include
 
+from apps.fund.views.utils_views import InvestmentTrendView
 from apps.financial_institution.views.core_views import (
     FinancialInstitutionViewSet,
     FIApplicationActionsViewSet
@@ -17,9 +18,15 @@ from apps.financial_institution.views.permission_views import (
     FIUserGroupMembershipViewSet,
     FIGroupMembershipActionsViewSet,
 )
+from apps.fund.views.core_views import FundViewSet
 
 router = DefaultRouter()
-router.register(r'institutions', FinancialInstitutionViewSet, basename='financial_institution')
+router.register(
+    r'(?P<fi_id>\d+)/funds', 
+    FundViewSet, 
+    basename='fund'
+)
+router.register(r'', FinancialInstitutionViewSet, basename='financial_institution')
 router.register(
     r'(?P<fi_id>[^/.]+)/list-applications',
     FinancialInstitutionApplicationViewSet,
@@ -63,10 +70,10 @@ router.register(
 )
 
 urlpatterns = [
-    path('', include(router.urls)),
-    
     # ===================================================
     # DASHBOARD STATS
     # ===================================================
     path('<int:fi_id>/dashboard-stats/', RetrieveDashboardStatsView.as_view(), name='dashboard-stats'),
+    path('<int:fi_id>/investment-trend/', InvestmentTrendView.as_view(), name='investment-trend'),     
+    path('', include(router.urls)),
 ]
