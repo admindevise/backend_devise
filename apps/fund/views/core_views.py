@@ -79,7 +79,8 @@ class FundViewSet(DateFilterMixin, viewsets.ModelViewSet):
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
         validate_entity_exists(FinancialInstitution, 'Institución Financiera', self.kwargs.get('fi_id'))
-        validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('pk'))
+        if self.kwargs.get('pk'):
+            validate_entity_exists(Fund, 'Fideicomiso', self.kwargs.get('pk'))
 
     def get_queryset(self):
         user = self.request.user
