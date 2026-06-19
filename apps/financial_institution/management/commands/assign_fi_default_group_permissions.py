@@ -1,4 +1,4 @@
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.financial_institution.models import FinancialInstitution
@@ -445,7 +445,12 @@ class Command(BaseCommand):
             fis = fis.filter(id=fi_id)
 
         if not fis.exists():
-            raise CommandError("No se encontraron instituciones financieras.")
+            self.stdout.write(
+                self.style.WARNING(
+                    "No se encontraron instituciones financieras. Se omite la asignación de permisos por defecto."
+                )
+            )
+            return
 
         group_names = [only_group] if only_group else list(DEFAULT_GROUP_PERMISSIONS.keys())
 

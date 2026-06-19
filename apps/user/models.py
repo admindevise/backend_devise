@@ -377,7 +377,7 @@ def create_profile(sender, instance, created, **kwargs):
         user.last_password_change = dt.date.today()
         user.save()
         
-from apps.security.security_settings import PASSWORD_MAX_DELTA_CHANGE
+from apps.security.security_settings import get_password_max_delta_change
 
 class PasswordReset(base_model.BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -394,7 +394,7 @@ class PasswordReset(base_model.BaseModel):
     def get_is_valid_time(self):
         today = dt.datetime.now(dt.timezone.utc)
         delta = today - self.created_at
-        if delta > PASSWORD_MAX_DELTA_CHANGE:
+        if delta > get_password_max_delta_change():
             print("Si Delta es mayor que el parametro, entonces ya vencio")
             return True
         else:

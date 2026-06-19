@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 
 from rest_framework import serializers
 from .role_serializer import RoleSerializerDetail
-from apps.security.security_settings import PASSWORD_EXPIRY_DAYS
+from apps.security.security_settings import get_password_expiry_days
 import datetime as dt
 
 
@@ -93,8 +93,9 @@ class UserBasicInfoSerializer(serializers.ModelSerializer):
         else:
             obj.last_password_change = today
             obj.save()
+            delta = today - obj.last_password_change
 
-        diferencia = PASSWORD_EXPIRY_DAYS - int(delta.days)
+        diferencia = get_password_expiry_days() - int(delta.days)
         return f'{diferencia} días'
     
     
@@ -166,8 +167,7 @@ class UserSponsorInfoSerializer(serializers.ModelSerializer):
     def get_password_expires(self, obj):
         today = dt.date.today()
         delta = today - obj.last_password_change
-        diferencia = PASSWORD_EXPIRY_DAYS - int(delta.days)
-        PASSWORD_EXPIRY_DAYS
+        diferencia = get_password_expiry_days() - int(delta.days)
         return f'{diferencia} días'
     
 

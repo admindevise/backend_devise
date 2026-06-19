@@ -8,21 +8,21 @@ python manage.py migrate
 #python manage.py collectstatic --no-input
 
 # Initialize audit actions
-python manage.py init_audit_actions
+#python manage.py init_audit_actions
 
 # Load initial data cities
-python manage.py cities_light --force-all
+#python manage.py cities_light --force-all
 
 # Import DRUO Data
-python manage.py import_druo_data --all
+#python manage.py import_druo_data --all
 
 # Importing Origin Funds
-python manage.py load_origin_funds
+#python manage.py load_origin_funds
 
 # Importing permissions
-python manage.py sync_fi_permissions
-python manage.py sync_fi_default_groups
-python manage.py assign_fi_default_group_permissions
+#python manage.py sync_fi_permissions
+#python manage.py sync_fi_default_groups
+#python manage.py assign_fi_default_group_permissions
 
 # First Superuser Creation
 DJANGO_SUPERUSER_USERNAME=admin \

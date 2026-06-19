@@ -1,35 +1,52 @@
 from datetime import timedelta
-from .models import SecurityConfiguration
-#CONFIGURACION CUSTOM SECURITY
+
 from django.db import connection
+
+from .models import SecurityConfiguration
+
+
+DEFAULT_SECURITY_SETTINGS = {
+    "password_similarity_limit": 5,
+    "max_failed_login_attempts": 3,
+    "login_lockout_duration": timedelta(minutes=30),
+    "password_expiry_days": 90,
+    "password_max_delta_change": timedelta(minutes=30),
+}
+
 
 def has_table(table_name):
     return table_name in connection.introspection.table_names()
 
-# Comprobamos si la tabla existe antes de acceder a ella
-if has_table('security_securityconfiguration'):
+
+def get_security_settings():
+    if not has_table("security_securityconfiguration"):
+        return DEFAULT_SECURITY_SETTINGS.copy()
+
     security_config = SecurityConfiguration.objects.first()
+    if not security_config:
+        return DEFAULT_SECURITY_SETTINGS.copy()
 
-    if security_config:
-        PASSWORD_SIMILARITY_LIMIT = security_config.password_similarity_limit
-        MAX_FAILED_LOGIN_ATTEMPTS = security_config.max_failed_login_attempts
-        LOGIN_LOCKOUT_DURATION = security_config.login_lockout_duration
-        PASSWORD_EXPIRY_DAYS = security_config.password_expiry_days
-        PASSWORD_MAX_DELTA_CHANGE = security_config.password_max_delta_change
-    
-    else:
-        # Valores por defecto si no se ha configurado nada en la base de datos
-        PASSWORD_SIMILARITY_LIMIT = 5
-        MAX_FAILED_LOGIN_ATTEMPTS = 3
-        LOGIN_LOCKOUT_DURATION = timedelta(minutes=30)
-        PASSWORD_EXPIRY_DAYS = 90
-        PASSWORD_MAX_DELTA_CHANGE = timedelta(minutes=30)
+    return {
+        "password_similarity_limit": security_config.password_similarity_limit,
+        "max_failed_login_attempts": security_config.max_failed_login_attempts,
+        "login_lockout_duration": security_config.login_lockout_duration,
+        "password_expiry_days": security_config.password_expiry_days,
+        "password_max_delta_change": security_config.password_max_delta_change,
+    }
 
-else:
-        # Valores por defecto si no se ha configurado nada en la base de datos
-        PASSWORD_SIMILARITY_LIMIT = 5
-        MAX_FAILED_LOGIN_ATTEMPTS = 3
-        LOGIN_LOCKOUT_DURATION = timedelta(minutes=30)
-        PASSWORD_EXPIRY_DAYS = 90
-        PASSWORD_MAX_DELTA_CHANGE = timedelta(minutes=30)
+
+def get_password_expiry_days():
+    return get_security_settings()["password_expiry_days"]
+
+
+def get_password_max_delta_change():
+    return get_security_settings()["password_max_delta_change"]
+
+
+def get_max_failed_login_attempts():
+    return get_security_settings()["max_failed_login_attempts"]
+
+
+def get_login_lockout_duration():
+    return get_security_settings()["login_lockout_duration"]
 

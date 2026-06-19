@@ -31,7 +31,11 @@ class Command(BaseCommand):
             fis = fis.filter(id=fi_id)
 
         if not fis.exists():
-            self.stdout.write(self.style.ERROR("No se encontraron instituciones financieras."))
+            self.stdout.write(
+                self.style.WARNING(
+                    "No se encontraron instituciones financieras. Se omite la creación de grupos por defecto."
+                )
+            )
             return
 
         created = 0

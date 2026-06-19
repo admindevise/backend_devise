@@ -3,15 +3,17 @@ from apps.security.models import SecurityConfiguration
 from apps.user.models import User
 from django.utils import timezone
 
-config = SecurityConfiguration.objects.first()
-max_failed_attempts = config.max_failed_login_attempts
-login_lockout_duration = config.login_lockout_duration
-
 class Command(BaseCommand):
 
     help = u'Go find users with failed attemtps then if time is done reset clear failed attempts'
 
     def handle(self, *args, **options):
+        config = SecurityConfiguration.objects.first()
+        if not config:
+            self.stdout.write(self.style.WARNING('Configuración de seguridad no encontrada. Se omite el reseteo.'))
+            return
+
+        login_lockout_duration = config.login_lockout_duration
         users = User.objects.filter(failed_attempts__gte=1 )
         now = timezone.now()
 
